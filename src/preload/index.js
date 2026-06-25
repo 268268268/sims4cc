@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('api', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   clearGameCache: () => ipcRenderer.invoke('clear-game-cache'),
   scanLocalMods: () => ipcRenderer.invoke('localMods:scan'),
-  getImageUrl: (absPath) => ipcRenderer.invoke('localMods:imageUrl', absPath)
+  getImageUrl: (absPath) => ipcRenderer.invoke('localMods:imageUrl', absPath),
+  toggleLocalModEnabled: (filePath, enabled) => ipcRenderer.invoke('localMods:toggleEnabled', filePath, enabled)
 })

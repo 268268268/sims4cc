@@ -7073,7 +7073,7 @@ function ModThumbnail({ absPath }) {
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 rounded-t-lg bg-gray-800 flex items-center justify-center text-4xl select-none", children: "📦" });
 }
-function ModCard({ mod }) {
+function ModCard({ mod, pending, onToggle }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(ModThumbnail, { absPath: mod.thumbnail?.path ?? null }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
@@ -7084,7 +7084,16 @@ function ModCard({ mod }) {
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-xs px-1.5 py-0.5 rounded ${mod.enabled ? "bg-green-800 text-green-200" : "bg-red-900 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-1", children: formatBytes(mod.size) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => onToggle(mod),
+          disabled: pending,
+          className: `mt-2 px-3 py-1.5 text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${mod.enabled ? "bg-red-700 hover:bg-red-600 text-white" : "bg-green-700 hover:bg-green-600 text-white"}`,
+          children: pending ? "…" : mod.enabled ? "Disable" : "Enable"
+        }
+      )
     ] })
   ] });
 }
@@ -7092,6 +7101,8 @@ function LocalMods({ modsFolder }) {
   const [state, setState] = reactExports.useState("idle");
   const [result, setResult] = reactExports.useState(null);
   const [errorMsg, setErrorMsg] = reactExports.useState(null);
+  const [togglingPath, setTogglingPath] = reactExports.useState(null);
+  const [toggleError, setToggleError] = reactExports.useState(null);
   const scan = reactExports.useCallback(async () => {
     setState("loading");
     setErrorMsg(null);
@@ -7107,6 +7118,28 @@ function LocalMods({ modsFolder }) {
     } catch (err) {
       setErrorMsg(err.message);
       setState("error");
+    }
+  }, []);
+  const handleToggle = reactExports.useCallback(async (mod) => {
+    setToggleError(null);
+    setTogglingPath(mod.filePath);
+    try {
+      const res = await window.api.toggleLocalModEnabled(mod.filePath, !mod.enabled);
+      if (!res.ok) {
+        setToggleError(res.error?.message ?? "Toggle failed.");
+        return;
+      }
+      setResult((prev) => {
+        if (!prev) return prev;
+        const mods = prev.mods.map(
+          (m2) => m2.filePath === res.oldPath ? res.mod : m2
+        );
+        return { ...prev, mods, count: mods.length };
+      });
+    } catch (err) {
+      setToggleError(err.message);
+    } finally {
+      setTogglingPath(null);
     }
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
@@ -7140,6 +7173,13 @@ function LocalMods({ modsFolder }) {
         result.errors.length,
         " file(s) had errors during scan."
       ] }),
+      toggleError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+          "⚠️ ",
+          toggleError
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setToggleError(null), className: "text-red-400 hover:text-red-200 text-xs", children: "✕" })
+      ] }),
       state === "idle" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "📂" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm", children: [
@@ -7166,7 +7206,15 @@ function LocalMods({ modsFolder }) {
           "scanned ",
           new Date(result.scannedAt).toLocaleTimeString()
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: result.mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(ModCard, { mod }, mod.id)) })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: result.mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ModCard,
+          {
+            mod,
+            pending: togglingPath === mod.filePath,
+            onToggle: handleToggle
+          },
+          mod.id
+        )) })
       ] })
     ] })
   ] });

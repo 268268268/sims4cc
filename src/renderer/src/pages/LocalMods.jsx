@@ -37,7 +37,7 @@ function ModThumbnail({ absPath }) {
   )
 }
 
-function ModCard({ mod }) {
+function ModCard({ mod, pending, onToggle }) {
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
       <ModThumbnail absPath={mod.thumbnail?.path ?? null} />
@@ -67,6 +67,18 @@ function ModCard({ mod }) {
         <p className="text-gray-600 text-xs truncate mt-auto pt-1" title={mod.relativePath}>
           {mod.relativePath}
         </p>
+
+        <button
+          onClick={() => onToggle(mod)}
+          disabled={pending}
+          className={`mt-2 px-3 py-1.5 text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            mod.enabled
+              ? 'bg-red-700 hover:bg-red-600 text-white'
+              : 'bg-green-700 hover:bg-green-600 text-white'
+          }`}
+        >
+          {pending ? '…' : mod.enabled ? 'Disable' : 'Enable'}
+        </button>
       </div>
     </div>
   )
@@ -76,6 +88,8 @@ export default function LocalMods({ modsFolder }) {
   const [state, setState] = useState('idle') // idle | loading | done | error
   const [result, setResult] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [togglingPath, setTogglingPath] = useState(null) // filePath being toggled
+  const [toggleError, setToggleError] = useState(null)
 
   const scan = useCallback(async () => {
     setState('loading')
@@ -92,6 +106,30 @@ export default function LocalMods({ modsFolder }) {
     } catch (err) {
       setErrorMsg(err.message)
       setState('error')
+    }
+  }, [])
+
+  const handleToggle = useCallback(async (mod) => {
+    setToggleError(null)
+    setTogglingPath(mod.filePath)
+    try {
+      const res = await window.api.toggleLocalModEnabled(mod.filePath, !mod.enabled)
+      if (!res.ok) {
+        setToggleError(res.error?.message ?? 'Toggle failed.')
+        return
+      }
+      // Replace only the toggled mod in state — match by old filePath, then use returned mod
+      setResult(prev => {
+        if (!prev) return prev
+        const mods = prev.mods.map(m =>
+          m.filePath === res.oldPath ? res.mod : m
+        )
+        return { ...prev, mods, count: mods.length }
+      })
+    } catch (err) {
+      setToggleError(err.message)
+    } finally {
+      setTogglingPath(null)
     }
   }, [])
 
@@ -141,6 +179,14 @@ export default function LocalMods({ modsFolder }) {
           </div>
         )}
 
+        {/* Toggle error */}
+        {toggleError && (
+          <div className="mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm flex items-center justify-between">
+            <span>⚠️ {toggleError}</span>
+            <button onClick={() => setToggleError(null)} className="text-red-400 hover:text-red-200 text-xs">✕</button>
+          </div>
+        )}
+
         {/* Idle */}
         {state === 'idle' && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
@@ -174,7 +220,12 @@ export default function LocalMods({ modsFolder }) {
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
               {result.mods.map(mod => (
-                <ModCard key={mod.id} mod={mod} />
+                <ModCard
+                  key={mod.id}
+                  mod={mod}
+                  pending={togglingPath === mod.filePath}
+                  onToggle={handleToggle}
+                />
               ))}
             </div>
           </>

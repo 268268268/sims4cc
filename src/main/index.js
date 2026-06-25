@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'path'
 import { readFile, writeFile, unlink, access } from 'fs/promises'
 import { scanMods } from './services/localModScanner.js'
+import { toggleLocalModEnabled } from './services/localModActions.js'
 
 const CONFIG_PATH = join(app.getPath('userData'), 'config.json')
 
@@ -87,6 +88,24 @@ ipcMain.handle('localMods:imageUrl', (_e, absPath) => {
   // Only serve image files — block path traversal attempts
   if (!/\.(png|jpe?g|webp|gif)$/i.test(absPath)) return null
   return `file://${absPath.replace(/\\/g, '/')}`
+})
+
+// IPC: toggle local mod enabled/disabled (rename file extension)
+ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
+  try {
+    const config = await readConfig()
+    if (!config.modsFolder) {
+      return { ok: false, error: { message: 'Mods folder not configured.' } }
+    }
+    try {
+      await access(config.modsFolder)
+    } catch {
+      return { ok: false, error: { message: `Mods folder not found: ${config.modsFolder}` } }
+    }
+    return await toggleLocalModEnabled({ filePath, enabled, modsFolder: config.modsFolder })
+  } catch (err) {
+    return { ok: false, error: { message: err.message } }
+  }
 })
 
 // IPC: delete localthumbcache.package (one dir above modsFolder)

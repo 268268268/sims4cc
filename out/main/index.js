@@ -13,8 +13,8 @@ async function tryParseDbpf(filePath) {
     if (bytesRead < 4) return { ok: false, isDbpf: false, error: "file too small" };
     const isDbpf = buf.slice(0, 4).equals(DBPF_MAGIC);
     return { ok: true, isDbpf };
-  } catch (err) {
-    return { ok: false, isDbpf: false, error: err.message };
+  } catch (err2) {
+    return { ok: false, isDbpf: false, error: err2.message };
   } finally {
     if (fh) await fh.close().catch(() => {
     });
@@ -100,7 +100,7 @@ function isModFile(fileName) {
   if (fileName.endsWith(".package.disabled") || fileName.endsWith(".ts4script.disabled")) return true;
   return false;
 }
-async function buildMod(filePath, modsFolder) {
+async function buildLocalModDto(filePath, modsFolder) {
   const fileName = path.basename(filePath);
   const relPath = path.relative(modsFolder, filePath);
   const id = makeId(relPath);
@@ -114,8 +114,8 @@ async function buildMod(filePath, modsFolder) {
     const info = await promises.stat(filePath);
     size = info.size;
     modifiedAt = info.mtime.toISOString();
-  } catch (err) {
-    error = `stat failed: ${err.message}`;
+  } catch (err2) {
+    error = `stat failed: ${err2.message}`;
     parseStatus = "error";
   }
   if (type === "package" && !error) {
@@ -123,9 +123,9 @@ async function buildMod(filePath, modsFolder) {
       const dbpf = await tryParseDbpf(filePath);
       parseStatus = dbpf.isDbpf ? "parsed" : "unsupported";
       if (!dbpf.ok && dbpf.error) error = dbpf.error;
-    } catch (err) {
+    } catch (err2) {
       parseStatus = "error";
-      error = err.message;
+      error = err2.message;
     }
   }
   const thumbnail = await detectThumbnail(filePath);
@@ -153,13 +153,58 @@ async function scanMods(modsFolder) {
   const errors = [];
   for (const filePath of modFiles) {
     try {
-      const mod = await buildMod(filePath, modsFolder);
+      const mod = await buildLocalModDto(filePath, modsFolder);
       mods.push(mod);
-    } catch (err) {
-      errors.push({ file: filePath, message: err.message });
+    } catch (err2) {
+      errors.push({ file: filePath, message: err2.message });
     }
   }
   return { mods, errors };
+}
+async function toggleLocalModEnabled({ filePath, enabled, modsFolder }) {
+  if (!filePath || typeof filePath !== "string") return err("filePath is required");
+  if (typeof enabled !== "boolean") return err("enabled must be a boolean");
+  if (!modsFolder || typeof modsFolder !== "string") return err("modsFolder is required");
+  const absFile = path.resolve(filePath);
+  const absFolder = path.resolve(modsFolder);
+  const rel = absFile.slice(absFolder.length);
+  if (rel !== "" && !rel.startsWith(path.sep)) {
+    return err("filePath is outside the configured Mods folder");
+  }
+  try {
+    await promises.access(absFile);
+  } catch {
+    return err("File not found: " + absFile);
+  }
+  const name = path.basename(absFile);
+  const isMod = name.endsWith(".package") || name.endsWith(".ts4script") || name.endsWith(".package.disabled") || name.endsWith(".ts4script.disabled");
+  if (!isMod) return err("Not a recognized mod file: " + name);
+  const isDisabled = name.endsWith(".disabled");
+  const isEnabled = !isDisabled;
+  if (enabled && isEnabled) {
+    const mod2 = await buildLocalModDto(absFile, absFolder);
+    return { ok: true, mod: mod2, oldPath: absFile, newPath: absFile };
+  }
+  if (!enabled && isDisabled) {
+    const mod2 = await buildLocalModDto(absFile, absFolder);
+    return { ok: true, mod: mod2, oldPath: absFile, newPath: absFile };
+  }
+  const newPath = enabled ? absFile.slice(0, -".disabled".length) : absFile + ".disabled";
+  try {
+    await promises.access(newPath);
+    return err("Target file already exists: " + newPath);
+  } catch {
+  }
+  try {
+    await promises.rename(absFile, newPath);
+  } catch (e) {
+    return err("Rename failed: " + e.message);
+  }
+  const mod = await buildLocalModDto(newPath, absFolder);
+  return { ok: true, mod, oldPath: absFile, newPath };
+}
+function err(message) {
+  return { ok: false, error: { message } };
 }
 const CONFIG_PATH = path.join(electron.app.getPath("userData"), "config.json");
 async function readConfig() {
@@ -220,14 +265,30 @@ electron.ipcMain.handle("localMods:scan", async () => {
     }
     const { mods, errors } = await scanMods(config.modsFolder);
     return { ok: true, mods, scannedAt: now, count: mods.length, errors };
-  } catch (err) {
-    return { ok: false, mods: [], scannedAt: now, count: 0, errors: [{ message: err.message }] };
+  } catch (err2) {
+    return { ok: false, mods: [], scannedAt: now, count: 0, errors: [{ message: err2.message }] };
   }
 });
 electron.ipcMain.handle("localMods:imageUrl", (_e, absPath) => {
   if (!absPath || typeof absPath !== "string") return null;
   if (!/\.(png|jpe?g|webp|gif)$/i.test(absPath)) return null;
   return `file://${absPath.replace(/\\/g, "/")}`;
+});
+electron.ipcMain.handle("localMods:toggleEnabled", async (_e, filePath, enabled) => {
+  try {
+    const config = await readConfig();
+    if (!config.modsFolder) {
+      return { ok: false, error: { message: "Mods folder not configured." } };
+    }
+    try {
+      await promises.access(config.modsFolder);
+    } catch {
+      return { ok: false, error: { message: `Mods folder not found: ${config.modsFolder}` } };
+    }
+    return await toggleLocalModEnabled({ filePath, enabled, modsFolder: config.modsFolder });
+  } catch (err2) {
+    return { ok: false, error: { message: err2.message } };
+  }
 });
 electron.ipcMain.handle("clear-game-cache", async () => {
   try {
@@ -238,9 +299,9 @@ electron.ipcMain.handle("clear-game-cache", async () => {
     const cachePath = path.join(path.dirname(config.modsFolder), "localthumbcache.package");
     await promises.unlink(cachePath);
     return { success: true };
-  } catch (err) {
-    if (err.code === "ENOENT") return { success: true, alreadyGone: true };
-    return { success: false, error: err.message };
+  } catch (err2) {
+    if (err2.code === "ENOENT") return { success: true, alreadyGone: true };
+    return { success: false, error: err2.message };
   }
 });
 electron.app.whenReady().then(() => {

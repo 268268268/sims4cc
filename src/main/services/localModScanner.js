@@ -99,8 +99,9 @@ function isModFile(fileName) {
 /**
  * Build a LocalMod DTO for a single file.
  * Never throws — errors are captured in the DTO.
+ * Exported so toggle action can reuse it after rename.
  */
-async function buildMod(filePath, modsFolder) {
+export async function buildLocalModDto(filePath, modsFolder) {
   const fileName = basename(filePath)
   const relPath = relative(modsFolder, filePath)
   const id = makeId(relPath)
@@ -168,7 +169,7 @@ export async function scanMods(modsFolder) {
   // ponytail: sequential to avoid hammering disk with hundreds of parallel opens
   for (const filePath of modFiles) {
     try {
-      const mod = await buildMod(filePath, modsFolder)
+      const mod = await buildLocalModDto(filePath, modsFolder)
       mods.push(mod)
     } catch (err) {
       errors.push({ file: filePath, message: err.message })
