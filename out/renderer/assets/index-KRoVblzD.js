@@ -7103,6 +7103,14 @@ function LocalMods({ modsFolder }) {
   const [errorMsg, setErrorMsg] = reactExports.useState(null);
   const [togglingPath, setTogglingPath] = reactExports.useState(null);
   const [toggleError, setToggleError] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    window.api.getCachedLocalMods().then((mods) => {
+      if (Array.isArray(mods) && mods.length > 0) {
+        setResult({ mods, count: mods.length, errors: [], scannedAt: null });
+        setState("done");
+      }
+    });
+  }, []);
   const scan = reactExports.useCallback(async () => {
     setState("loading");
     setErrorMsg(null);
@@ -7202,9 +7210,7 @@ function LocalMods({ modsFolder }) {
           " mod",
           result.count !== 1 ? "s" : "",
           " found",
-          " · ",
-          "scanned ",
-          new Date(result.scannedAt).toLocaleTimeString()
+          result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: result.mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(
           ModCard,

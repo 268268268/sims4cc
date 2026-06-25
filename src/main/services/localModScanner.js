@@ -122,12 +122,14 @@ export async function buildLocalModDto(filePath, modsFolder) {
     parseStatus = 'error'
   }
 
-  // DBPF scaffold — only for .package files, never crashes scan
+  // DBPF parse — extract real mod name from STBL; only for .package files
+  let realName = null
   if (type === 'package' && !error) {
     try {
       const dbpf = await tryParseDbpf(filePath)
       parseStatus = dbpf.isDbpf ? 'parsed' : 'unsupported'
       if (!dbpf.ok && dbpf.error) error = dbpf.error
+      realName = dbpf.name ?? null
     } catch (err) {
       parseStatus = 'error'
       error = err.message
@@ -138,7 +140,7 @@ export async function buildLocalModDto(filePath, modsFolder) {
 
   return {
     id,
-    name: deriveName(fileName),
+    name: realName || deriveName(fileName),
     author: deriveAuthor(relPath),
     fileName,
     filePath,
@@ -153,6 +155,9 @@ export async function buildLocalModDto(filePath, modsFolder) {
     ...(error ? { error } : {})
   }
 }
+
+// ponytail: in-memory cache so renderer can restore mods after unmount; lost on app restart, which is fine
+let cachedMods = null
 
 /**
  * Scan modsFolder and return all LocalMod DTOs.
@@ -176,5 +181,18 @@ export async function scanMods(modsFolder) {
     }
   }
 
+  cachedMods = mods
   return { mods, errors }
+}
+
+/** Return cached mods (or [] if none scanned yet). */
+export function getCachedLocalMods() {
+  return cachedMods ?? []
+}
+
+/** Update a single mod in the cache after a toggle (match by old filePath). */
+export function updateCachedMod(oldPath, mod) {
+  if (!cachedMods) return
+  const idx = cachedMods.findIndex(m => m.filePath === oldPath)
+  if (idx !== -1) cachedMods[idx] = mod
 }

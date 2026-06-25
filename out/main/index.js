@@ -4,15 +4,76 @@ const path = require("path");
 const promises = require("fs/promises");
 const crypto = require("crypto");
 const DBPF_MAGIC = Buffer.from("DBPF");
+const STBL_TYPE = 570774746;
+const STBL_MAGIC = Buffer.from("STBL");
+const ENGLISH_INST_HIGH_MAX = 65536;
+const STBL_READ_CAP = 1 << 20;
+async function readBytes(fh, length, position) {
+  const buf = Buffer.alloc(length);
+  const { bytesRead } = await fh.read(buf, 0, length, position);
+  return buf.slice(0, bytesRead);
+}
+function parseStbl(buf) {
+  if (buf.length < 12 || !buf.slice(0, 4).equals(STBL_MAGIC)) return null;
+  const count = buf.readUInt32LE(6);
+  let off = 12;
+  for (let i = 0; i < count && off + 10 <= buf.length; i++) {
+    off += 8;
+    const byteLen = buf.readUInt16LE(off);
+    off += 2;
+    if (off + byteLen > buf.length) break;
+    const raw = buf.slice(off, off + byteLen);
+    off += byteLen;
+    let str = raw.toString("utf16le");
+    str = str.replace(/\u0000+$/, "");
+    const trimmed = str.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
 async function tryParseDbpf(filePath) {
   let fh = null;
   try {
     fh = await promises.open(filePath, "r");
-    const buf = Buffer.alloc(96);
-    const { bytesRead } = await fh.read(buf, 0, 96, 0);
-    if (bytesRead < 4) return { ok: false, isDbpf: false, error: "file too small" };
-    const isDbpf = buf.slice(0, 4).equals(DBPF_MAGIC);
-    return { ok: true, isDbpf };
+    const header = await readBytes(fh, 96, 0);
+    if (header.length < 96 || !header.slice(0, 4).equals(DBPF_MAGIC)) {
+      return { ok: true, isDbpf: false };
+    }
+    const entryCount = header.readUInt32LE(24);
+    const indexOffset = Number(header.readBigUInt64LE(32));
+    const flags = header.readUInt32LE(28);
+    const entrySize = flags & 1 ? 32 : 20;
+    if (entryCount === 0 || entryCount > 5e6) {
+      return { ok: true, isDbpf: true, name: null };
+    }
+    const indexLen = entryCount * entrySize;
+    const index = await readBytes(fh, indexLen, indexOffset);
+    if (index.length < indexLen) {
+      return { ok: true, isDbpf: true, name: null };
+    }
+    let stblEntry = null;
+    let stblFallback = null;
+    for (let i = 0; i < entryCount; i++) {
+      const base = i * entrySize;
+      const type = index.readUInt32LE(base);
+      if (type !== STBL_TYPE) continue;
+      const instHigh = index.readUInt32LE(base + 8);
+      const offset = index.readUInt32LE(base + 12);
+      const size = index.readUInt32LE(base + 16);
+      if (offset === 0 || size === 0) continue;
+      const candidate = { offset, size };
+      if (instHigh < ENGLISH_INST_HIGH_MAX) {
+        stblEntry = candidate;
+        break;
+      }
+      stblFallback ??= candidate;
+    }
+    stblEntry ??= stblFallback;
+    if (!stblEntry) return { ok: true, isDbpf: true, name: null };
+    const readLen = Math.min(stblEntry.size, STBL_READ_CAP);
+    const stblBuf = await readBytes(fh, readLen, stblEntry.offset);
+    const name = parseStbl(stblBuf);
+    return { ok: true, isDbpf: true, name: name ?? null };
   } catch (err2) {
     return { ok: false, isDbpf: false, error: err2.message };
   } finally {
@@ -118,11 +179,13 @@ async function buildLocalModDto(filePath, modsFolder) {
     error = `stat failed: ${err2.message}`;
     parseStatus = "error";
   }
+  let realName = null;
   if (type === "package" && !error) {
     try {
       const dbpf = await tryParseDbpf(filePath);
       parseStatus = dbpf.isDbpf ? "parsed" : "unsupported";
       if (!dbpf.ok && dbpf.error) error = dbpf.error;
+      realName = dbpf.name ?? null;
     } catch (err2) {
       parseStatus = "error";
       error = err2.message;
@@ -131,7 +194,7 @@ async function buildLocalModDto(filePath, modsFolder) {
   const thumbnail = await detectThumbnail(filePath);
   return {
     id,
-    name: deriveName(fileName),
+    name: realName || deriveName(fileName),
     author: deriveAuthor(relPath),
     fileName,
     filePath,
@@ -146,6 +209,7 @@ async function buildLocalModDto(filePath, modsFolder) {
     ...error ? { error } : {}
   };
 }
+let cachedMods = null;
 async function scanMods(modsFolder) {
   const allFiles = await walkDir(modsFolder);
   const modFiles = allFiles.filter((f) => isModFile(path.basename(f)));
@@ -159,7 +223,16 @@ async function scanMods(modsFolder) {
       errors.push({ file: filePath, message: err2.message });
     }
   }
+  cachedMods = mods;
   return { mods, errors };
+}
+function getCachedLocalMods() {
+  return cachedMods ?? [];
+}
+function updateCachedMod(oldPath, mod) {
+  if (!cachedMods) return;
+  const idx = cachedMods.findIndex((m) => m.filePath === oldPath);
+  if (idx !== -1) cachedMods[idx] = mod;
 }
 async function toggleLocalModEnabled({ filePath, enabled, modsFolder }) {
   if (!filePath || typeof filePath !== "string") return err("filePath is required");
@@ -251,6 +324,9 @@ electron.ipcMain.handle("select-folder", async () => {
   });
   return canceled ? null : filePaths[0];
 });
+electron.ipcMain.handle("localMods:getCached", () => {
+  return getCachedLocalMods();
+});
 electron.ipcMain.handle("localMods:scan", async () => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   try {
@@ -285,7 +361,9 @@ electron.ipcMain.handle("localMods:toggleEnabled", async (_e, filePath, enabled)
     } catch {
       return { ok: false, error: { message: `Mods folder not found: ${config.modsFolder}` } };
     }
-    return await toggleLocalModEnabled({ filePath, enabled, modsFolder: config.modsFolder });
+    const res = await toggleLocalModEnabled({ filePath, enabled, modsFolder: config.modsFolder });
+    if (res.ok) updateCachedMod(res.oldPath, res.mod);
+    return res;
   } catch (err2) {
     return { ok: false, error: { message: err2.message } };
   }

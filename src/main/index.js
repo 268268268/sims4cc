@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'path'
 import { readFile, writeFile, unlink, access } from 'fs/promises'
-import { scanMods } from './services/localModScanner.js'
+import { scanMods, getCachedLocalMods, updateCachedMod } from './services/localModScanner.js'
 import { toggleLocalModEnabled } from './services/localModActions.js'
 
 const CONFIG_PATH = join(app.getPath('userData'), 'config.json')
@@ -61,6 +61,11 @@ ipcMain.handle('select-folder', async () => {
   return canceled ? null : filePaths[0]
 })
 
+// IPC: return cached mods (no disk I/O) — restores renderer state after unmount
+ipcMain.handle('localMods:getCached', () => {
+  return getCachedLocalMods()
+})
+
 // IPC: scan local mods folder
 ipcMain.handle('localMods:scan', async () => {
   const now = new Date().toISOString()
@@ -102,7 +107,9 @@ ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
     } catch {
       return { ok: false, error: { message: `Mods folder not found: ${config.modsFolder}` } }
     }
-    return await toggleLocalModEnabled({ filePath, enabled, modsFolder: config.modsFolder })
+    const res = await toggleLocalModEnabled({ filePath, enabled, modsFolder: config.modsFolder })
+    if (res.ok) updateCachedMod(res.oldPath, res.mod)
+    return res
   } catch (err) {
     return { ok: false, error: { message: err.message } }
   }

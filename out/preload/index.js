@@ -6,6 +6,7 @@ electron.contextBridge.exposeInMainWorld("api", {
   selectFolder: () => electron.ipcRenderer.invoke("select-folder"),
   clearGameCache: () => electron.ipcRenderer.invoke("clear-game-cache"),
   scanLocalMods: () => electron.ipcRenderer.invoke("localMods:scan"),
+  getCachedLocalMods: () => electron.ipcRenderer.invoke("localMods:getCached"),
   getImageUrl: (absPath) => electron.ipcRenderer.invoke("localMods:imageUrl", absPath),
   toggleLocalModEnabled: (filePath, enabled) => electron.ipcRenderer.invoke("localMods:toggleEnabled", filePath, enabled)
 });

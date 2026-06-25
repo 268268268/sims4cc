@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', unknown: '?' }
 const TYPE_COLOR = { package: 'bg-purple-700', ts4script: 'bg-blue-700', unknown: 'bg-gray-600' }
@@ -90,6 +90,16 @@ export default function LocalMods({ modsFolder }) {
   const [errorMsg, setErrorMsg] = useState(null)
   const [togglingPath, setTogglingPath] = useState(null) // filePath being toggled
   const [toggleError, setToggleError] = useState(null)
+
+  // Restore cached mods on mount so navigating away and back keeps results
+  useEffect(() => {
+    window.api.getCachedLocalMods().then(mods => {
+      if (Array.isArray(mods) && mods.length > 0) {
+        setResult({ mods, count: mods.length, errors: [], scannedAt: null })
+        setState('done')
+      }
+    })
+  }, [])
 
   const scan = useCallback(async () => {
     setState('loading')
@@ -216,7 +226,7 @@ export default function LocalMods({ modsFolder }) {
           <>
             <p className="text-gray-500 text-xs mb-4">
               {result.count} mod{result.count !== 1 ? 's' : ''} found
-              {' · '}scanned {new Date(result.scannedAt).toLocaleTimeString()}
+              {result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`}
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
               {result.mods.map(mod => (
