@@ -3,7 +3,7 @@ import Layout from './components/Layout'
 import Welcome from './pages/Welcome'
 import LocalMods from './pages/LocalMods'
 import Creators from './pages/Creators'
-import CurseForge from './pages/CurseForge'
+import CurseForge from './pages/CurseForgeBrowser'
 import CustomCatalog from './pages/CustomCatalog'
 import Settings from './pages/Settings'
 

@@ -1,4 +1,5 @@
 "use strict";
+require("dotenv/config");
 const electron = require("electron");
 const path = require("path");
 const promises = require("fs/promises");
@@ -234,6 +235,58 @@ function updateCachedMod(oldPath, mod) {
   const idx = cachedMods.findIndex((m) => m.filePath === oldPath);
   if (idx !== -1) cachedMods[idx] = mod;
 }
+const __vite_import_meta_env__ = {};
+const API_BASE = "https://api.curseforge.com/v1";
+const SIMS4_GAME_ID = 78062;
+async function searchMods(params = {}) {
+  const { searchFilter = "", categoryId, index = 0, pageSize = 50 } = params;
+  const apiKey = process.env.CURSEFORGE_API_KEY || __vite_import_meta_env__?.MAIN_VITE_CURSEFORGE_API_KEY || null;
+  console.log(
+    "DEBUG: API Key exists:",
+    !!process.env.CURSEFORGE_API_KEY || !!__vite_import_meta_env__?.MAIN_VITE_CURSEFORGE_API_KEY
+  );
+  if (!apiKey) {
+    console.error("DEBUG: CURSEFORGE_API_KEY is missing — check .env / electron-vite env.");
+    return { data: [], pagination: null, error: "CURSEFORGE_API_KEY is not set. Check your .env file." };
+  }
+  const url = new URL(`${API_BASE}/mods/search`);
+  url.searchParams.set("gameId", SIMS4_GAME_ID);
+  if (searchFilter) url.searchParams.set("searchFilter", searchFilter);
+  if (categoryId != null) url.searchParams.set("categoryId", categoryId);
+  url.searchParams.set("index", index);
+  url.searchParams.set("pageSize", pageSize);
+  console.log("DEBUG: Fetching CurseForge URL:", url.toString());
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", "x-api-key": apiKey },
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("DEBUG: CurseForge API Error:", res.status, res.statusText, body);
+      return {
+        data: [],
+        pagination: null,
+        error: `CurseForge API error: ${res.status} ${res.statusText}`
+      };
+    }
+    const json = await res.json();
+    const data = json.data ?? [];
+    console.log("DEBUG: Response keys:", Object.keys(json));
+    console.log(
+      "DEBUG: Parsed — totalCount:",
+      json.pagination?.totalCount,
+      "| returned:",
+      data.length,
+      "| sample:",
+      data[0] ? `${data[0].id} ${data[0].name}` : "none"
+    );
+    return { data, pagination: json.pagination ?? null };
+  } catch (err2) {
+    console.error("[curseForgeClient] searchMods failed:", err2);
+    return { data: [], pagination: null, error: err2.message };
+  }
+}
 async function toggleLocalModEnabled({ filePath, enabled, modsFolder }) {
   if (!filePath || typeof filePath !== "string") return err("filePath is required");
   if (typeof enabled !== "boolean") return err("enabled must be a boolean");
@@ -406,6 +459,9 @@ electron.ipcMain.handle("catalog:get", async () => {
   const data = await fetchAndCacheCatalog();
   console.log("Main: Returning catalog:", data);
   return data;
+});
+electron.ipcMain.handle("curseforge:search", async (_e, params) => {
+  return await searchMods(params);
 });
 electron.ipcMain.handle("shell:openExternal", (_e, url) => electron.shell.openExternal(url));
 electron.ipcMain.handle("clear-game-cache", async () => {

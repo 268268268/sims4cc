@@ -13,5 +13,7 @@ contextBridge.exposeInMainWorld('api', {
       console.log('Preload: getCatalog called')
       return ipcRenderer.invoke('catalog:get')
     },
+  searchCurseForge: (params) => ipcRenderer.invoke('curseforge:search', params),
+  downloadCurseForgeMod: (mod) => ipcRenderer.invoke('curseforge:download', mod),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
 })

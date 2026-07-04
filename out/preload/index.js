@@ -13,5 +13,6 @@ electron.contextBridge.exposeInMainWorld("api", {
     console.log("Preload: getCatalog called");
     return electron.ipcRenderer.invoke("catalog:get");
   },
+  searchCurseForge: (params) => electron.ipcRenderer.invoke("curseforge:search", params),
   openExternal: (url) => electron.ipcRenderer.invoke("shell:openExternal", url)
 });

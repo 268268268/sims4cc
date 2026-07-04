@@ -7085,7 +7085,7 @@ function ModThumbnail({ absPath, imageUrl }) {
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 rounded-t-lg bg-gray-800 flex items-center justify-center text-4xl select-none", children: "📦" });
 }
-function ModCard({ mod, pending, onToggle, catalogMeta }) {
+function ModCard$1({ mod, pending, onToggle, catalogMeta }) {
   const creatorName = catalogMeta?.creatorName;
   const imageUrl = catalogMeta?.imageUrl;
   const tags = catalogMeta?.tags;
@@ -7254,7 +7254,7 @@ function LocalMods({ modsFolder }) {
           result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: result.mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-          ModCard,
+          ModCard$1,
           {
             mod,
             pending: togglingPath === mod.filePath,
@@ -7343,10 +7343,149 @@ function Creators() {
     ] })
   ] });
 }
-function CurseForge() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-8", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white mb-2", children: "CurseForge" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-sm", children: "Coming in Phase 2." })
+const DEBOUNCE_MS = 500;
+const SKELETON_COUNT = 10;
+const PLACEHOLDER_THUMB = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+);
+function getThumbnail(mod) {
+  return mod?.logo?.thumbnailUrl || PLACEHOLDER_THUMB;
+}
+function getAuthor(mod) {
+  return mod?.authors?.[0]?.name || "Unknown";
+}
+function SkeletonCard() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col animate-pulse", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 bg-gray-800" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-2 flex-1", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-4 w-3/4 bg-gray-800 rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-1/3 bg-gray-800 rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-full bg-gray-800 rounded mt-1" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-5/6 bg-gray-800 rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-full bg-gray-800 rounded mt-3" })
+    ] })
+  ] });
+}
+function ModCard({ mod }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col transition-colors hover:border-purple-600/60 hover:bg-gray-800/60", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "img",
+      {
+        src: getThumbnail(mod),
+        alt: mod.name,
+        loading: "lazy",
+        className: "w-full h-32 object-cover bg-gray-800"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight line-clamp-2", title: mod.name, children: mod.name }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-purple-400 text-xs truncate", title: getAuthor(mod), children: getAuthor(mod) }),
+      mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs leading-snug line-clamp-3 mt-1", title: mod.summary, children: mod.summary }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => console.log("[CurseForge] Download requested:", mod.id, mod.name),
+          className: "mt-3 px-3 py-1.5 text-xs font-medium rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors",
+          children: "⬇ Download"
+        }
+      )
+    ] })
+  ] });
+}
+function CurseForgeBrowser() {
+  const [searchQuery, setSearchQuery] = reactExports.useState("");
+  const [mods, setMods] = reactExports.useState([]);
+  const [isLoading, setIsLoading] = reactExports.useState(true);
+  const [isError, setIsError] = reactExports.useState(false);
+  const reqIdRef = reactExports.useRef(0);
+  const timerRef = reactExports.useRef(null);
+  const fetchMods = (filter) => {
+    const reqId = ++reqIdRef.current;
+    setIsLoading(true);
+    setIsError(false);
+    window.api.searchCurseForge({ searchFilter: filter }).then((res) => {
+      if (reqId !== reqIdRef.current) return;
+      if (res?.error) {
+        setIsError(true);
+        setMods([]);
+      } else {
+        setMods(res?.data ?? []);
+      }
+    }).catch(() => {
+      if (reqId !== reqIdRef.current) return;
+      setIsError(true);
+      setMods([]);
+    }).finally(() => {
+      if (reqId === reqIdRef.current) setIsLoading(false);
+    });
+  };
+  reactExports.useEffect(() => {
+    fetchMods("");
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+  const onSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => fetchMods(value), DEBOUNCE_MS);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-gray-800", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white", children: "CurseForge" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-0.5", children: "Browse and download Sims 4 mods from CurseForge" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            type: "text",
+            value: searchQuery,
+            onChange: onSearchChange,
+            placeholder: "Search mods…",
+            className: "w-full max-w-md bg-gray-900 border border-gray-700 focus:border-purple-600 focus:outline-none rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 transition-colors"
+          }
+        )
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: [
+      isError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm", children: "⚠️ Failed to fetch mods from CurseForge. Check your API key and network connection." }),
+      isLoading && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "grid gap-4",
+          style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" },
+          children: Array.from({ length: SKELETON_COUNT }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(SkeletonCard, {}, i))
+        }
+      ),
+      !isLoading && !isError && mods.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🔍" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm", children: [
+          "No mods found",
+          searchQuery ? ` for "${searchQuery}"` : "",
+          "."
+        ] })
+      ] }),
+      !isLoading && !isError && mods.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+          mods.length,
+          " mod",
+          mods.length !== 1 ? "s" : "",
+          searchQuery && ` · results for "${searchQuery}"`
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "grid gap-4",
+            style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" },
+            children: mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(ModCard, { mod }, mod.id ?? mod.name))
+          }
+        )
+      ] })
+    ] })
   ] });
 }
 function CustomCatalog() {
@@ -7434,7 +7573,7 @@ function Settings({ modsFolder, onFolderChanged }) {
 const PAGES = {
   "local-mods": LocalMods,
   "creators": Creators,
-  "curseforge": CurseForge,
+  "curseforge": CurseForgeBrowser,
   "custom-catalog": CustomCatalog,
   "settings": Settings
 };

@@ -1,7 +1,11 @@
+import 'dotenv/config'
+
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join, dirname } from 'path'
 import { readFile, writeFile, unlink, access } from 'fs/promises'
 import { scanMods, getCachedLocalMods, updateCachedMod } from './services/localModScanner.js'
+import { searchMods, downloadMod } from './services/curseForgeClient.js'
+
 import { toggleLocalModEnabled } from './services/localModActions.js'
 import { fetchAndCacheCatalog } from './services/catalogStore.js'
 
@@ -122,6 +126,29 @@ ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
     const data = await fetchAndCacheCatalog()
     console.log('Main: Returning catalog:', data)
     return data
+})
+
+// IPC: search CurseForge mods for The Sims 4
+ipcMain.handle('curseforge:search', async (_e, params) => {
+  return await searchMods(params)
+})
+
+// IPC: download a CurseForge mod into the configured Sims 4 Mods folder
+ipcMain.handle('curseforge:download', async (_e, mod) => {
+  try {
+    const config = await readConfig()
+    if (!config.modsFolder) {
+      return { ok: false, error: 'Mods folder not configured.' }
+    }
+    try {
+      await access(config.modsFolder)
+    } catch {
+      return { ok: false, error: `Mods folder not found: ${config.modsFolder}` }
+    }
+    return await downloadMod(mod, config.modsFolder)
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
 })
 
 // IPC: open external URL in default system browser (keeps links out of the app window)
