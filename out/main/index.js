@@ -279,6 +279,39 @@ async function toggleLocalModEnabled({ filePath, enabled, modsFolder }) {
 function err(message) {
   return { ok: false, error: { message } };
 }
+const CATALOG_URL = "https://raw.githubusercontent.com/PoZi268/sims4-cc-manager/refs/heads/main/catalog.json";
+const CACHE_PATH = path.join(electron.app.getPath("userData"), "catalog_cache.json");
+const EMPTY_CATALOG = { creators: [], items: [] };
+async function fetchAndCacheCatalog() {
+  console.log("[catalogStore] Fetching catalog from:", CATALOG_URL);
+  try {
+    const res = await fetch(CATALOG_URL, { signal: AbortSignal.timeout(15e3) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const json = await res.json();
+    if (!json || !Array.isArray(json.creators) || !Array.isArray(json.items)) {
+      throw new Error("Invalid catalog schema");
+    }
+    await promises.writeFile(CACHE_PATH, JSON.stringify(json, null, 2), "utf-8");
+    return json;
+  } catch (err2) {
+    console.error("CRITICAL: Failed to fetch catalog from GitHub:", err2);
+    return await loadLocalCache();
+  }
+}
+async function loadLocalCache() {
+  try {
+    const raw = await promises.readFile(CACHE_PATH, "utf-8");
+    const cached = JSON.parse(raw);
+    if (cached && Array.isArray(cached.creators) && Array.isArray(cached.items)) {
+      console.log("[catalogStore] Using local cache as fallback");
+      return cached;
+    }
+    throw new Error("bad cache");
+  } catch (err2) {
+    console.error("[catalogStore] No valid local cache available:", err2.message);
+    return EMPTY_CATALOG;
+  }
+}
 const CONFIG_PATH = path.join(electron.app.getPath("userData"), "config.json");
 async function readConfig() {
   try {
@@ -368,6 +401,13 @@ electron.ipcMain.handle("localMods:toggleEnabled", async (_e, filePath, enabled)
     return { ok: false, error: { message: err2.message } };
   }
 });
+electron.ipcMain.handle("catalog:get", async () => {
+  console.log("Main: Fetching catalog...");
+  const data = await fetchAndCacheCatalog();
+  console.log("Main: Returning catalog:", data);
+  return data;
+});
+electron.ipcMain.handle("shell:openExternal", (_e, url) => electron.shell.openExternal(url));
 electron.ipcMain.handle("clear-game-cache", async () => {
   try {
     const config = await readConfig();

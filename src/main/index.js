@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join, dirname } from 'path'
 import { readFile, writeFile, unlink, access } from 'fs/promises'
 import { scanMods, getCachedLocalMods, updateCachedMod } from './services/localModScanner.js'
 import { toggleLocalModEnabled } from './services/localModActions.js'
+import { fetchAndCacheCatalog } from './services/catalogStore.js'
 
 const CONFIG_PATH = join(app.getPath('userData'), 'config.json')
 
@@ -114,6 +115,17 @@ ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
     return { ok: false, error: { message: err.message } }
   }
 })
+
+// IPC: fetch & cache remote creator catalog
+  ipcMain.handle('catalog:get', async () => {
+    console.log('Main: Fetching catalog...')
+    const data = await fetchAndCacheCatalog()
+    console.log('Main: Returning catalog:', data)
+    return data
+})
+
+// IPC: open external URL in default system browser (keeps links out of the app window)
+ipcMain.handle('shell:openExternal', (_e, url) => shell.openExternal(url))
 
 // IPC: delete localthumbcache.package (one dir above modsFolder)
 ipcMain.handle('clear-game-cache', async () => {

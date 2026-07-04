@@ -8,5 +8,10 @@ contextBridge.exposeInMainWorld('api', {
   scanLocalMods: () => ipcRenderer.invoke('localMods:scan'),
   getCachedLocalMods: () => ipcRenderer.invoke('localMods:getCached'),
   getImageUrl: (absPath) => ipcRenderer.invoke('localMods:imageUrl', absPath),
-  toggleLocalModEnabled: (filePath, enabled) => ipcRenderer.invoke('localMods:toggleEnabled', filePath, enabled)
+  toggleLocalModEnabled: (filePath, enabled) => ipcRenderer.invoke('localMods:toggleEnabled', filePath, enabled),
+    getCatalog: () => {
+      console.log('Preload: getCatalog called')
+      return ipcRenderer.invoke('catalog:get')
+    },
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
 })

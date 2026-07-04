@@ -6968,6 +6968,7 @@ var m = reactDomExports;
 }
 const NAV_ITEMS = [
   { id: "local-mods", label: "Local Mods", icon: "📦" },
+  { id: "creators", label: "Creators", icon: "🎨" },
   { id: "curseforge", label: "CurseForge", icon: "🔥" },
   { id: "custom-catalog", label: "Custom Catalog", icon: "📚" },
   { id: "settings", label: "Settings", icon: "⚙️" }
@@ -7053,9 +7054,20 @@ function formatBytes(n2) {
   if (n2 < 1024 * 1024) return `${(n2 / 1024).toFixed(1)} KB`;
   return `${(n2 / 1024 / 1024).toFixed(2)} MB`;
 }
-function ModThumbnail({ absPath }) {
+function ModThumbnail({ absPath, imageUrl }) {
   const [url, setUrl] = reactExports.useState(null);
   const [tried, setTried] = reactExports.useState(false);
+  if (imageUrl) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "img",
+      {
+        src: imageUrl,
+        alt: "thumbnail",
+        className: "w-full h-32 object-cover rounded-t-lg",
+        onError: () => setUrl(null)
+      }
+    );
+  }
   if (!tried && absPath) {
     setTried(true);
     window.api.getImageUrl(absPath).then((u2) => setUrl(u2));
@@ -7073,16 +7085,20 @@ function ModThumbnail({ absPath }) {
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 rounded-t-lg bg-gray-800 flex items-center justify-center text-4xl select-none", children: "📦" });
 }
-function ModCard({ mod, pending, onToggle }) {
+function ModCard({ mod, pending, onToggle, catalogMeta }) {
+  const creatorName = catalogMeta?.creatorName;
+  const imageUrl = catalogMeta?.imageUrl;
+  const tags = catalogMeta?.tags;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(ModThumbnail, { absPath: mod.thumbnail?.path ?? null }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ModThumbnail, { absPath: mod.thumbnail?.path ?? null, imageUrl }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight truncate", title: mod.name, children: mod.name }),
-      mod.author && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-purple-400 text-xs truncate", title: mod.author, children: mod.author }),
+      (creatorName || mod.author) && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-purple-400 text-xs truncate", title: creatorName || mod.author, children: creatorName || mod.author }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mt-1 flex-wrap", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-xs px-1.5 py-0.5 rounded font-mono ${TYPE_COLOR[mod.type]}`, children: TYPE_LABEL[mod.type] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-xs px-1.5 py-0.5 rounded ${mod.enabled ? "bg-green-800 text-green-200" : "bg-red-900 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" })
       ] }),
+      tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1 mt-1", children: tags.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300", children: t2 }, t2)) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-1", children: formatBytes(mod.size) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -7103,6 +7119,31 @@ function LocalMods({ modsFolder }) {
   const [errorMsg, setErrorMsg] = reactExports.useState(null);
   const [togglingPath, setTogglingPath] = reactExports.useState(null);
   const [toggleError, setToggleError] = reactExports.useState(null);
+  const [catalog, setCatalog] = reactExports.useState({ creators: [], items: [] });
+  reactExports.useEffect(() => {
+    window.api.getCatalog().then((cat) => {
+      if (cat) setCatalog(cat);
+    });
+  }, []);
+  const creatorMap = reactExports.useMemo(() => {
+    const m2 = /* @__PURE__ */ new Map();
+    for (const c of catalog.creators) m2.set(c.id, c.name);
+    return m2;
+  }, [catalog.creators]);
+  const catalogMetaFor = reactExports.useCallback((fileName) => {
+    for (const item of catalog.items) {
+      if (!item.filenamePatterns?.length) continue;
+      const matched = item.filenamePatterns.some((p2) => fileName.includes(p2));
+      if (matched) {
+        return {
+          imageUrl: item.imageUrl || null,
+          creatorName: creatorMap.get(item.creatorId) || null,
+          tags: item.tags || []
+        };
+      }
+    }
+    return null;
+  }, [catalog.items, creatorMap]);
   reactExports.useEffect(() => {
     window.api.getCachedLocalMods().then((mods) => {
       if (Array.isArray(mods) && mods.length > 0) {
@@ -7217,10 +7258,87 @@ function LocalMods({ modsFolder }) {
           {
             mod,
             pending: togglingPath === mod.filePath,
-            onToggle: handleToggle
+            onToggle: handleToggle,
+            catalogMeta: catalogMetaFor(mod.fileName)
           },
           mod.id
         )) })
+      ] })
+    ] })
+  ] });
+}
+const LINK_LABELS = {
+  patreon: { label: "Patreon", icon: "💰", color: "bg-orange-700 hover:bg-orange-600" },
+  tumblr: { label: "Tumblr", icon: "📝", color: "bg-blue-700 hover:bg-blue-600" },
+  twitter: { label: "Twitter", icon: "🐦", color: "bg-sky-700 hover:bg-sky-600" },
+  website: { label: "Website", icon: "🌐", color: "bg-gray-700 hover:bg-gray-600" },
+  discord: { label: "Discord", icon: "💬", color: "bg-indigo-700 hover:bg-indigo-600" },
+  youtube: { label: "YouTube", icon: "▶️", color: "bg-red-700 hover:bg-red-600" }
+};
+function CreatorCard({ creator }) {
+  const links = Object.entries(creator.links ?? {}).filter(([, url]) => url);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg p-4 flex flex-col gap-3", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-xl font-bold text-white shrink-0", children: creator.name?.charAt(0)?.toUpperCase() ?? "?" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-white font-semibold text-sm leading-tight truncate", title: creator.name, children: creator.name })
+    ] }),
+    links.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: links.map(([key, url]) => {
+      const meta = LINK_LABELS[key] ?? { label: key, icon: "🔗", color: "bg-gray-700 hover:bg-gray-600" };
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => window.api.openExternal(url),
+          className: `flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded text-white transition-colors ${meta.color}`,
+          title: url,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: meta.icon }),
+            meta.label
+          ]
+        },
+        key
+      );
+    }) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs", children: "No links available" })
+  ] });
+}
+function Creators() {
+  const [catalog, setCatalog] = reactExports.useState({ creators: [], items: [] });
+  const [isLoading, setIsLoading] = reactExports.useState(true);
+  reactExports.useEffect(() => {
+    async function loadData() {
+      console.log("Renderer: Calling window.api.getCatalog...");
+      setIsLoading(true);
+      try {
+        const data = await window.api.getCatalog();
+        console.log("Fetched catalog data in UI:", data);
+        if (data) setCatalog(data);
+      } catch (err) {
+        console.error("Failed to load catalog:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 py-5 border-b border-gray-800 shrink-0", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white", children: "Creators" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-0.5", children: "Browse all creators from the catalog" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("pre", { className: "text-xs text-green-400 bg-black/50 p-2 rounded mb-4 max-h-40 overflow-auto", children: JSON.stringify(catalog, null, 2) }),
+      isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-500 gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin text-4xl inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading creators…" })
+      ] }) : (catalog?.creators ?? []).length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🎨" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No creators found in the catalog." })
+      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+          (catalog?.creators ?? []).length,
+          " creator",
+          (catalog?.creators ?? []).length !== 1 ? "s" : ""
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }, children: (catalog?.creators ?? []).map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx(CreatorCard, { creator: c }, c.id ?? c.name)) })
       ] })
     ] })
   ] });
@@ -7315,6 +7433,7 @@ function Settings({ modsFolder, onFolderChanged }) {
 }
 const PAGES = {
   "local-mods": LocalMods,
+  "creators": Creators,
   "curseforge": CurseForge,
   "custom-catalog": CustomCatalog,
   "settings": Settings

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 
 const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', unknown: '?' }
 const TYPE_COLOR = { package: 'bg-purple-700', ts4script: 'bg-blue-700', unknown: 'bg-gray-600' }
@@ -9,9 +9,21 @@ function formatBytes(n) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`
 }
 
-function ModThumbnail({ absPath }) {
+function ModThumbnail({ absPath, imageUrl }) {
   const [url, setUrl] = useState(null)
   const [tried, setTried] = useState(false)
+
+  // Remote catalog image takes priority
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt="thumbnail"
+        className="w-full h-32 object-cover rounded-t-lg"
+        onError={() => setUrl(null)}
+      />
+    )
+  }
 
   // Lazy-resolve the file:// URL via preload on first render
   if (!tried && absPath) {
@@ -37,19 +49,23 @@ function ModThumbnail({ absPath }) {
   )
 }
 
-function ModCard({ mod, pending, onToggle }) {
+function ModCard({ mod, pending, onToggle, catalogMeta }) {
+  const creatorName = catalogMeta?.creatorName
+  const imageUrl = catalogMeta?.imageUrl
+  const tags = catalogMeta?.tags
+
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
-      <ModThumbnail absPath={mod.thumbnail?.path ?? null} />
+      <ModThumbnail absPath={mod.thumbnail?.path ?? null} imageUrl={imageUrl} />
 
       <div className="p-3 flex flex-col gap-1 flex-1">
         <p className="text-white font-semibold text-sm leading-tight truncate" title={mod.name}>
           {mod.name}
         </p>
 
-        {mod.author && (
-          <p className="text-purple-400 text-xs truncate" title={mod.author}>
-            {mod.author}
+        {(creatorName || mod.author) && (
+          <p className="text-purple-400 text-xs truncate" title={creatorName || mod.author}>
+            {creatorName || mod.author}
           </p>
         )}
 
@@ -61,6 +77,16 @@ function ModCard({ mod, pending, onToggle }) {
             {mod.enabled ? 'enabled' : 'disabled'}
           </span>
         </div>
+
+        {tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {tags.map(t => (
+              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
 
         <p className="text-gray-500 text-xs mt-1">{formatBytes(mod.size)}</p>
 
@@ -90,6 +116,37 @@ export default function LocalMods({ modsFolder }) {
   const [errorMsg, setErrorMsg] = useState(null)
   const [togglingPath, setTogglingPath] = useState(null) // filePath being toggled
   const [toggleError, setToggleError] = useState(null)
+  const [catalog, setCatalog] = useState({ creators: [], items: [] })
+
+  // Fetch remote catalog on mount
+  useEffect(() => {
+    window.api.getCatalog().then(cat => {
+      if (cat) setCatalog(cat)
+    })
+  }, [])
+
+  // Build lookup: creatorId → creator name
+  const creatorMap = useMemo(() => {
+    const m = new Map()
+    for (const c of catalog.creators) m.set(c.id, c.name)
+    return m
+  }, [catalog.creators])
+
+  // ponytail: O(n*m) substring scan — fine for hundreds of mods; upgrade to trie if catalog exceeds ~5k items
+  const catalogMetaFor = useCallback((fileName) => {
+    for (const item of catalog.items) {
+      if (!item.filenamePatterns?.length) continue
+      const matched = item.filenamePatterns.some(p => fileName.includes(p))
+      if (matched) {
+        return {
+          imageUrl: item.imageUrl || null,
+          creatorName: creatorMap.get(item.creatorId) || null,
+          tags: item.tags || []
+        }
+      }
+    }
+    return null
+  }, [catalog.items, creatorMap])
 
   // Restore cached mods on mount so navigating away and back keeps results
   useEffect(() => {
@@ -235,6 +292,7 @@ export default function LocalMods({ modsFolder }) {
                   mod={mod}
                   pending={togglingPath === mod.filePath}
                   onToggle={handleToggle}
+                  catalogMeta={catalogMetaFor(mod.fileName)}
                 />
               ))}
             </div>

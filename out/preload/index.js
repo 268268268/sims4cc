@@ -8,5 +8,10 @@ electron.contextBridge.exposeInMainWorld("api", {
   scanLocalMods: () => electron.ipcRenderer.invoke("localMods:scan"),
   getCachedLocalMods: () => electron.ipcRenderer.invoke("localMods:getCached"),
   getImageUrl: (absPath) => electron.ipcRenderer.invoke("localMods:imageUrl", absPath),
-  toggleLocalModEnabled: (filePath, enabled) => electron.ipcRenderer.invoke("localMods:toggleEnabled", filePath, enabled)
+  toggleLocalModEnabled: (filePath, enabled) => electron.ipcRenderer.invoke("localMods:toggleEnabled", filePath, enabled),
+  getCatalog: () => {
+    console.log("Preload: getCatalog called");
+    return electron.ipcRenderer.invoke("catalog:get");
+  },
+  openExternal: (url) => electron.ipcRenderer.invoke("shell:openExternal", url)
 });
