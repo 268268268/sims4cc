@@ -1,6 +1,10 @@
 import 'dotenv/config'
-import { join } from 'path'
-import { writeFile } from 'fs/promises'
+import { join, basename } from 'path'
+import { rename, unlink } from 'fs/promises'
+import { createWriteStream } from 'fs'
+import { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
+import { extractModArchive } from './archiveExtractor.js'
 
 const API_BASE = 'https://api.curseforge.com/v1'
 // ponytail: CurseForge gameId for The Sims 4. Verified live against /v1/games —
@@ -137,21 +141,64 @@ export async function downloadMod(mod, destinationFolder) {
     }
   }
 
-  const fileName = file.fileName || `${mod.id}_${file.id}.zip`
+  // ponytail: basename() — fileName comes from a remote API; never let it path-escape the Mods folder
+  const fileName = basename(file.fileName || `${mod.id}_${file.id}.zip`)
   const destPath = join(destinationFolder, fileName)
+  // stream into a .part file and rename on success, so a failed download can
+  // never leave a truncated .package behind for the game to choke on
+  const partPath = destPath + '.part'
+
+  // ponytail: no total time cap — big CC packs on slow links legitimately take
+  // minutes. Abort only when the transfer stalls (no bytes for IDLE_TIMEOUT_MS).
+  const IDLE_TIMEOUT_MS = 30000
+  const controller = new AbortController()
+  let idleTimer
+  const resetIdle = () => {
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(
+      () => controller.abort(new Error(`Download stalled (no data for ${IDLE_TIMEOUT_MS / 1000}s)`)),
+      IDLE_TIMEOUT_MS
+    )
+  }
 
   try {
+    resetIdle()
     // ponytail: fetch follows redirects by default, so the CDN bounce works transparently.
-    const res = await fetch(downloadUrl, { signal: AbortSignal.timeout(120000) })
+    const res = await fetch(downloadUrl, { signal: controller.signal })
     if (!res.ok) {
       return { ok: false, error: `Download failed: HTTP ${res.status} ${res.statusText}` }
     }
-    const buf = Buffer.from(await res.arrayBuffer())
-    await writeFile(destPath, buf)
-    console.log(`[curseForgeClient] Saved ${fileName} (${buf.length} bytes) → ${destPath}`)
+    if (!res.body) {
+      return { ok: false, error: 'Download failed: empty response body.' }
+    }
+    let bytes = 0
+    const body = Readable.fromWeb(res.body)
+    body.on('data', (chunk) => {
+      bytes += chunk.length
+      resetIdle()
+    })
+    await pipeline(body, createWriteStream(partPath))
+    await rename(partPath, destPath)
+    console.log(`[curseForgeClient] Saved ${fileName} (${bytes} bytes) → ${destPath}`)
+
+    // Zip archives are invisible to the game — unpack into Mods/<mod name>/
+    // and drop the archive. Non-zip files (.package etc.) are already usable.
+    if (/\.zip$/i.test(fileName)) {
+      const extracted = await extractModArchive(destPath, destinationFolder, mod.name)
+      if (!extracted.ok) {
+        // keep the zip for manual inspection, but tell the user it is not installed
+        return { ok: false, error: `Downloaded, but not installed: ${extracted.error}` }
+      }
+      await unlink(destPath).catch(() => {})
+      return { ok: true, path: extracted.folder, files: extracted.files }
+    }
+
     return { ok: true, path: destPath }
   } catch (err) {
-    return { ok: false, error: `Download/write failed: ${err.message}` }
+    await unlink(partPath).catch(() => {})
+    return { ok: false, error: `Download/write failed: ${err?.message ?? err}` }
+  } finally {
+    clearTimeout(idleTimer)
   }
 }
 

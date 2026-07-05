@@ -9,10 +9,15 @@ electron.contextBridge.exposeInMainWorld("api", {
   getCachedLocalMods: () => electron.ipcRenderer.invoke("localMods:getCached"),
   getImageUrl: (absPath) => electron.ipcRenderer.invoke("localMods:imageUrl", absPath),
   toggleLocalModEnabled: (filePath, enabled) => electron.ipcRenderer.invoke("localMods:toggleEnabled", filePath, enabled),
+  extractLocalArchive: (filePath) => electron.ipcRenderer.invoke("localMods:extractArchive", filePath),
+  inspectLocalMod: (filePath) => electron.ipcRenderer.invoke("localMods:inspect", filePath),
+  showItemInFolder: (p) => electron.ipcRenderer.invoke("shell:showItemInFolder", p),
   getCatalog: () => {
     console.log("Preload: getCatalog called");
     return electron.ipcRenderer.invoke("catalog:get");
   },
   searchCurseForge: (params) => electron.ipcRenderer.invoke("curseforge:search", params),
+  downloadCurseForgeMod: (mod) => electron.ipcRenderer.invoke("curseforge:download", mod),
+  getDownloadedCurseForge: () => electron.ipcRenderer.invoke("curseforge:getDownloaded"),
   openExternal: (url) => electron.ipcRenderer.invoke("shell:openExternal", url)
 });

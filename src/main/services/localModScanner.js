@@ -2,6 +2,7 @@ import { readdir, stat, access } from 'fs/promises'
 import { join, relative, dirname, basename, extname, sep } from 'path'
 import { createHash } from 'crypto'
 import { tryParseDbpf } from './dbpfParser.js'
+import { getCachedThumbnail } from './dbpfThumbnail.js'
 
 const MOD_EXTENSIONS = new Set(['.package', '.ts4script'])
 // sidecar image suffixes to probe, in priority order
@@ -96,6 +97,41 @@ function isModFile(fileName) {
   return false
 }
 
+/** Zip archives are shown as extractable items — the game itself ignores them */
+function isArchiveFile(fileName) {
+  return extname(fileName).toLowerCase() === '.zip'
+}
+
+/** Minimal DTO for an archive — no DBPF parse, no enable/disable semantics */
+async function buildArchiveDto(filePath, modsFolder) {
+  const fileName = basename(filePath)
+  const relPath = relative(modsFolder, filePath)
+  let size = 0
+  let modifiedAt = new Date().toISOString()
+  try {
+    const info = await stat(filePath)
+    size = info.size
+    modifiedAt = info.mtime.toISOString()
+  } catch {
+    // keep zeros — the card still renders
+  }
+  return {
+    id: makeId(relPath),
+    name: deriveName(fileName.replace(/\.zip$/i, '')),
+    author: deriveAuthor(relPath),
+    fileName,
+    filePath,
+    relativePath: relPath,
+    folderPath: dirname(filePath),
+    type: 'archive',
+    enabled: false,
+    size,
+    modifiedAt,
+    thumbnail: { source: 'fallback', path: null },
+    parseStatus: 'unsupported'
+  }
+}
+
 /**
  * Build a LocalMod DTO for a single file.
  * Never throws — errors are captured in the DTO.
@@ -110,6 +146,7 @@ export async function buildLocalModDto(filePath, modsFolder) {
 
   let size = 0
   let modifiedAt = new Date().toISOString()
+  let mtimeMs = 0
   let parseStatus = 'fallback'
   let error
 
@@ -117,6 +154,7 @@ export async function buildLocalModDto(filePath, modsFolder) {
     const info = await stat(filePath)
     size = info.size
     modifiedAt = info.mtime.toISOString()
+    mtimeMs = info.mtimeMs
   } catch (err) {
     error = `stat failed: ${err.message}`
     parseStatus = 'error'
@@ -136,7 +174,12 @@ export async function buildLocalModDto(filePath, modsFolder) {
     }
   }
 
-  const thumbnail = await detectThumbnail(filePath)
+  let thumbnail = await detectThumbnail(filePath)
+  // No sidecar image? Pull the embedded CAS/catalog thumbnail out of the .package.
+  if (thumbnail.source === 'fallback' && type === 'package' && !error) {
+    const cached = await getCachedThumbnail(filePath, mtimeMs)
+    if (cached) thumbnail = { source: 'dbpf', path: cached }
+  }
 
   return {
     id,
@@ -167,6 +210,7 @@ let cachedMods = null
 export async function scanMods(modsFolder) {
   const allFiles = await walkDir(modsFolder)
   const modFiles = allFiles.filter(f => isModFile(basename(f)))
+  const archiveFiles = allFiles.filter(f => isArchiveFile(basename(f)))
 
   const mods = []
   const errors = []
@@ -180,6 +224,13 @@ export async function scanMods(modsFolder) {
       errors.push({ file: filePath, message: err.message })
     }
   }
+  for (const filePath of archiveFiles) {
+    try {
+      mods.push(await buildArchiveDto(filePath, modsFolder))
+    } catch (err) {
+      errors.push({ file: filePath, message: err.message })
+    }
+  }
 
   cachedMods = mods
   return { mods, errors }
@@ -188,6 +239,11 @@ export async function scanMods(modsFolder) {
 /** Return cached mods (or [] if none scanned yet). */
 export function getCachedLocalMods() {
   return cachedMods ?? []
+}
+
+/** Drop the cache — next Local Mods mount will re-scan (e.g. after a download). */
+export function clearCachedLocalMods() {
+  cachedMods = null
 }
 
 /** Update a single mod in the cache after a toggle (match by old filePath). */

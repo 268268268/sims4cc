@@ -35,67 +35,70 @@ export default function Settings({ modsFolder, onFolderChanged }) {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
-      <h2 className="text-2xl font-bold text-white mb-8">Settings</h2>
+    <div className="flex flex-col h-full">
+      <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
+        <h2 className="page-title">Settings</h2>
+        <p className="page-subtitle">Configure folders and maintenance actions</p>
+      </div>
 
-      {/* Mods Folder */}
-      <section className="mb-8">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Mods Folder
-        </h3>
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1">Current path</p>
-          <p className="text-gray-200 font-mono text-sm break-all mb-4">
-            {modsFolder ?? <span className="text-red-400">Not configured</span>}
-          </p>
-          <button
-            onClick={handleChangeFolder}
-            disabled={folderLoading}
-            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm
-              font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            {folderLoading ? 'Opening…' : '📁 Change Mods Folder'}
-          </button>
-        </div>
-      </section>
-
-      {/* Game Cache */}
-      <section>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Game Cache
-        </h3>
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-          <p className="text-gray-400 text-sm mb-4 leading-relaxed">
-            Deletes <code className="text-purple-300 bg-gray-800 px-1 rounded">localthumbcache.package</code> from
-            your Sims 4 folder. The game will regenerate it on next launch.
-            Do this after installing or removing mods to fix thumbnail glitches.
-          </p>
-          <button
-            onClick={handleClearCache}
-            disabled={cacheStatus === 'loading' || !modsFolder}
-            className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed
-              text-white font-semibold py-2 px-5 rounded-lg transition-colors text-sm"
-          >
-            {cacheStatus === 'loading' ? '🗑️ Deleting…' : '🗑️ Clear Game Cache'}
-          </button>
-
-          {!modsFolder && (
-            <p className="mt-3 text-yellow-500 text-xs">
-              Configure your Mods folder first.
+      <div className="flex-1 overflow-y-auto px-8 py-6 max-w-2xl">
+        {/* Mods Folder */}
+        <section className="mb-6 fade-in-up">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Mods Folder
+          </h3>
+          <div className="card p-5">
+            <p className="text-xs text-gray-500 mb-1">Current path</p>
+            <p className="text-gray-200 font-mono text-sm break-all mb-4">
+              {modsFolder ?? <span className="text-red-400">Not configured</span>}
             </p>
-          )}
+            <button
+              onClick={handleChangeFolder}
+              disabled={folderLoading}
+              className="btn-ghost py-2 px-4 text-sm"
+            >
+              {folderLoading ? 'Opening…' : '📁 Change Mods Folder'}
+            </button>
+          </div>
+        </section>
 
-          {cacheStatus && cacheStatus !== 'loading' && (
-            <div className={`mt-4 text-sm px-4 py-2 rounded-lg border ${
-              cacheStatus.success
-                ? 'text-green-300 bg-green-950 border-green-800'
-                : 'text-red-300 bg-red-950 border-red-800'
-            }`}>
-              {cacheStatus.success ? '✅' : '❌'} {cacheStatus.msg}
-            </div>
-          )}
-        </div>
-      </section>
+        {/* Game Cache */}
+        <section className="fade-in-up">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Game Cache
+          </h3>
+          <div className="card p-5">
+            <p className="text-gray-400 text-sm mb-4 leading-relaxed">
+              Deletes <code className="text-violet-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">localthumbcache.package</code> from
+              your Sims 4 folder. The game will regenerate it on next launch.
+              Do this after installing or removing mods to fix thumbnail glitches.
+            </p>
+            <button
+              onClick={handleClearCache}
+              disabled={cacheStatus === 'loading' || !modsFolder}
+              className="btn-danger py-2 px-5 text-sm font-semibold"
+            >
+              {cacheStatus === 'loading' ? '🗑️ Deleting…' : '🗑️ Clear Game Cache'}
+            </button>
+
+            {!modsFolder && (
+              <p className="mt-3 text-amber-400 text-xs">
+                Configure your Mods folder first.
+              </p>
+            )}
+
+            {cacheStatus && cacheStatus !== 'loading' && (
+              <div className={`mt-4 text-sm px-4 py-2 rounded-xl border ${
+                cacheStatus.success
+                  ? 'text-emerald-300 bg-emerald-950/50 border-emerald-800/60'
+                  : 'text-red-300 bg-red-950/60 border-red-800/60'
+              }`}>
+                {cacheStatus.success ? '✅' : '❌'} {cacheStatus.msg}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

@@ -3,8 +3,14 @@ require("dotenv/config");
 const electron = require("electron");
 const path = require("path");
 const promises = require("fs/promises");
+const url = require("url");
 const crypto = require("crypto");
-const DBPF_MAGIC = Buffer.from("DBPF");
+const zlib = require("zlib");
+const fs = require("fs");
+const stream = require("stream");
+const promises$1 = require("stream/promises");
+const AdmZip = require("adm-zip");
+const DBPF_MAGIC$1 = Buffer.from("DBPF");
 const STBL_TYPE = 570774746;
 const STBL_MAGIC = Buffer.from("STBL");
 const ENGLISH_INST_HIGH_MAX = 65536;
@@ -37,7 +43,7 @@ async function tryParseDbpf(filePath) {
   try {
     fh = await promises.open(filePath, "r");
     const header = await readBytes(fh, 96, 0);
-    if (header.length < 96 || !header.slice(0, 4).equals(DBPF_MAGIC)) {
+    if (header.length < 96 || !header.slice(0, 4).equals(DBPF_MAGIC$1)) {
       return { ok: true, isDbpf: false };
     }
     const entryCount = header.readUInt32LE(24);
@@ -80,6 +86,164 @@ async function tryParseDbpf(filePath) {
   } finally {
     if (fh) await fh.close().catch(() => {
     });
+  }
+}
+const THUMB_TYPE = 1008398834;
+const DBPF_MAGIC = Buffer.from("DBPF");
+const COMP_NONE = 0;
+const COMP_ZLIB = 23106;
+const MAX_RESOURCE_BYTES = 4 * 1024 * 1024;
+let CACHE_DIR = null;
+function cacheDir() {
+  if (!CACHE_DIR) CACHE_DIR = path.join(electron.app.getPath("userData"), "thumb-cache");
+  return CACHE_DIR;
+}
+function getThumbCacheDir() {
+  return cacheDir();
+}
+function imgExt(buf) {
+  if (buf.length >= 3 && buf[0] === 255 && buf[1] === 216 && buf[2] === 255) return "jpg";
+  if (buf.length >= 8 && buf[0] === 137 && buf[1] === 80 && buf[2] === 78 && buf[3] === 71) return "png";
+  return null;
+}
+async function readAt(fh, len, pos) {
+  const buf = Buffer.alloc(len);
+  const { bytesRead } = await fh.read(buf, 0, len, pos);
+  return buf.slice(0, bytesRead);
+}
+function decompress(buf, compression) {
+  if (compression === COMP_NONE) return buf;
+  if (compression === COMP_ZLIB) return zlib.inflateSync(buf);
+  return null;
+}
+async function parseDbpfEntries(filePath) {
+  let fh;
+  try {
+    fh = await promises.open(filePath, "r");
+    const header = await readAt(fh, 96, 0);
+    if (header.length < 96 || !header.slice(0, 4).equals(DBPF_MAGIC)) return null;
+    const count = header.readUInt32LE(36);
+    const indexSize = header.readUInt32LE(44);
+    const indexPos = Number(header.readBigUInt64LE(64));
+    if (count < 1 || count > 5e5 || indexPos < 96 || indexSize < 4 || indexSize > 64 * 1024 * 1024) {
+      return null;
+    }
+    const idx = await readAt(fh, indexSize, indexPos);
+    if (idx.length < indexSize) return null;
+    let o = 0;
+    const flags = idx.readUInt32LE(o);
+    o += 4;
+    let cType = 0;
+    if (flags & 1) {
+      cType = idx.readUInt32LE(o);
+      o += 4;
+    }
+    if (flags & 2) {
+      o += 4;
+    }
+    if (flags & 4) {
+      o += 4;
+    }
+    const entries = [];
+    for (let i = 0; i < count; i++) {
+      let type = cType;
+      if (!(flags & 1)) {
+        type = idx.readUInt32LE(o);
+        o += 4;
+      }
+      if (!(flags & 2)) {
+        o += 4;
+      }
+      if (!(flags & 4)) {
+        o += 4;
+      }
+      o += 4;
+      const position = idx.readUInt32LE(o);
+      o += 4;
+      const sizeField = idx.readUInt32LE(o);
+      o += 4;
+      const size = sizeField & 2147483647;
+      const hasExt = (sizeField & 2147483648) !== 0;
+      const sizeDecompressed = idx.readUInt32LE(o);
+      o += 4;
+      let compression = COMP_NONE;
+      if (hasExt) {
+        compression = idx.readUInt16LE(o);
+        o += 4;
+      }
+      entries.push({ type, position, size, sizeDecompressed, compression });
+    }
+    return entries;
+  } catch {
+    return null;
+  } finally {
+    if (fh) await fh.close().catch(() => {
+    });
+  }
+}
+async function extractThumbnailBuffer(filePath) {
+  const entries = await parseDbpfEntries(filePath);
+  if (!entries) return null;
+  let fh;
+  try {
+    fh = await promises.open(filePath, "r");
+    const ordered = [
+      ...entries.filter((e) => e.type === THUMB_TYPE),
+      ...entries.filter((e) => e.type !== THUMB_TYPE)
+    ];
+    let best = null;
+    for (const e of ordered) {
+      if (e.sizeDecompressed > MAX_RESOURCE_BYTES || e.size <= 0) continue;
+      if (e.compression !== COMP_NONE && e.compression !== COMP_ZLIB) continue;
+      let data;
+      try {
+        data = decompress(await readAt(fh, e.size, e.position), e.compression);
+      } catch {
+        continue;
+      }
+      const ext = data && imgExt(data);
+      if (!ext) continue;
+      if (e.type === THUMB_TYPE) return { buffer: data, ext };
+      if (!best || data.length > best.buffer.length) best = { buffer: data, ext };
+    }
+    return best;
+  } catch {
+    return null;
+  } finally {
+    if (fh) await fh.close().catch(() => {
+    });
+  }
+}
+async function getCachedThumbnail(filePath, mtimeMs) {
+  try {
+    const dir = cacheDir();
+    const key = crypto.createHash("sha1").update(`${filePath}|${mtimeMs}`).digest("hex").slice(0, 16);
+    const jpg = path.join(dir, `${key}.jpg`);
+    const png = path.join(dir, `${key}.png`);
+    const none = path.join(dir, `${key}.none`);
+    if (await exists$1(jpg)) return jpg;
+    if (await exists$1(png)) return png;
+    if (await exists$1(none)) return null;
+    const result = await extractThumbnailBuffer(filePath);
+    await promises.mkdir(dir, { recursive: true });
+    if (!result) {
+      await promises.writeFile(none, "").catch(() => {
+      });
+      return null;
+    }
+    const out = path.join(dir, `${key}.${result.ext}`);
+    await promises.writeFile(out, result.buffer);
+    return out;
+  } catch {
+    return null;
+  }
+}
+async function exists$1(p) {
+  try {
+    await promises.access(p);
+    return true;
+  } catch {
+    return false;
   }
 }
 const MOD_EXTENSIONS = /* @__PURE__ */ new Set([".package", ".ts4script"]);
@@ -162,6 +326,36 @@ function isModFile(fileName) {
   if (fileName.endsWith(".package.disabled") || fileName.endsWith(".ts4script.disabled")) return true;
   return false;
 }
+function isArchiveFile(fileName) {
+  return path.extname(fileName).toLowerCase() === ".zip";
+}
+async function buildArchiveDto(filePath, modsFolder) {
+  const fileName = path.basename(filePath);
+  const relPath = path.relative(modsFolder, filePath);
+  let size = 0;
+  let modifiedAt = (/* @__PURE__ */ new Date()).toISOString();
+  try {
+    const info = await promises.stat(filePath);
+    size = info.size;
+    modifiedAt = info.mtime.toISOString();
+  } catch {
+  }
+  return {
+    id: makeId(relPath),
+    name: deriveName(fileName.replace(/\.zip$/i, "")),
+    author: deriveAuthor(relPath),
+    fileName,
+    filePath,
+    relativePath: relPath,
+    folderPath: path.dirname(filePath),
+    type: "archive",
+    enabled: false,
+    size,
+    modifiedAt,
+    thumbnail: { source: "fallback", path: null },
+    parseStatus: "unsupported"
+  };
+}
 async function buildLocalModDto(filePath, modsFolder) {
   const fileName = path.basename(filePath);
   const relPath = path.relative(modsFolder, filePath);
@@ -170,12 +364,14 @@ async function buildLocalModDto(filePath, modsFolder) {
   const type = resolveType(fileName);
   let size = 0;
   let modifiedAt = (/* @__PURE__ */ new Date()).toISOString();
+  let mtimeMs = 0;
   let parseStatus = "fallback";
   let error;
   try {
     const info = await promises.stat(filePath);
     size = info.size;
     modifiedAt = info.mtime.toISOString();
+    mtimeMs = info.mtimeMs;
   } catch (err2) {
     error = `stat failed: ${err2.message}`;
     parseStatus = "error";
@@ -192,7 +388,11 @@ async function buildLocalModDto(filePath, modsFolder) {
       error = err2.message;
     }
   }
-  const thumbnail = await detectThumbnail(filePath);
+  let thumbnail = await detectThumbnail(filePath);
+  if (thumbnail.source === "fallback" && type === "package" && !error) {
+    const cached = await getCachedThumbnail(filePath, mtimeMs);
+    if (cached) thumbnail = { source: "dbpf", path: cached };
+  }
   return {
     id,
     name: realName || deriveName(fileName),
@@ -214,6 +414,7 @@ let cachedMods = null;
 async function scanMods(modsFolder) {
   const allFiles = await walkDir(modsFolder);
   const modFiles = allFiles.filter((f) => isModFile(path.basename(f)));
+  const archiveFiles = allFiles.filter((f) => isArchiveFile(path.basename(f)));
   const mods = [];
   const errors = [];
   for (const filePath of modFiles) {
@@ -224,16 +425,111 @@ async function scanMods(modsFolder) {
       errors.push({ file: filePath, message: err2.message });
     }
   }
+  for (const filePath of archiveFiles) {
+    try {
+      mods.push(await buildArchiveDto(filePath, modsFolder));
+    } catch (err2) {
+      errors.push({ file: filePath, message: err2.message });
+    }
+  }
   cachedMods = mods;
   return { mods, errors };
 }
 function getCachedLocalMods() {
   return cachedMods ?? [];
 }
+function clearCachedLocalMods() {
+  cachedMods = null;
+}
 function updateCachedMod(oldPath, mod) {
   if (!cachedMods) return;
   const idx = cachedMods.findIndex((m) => m.filePath === oldPath);
   if (idx !== -1) cachedMods[idx] = mod;
+}
+const MOD_EXTS = /* @__PURE__ */ new Set([".package", ".ts4script"]);
+const JUNK_RE = /(^|[\\/])(__MACOSX|\.DS_Store|Thumbs\.db|desktop\.ini)/i;
+const RESERVED_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+function stripForbidden(s) {
+  return s.replace(/[<>:"/\\|?*\x00-\x1f]/g, " ").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "");
+}
+function safeFolderName(name) {
+  const clean = stripForbidden(name.replace(/\.(zip|rar|7z)$/i, ""));
+  return clean.slice(0, 80) || "mod";
+}
+function safeFileName(name) {
+  const clean = stripForbidden(name);
+  if (!clean) return "file";
+  const dot = clean.lastIndexOf(".");
+  const stem = dot > 0 ? clean.slice(0, dot) : clean;
+  return RESERVED_RE.test(stem) ? `_${clean}` : clean;
+}
+async function pickTargetFolder(modsFolder, baseName) {
+  for (let i = 1; ; i++) {
+    const name = i === 1 ? baseName : `${baseName} (${i})`;
+    const p = path.join(modsFolder, name);
+    try {
+      const entries = await promises.readdir(p);
+      if (entries.length === 0) return p;
+    } catch {
+      return p;
+    }
+  }
+}
+async function extractModArchive(zipPath, modsFolder, nameHint) {
+  let zip;
+  try {
+    zip = new AdmZip(zipPath);
+  } catch (err2) {
+    return { ok: false, error: `Not a readable zip archive: ${err2.message}` };
+  }
+  let entries;
+  try {
+    entries = zip.getEntries().filter((e) => !e.isDirectory && !JUNK_RE.test(e.entryName));
+  } catch (err2) {
+    return { ok: false, error: `Corrupt zip index: ${err2.message}` };
+  }
+  const hasModFile = entries.some((e) => MOD_EXTS.has(path.extname(e.entryName).toLowerCase()));
+  if (!hasModFile) {
+    return { ok: false, error: "No Sims 4 mod files (.package / .ts4script) found in the archive." };
+  }
+  const folder = await pickTargetFolder(modsFolder, safeFolderName(nameHint || path.basename(zipPath)));
+  try {
+    await promises.mkdir(folder, { recursive: true });
+  } catch (err2) {
+    return { ok: false, error: `Could not create mod folder: ${err2.message}` };
+  }
+  const used = /* @__PURE__ */ new Set();
+  const targetNameFor = (entryName) => {
+    const base = safeFileName(path.basename(entryName));
+    if (!used.has(base.toLowerCase())) {
+      used.add(base.toLowerCase());
+      return base;
+    }
+    const parent = path.basename(path.dirname(entryName));
+    const prefixed = parent && parent !== "." ? `${safeFolderName(parent)}_${base}` : base;
+    let candidate = prefixed;
+    let i = 2;
+    while (used.has(candidate.toLowerCase())) candidate = `${i++}_${prefixed}`;
+    used.add(candidate.toLowerCase());
+    return candidate;
+  };
+  const files = [];
+  try {
+    for (const entry of entries) {
+      const target = path.join(folder, targetNameFor(entry.entryName));
+      const data = entry.getData();
+      await promises.writeFile(target, data);
+      files.push(target);
+    }
+  } catch (err2) {
+    for (const f of files) await promises.unlink(f).catch(() => {
+    });
+    await promises.rmdir(folder).catch(() => {
+    });
+    return { ok: false, error: `Extraction failed: ${err2.message}` };
+  }
+  console.log(`[archiveExtractor] Extracted ${files.length} file(s) from ${path.basename(zipPath)} → ${folder}`);
+  return { ok: true, folder, files };
 }
 const __vite_import_meta_env__ = {};
 const API_BASE = "https://api.curseforge.com/v1";
@@ -249,15 +545,15 @@ async function searchMods(params = {}) {
     console.error("DEBUG: CURSEFORGE_API_KEY is missing — check .env / electron-vite env.");
     return { data: [], pagination: null, error: "CURSEFORGE_API_KEY is not set. Check your .env file." };
   }
-  const url = new URL(`${API_BASE}/mods/search`);
-  url.searchParams.set("gameId", SIMS4_GAME_ID);
-  if (searchFilter) url.searchParams.set("searchFilter", searchFilter);
-  if (categoryId != null) url.searchParams.set("categoryId", categoryId);
-  url.searchParams.set("index", index);
-  url.searchParams.set("pageSize", pageSize);
-  console.log("DEBUG: Fetching CurseForge URL:", url.toString());
+  const url2 = new URL(`${API_BASE}/mods/search`);
+  url2.searchParams.set("gameId", SIMS4_GAME_ID);
+  if (searchFilter) url2.searchParams.set("searchFilter", searchFilter);
+  if (categoryId != null) url2.searchParams.set("categoryId", categoryId);
+  url2.searchParams.set("index", index);
+  url2.searchParams.set("pageSize", pageSize);
+  console.log("DEBUG: Fetching CurseForge URL:", url2.toString());
   try {
-    const res = await fetch(url, {
+    const res = await fetch(url2, {
       headers: { Accept: "application/json", "x-api-key": apiKey },
       signal: AbortSignal.timeout(15e3)
     });
@@ -286,6 +582,197 @@ async function searchMods(params = {}) {
     console.error("[curseForgeClient] searchMods failed:", err2);
     return { data: [], pagination: null, error: err2.message };
   }
+}
+function getApiKey() {
+  return process.env.CURSEFORGE_API_KEY || __vite_import_meta_env__?.MAIN_VITE_CURSEFORGE_API_KEY || null;
+}
+async function downloadMod(mod, destinationFolder) {
+  if (!mod || !mod.id) return { ok: false, error: "Invalid mod object." };
+  if (!destinationFolder) return { ok: false, error: "Destination folder not provided." };
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return { ok: false, error: "CURSEFORGE_API_KEY is not set. Check your .env file." };
+  }
+  const file = mod.latestFiles?.[0];
+  if (!file || !file.id) {
+    return { ok: false, error: "This mod has no downloadable file." };
+  }
+  let downloadUrl = file.downloadUrl;
+  if (!downloadUrl) {
+    try {
+      const urlRes = await fetch(
+        `${API_BASE}/mods/${mod.id}/files/${file.id}/download-url`,
+        {
+          headers: { Accept: "application/json", "x-api-key": apiKey },
+          signal: AbortSignal.timeout(15e3)
+        }
+      );
+      if (!urlRes.ok) {
+        const body = await urlRes.text().catch(() => "");
+        return { ok: false, error: `Failed to resolve download URL (${urlRes.status}): ${body}` };
+      }
+      const urlJson = await urlRes.json();
+      downloadUrl = urlJson?.data;
+      if (!downloadUrl) return { ok: false, error: "CurseForge returned no download URL." };
+    } catch (err2) {
+      return { ok: false, error: `download-url request failed: ${err2.message}` };
+    }
+  }
+  const fileName = path.basename(file.fileName || `${mod.id}_${file.id}.zip`);
+  const destPath = path.join(destinationFolder, fileName);
+  const partPath = destPath + ".part";
+  const IDLE_TIMEOUT_MS = 3e4;
+  const controller = new AbortController();
+  let idleTimer;
+  const resetIdle = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(
+      () => controller.abort(new Error(`Download stalled (no data for ${IDLE_TIMEOUT_MS / 1e3}s)`)),
+      IDLE_TIMEOUT_MS
+    );
+  };
+  try {
+    resetIdle();
+    const res = await fetch(downloadUrl, { signal: controller.signal });
+    if (!res.ok) {
+      return { ok: false, error: `Download failed: HTTP ${res.status} ${res.statusText}` };
+    }
+    if (!res.body) {
+      return { ok: false, error: "Download failed: empty response body." };
+    }
+    let bytes = 0;
+    const body = stream.Readable.fromWeb(res.body);
+    body.on("data", (chunk) => {
+      bytes += chunk.length;
+      resetIdle();
+    });
+    await promises$1.pipeline(body, fs.createWriteStream(partPath));
+    await promises.rename(partPath, destPath);
+    console.log(`[curseForgeClient] Saved ${fileName} (${bytes} bytes) → ${destPath}`);
+    if (/\.zip$/i.test(fileName)) {
+      const extracted = await extractModArchive(destPath, destinationFolder, mod.name);
+      if (!extracted.ok) {
+        return { ok: false, error: `Downloaded, but not installed: ${extracted.error}` };
+      }
+      await promises.unlink(destPath).catch(() => {
+      });
+      return { ok: true, path: extracted.folder, files: extracted.files };
+    }
+    return { ok: true, path: destPath };
+  } catch (err2) {
+    await promises.unlink(partPath).catch(() => {
+    });
+    return { ok: false, error: `Download/write failed: ${err2?.message ?? err2}` };
+  } finally {
+    clearTimeout(idleTimer);
+  }
+}
+const STORE_PATH = path.join(electron.app.getPath("userData"), "downloads.json");
+async function readStore() {
+  try {
+    return JSON.parse(await promises.readFile(STORE_PATH, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+async function writeStore(data) {
+  await promises.writeFile(STORE_PATH, JSON.stringify(data, null, 2), "utf-8");
+}
+async function recordDownload(mod, result) {
+  if (!mod?.id) return;
+  const store = await readStore();
+  store[String(mod.id)] = {
+    name: mod.name ?? null,
+    path: result?.path ?? null,
+    // extracted folder or the .package file on disk
+    fileId: mod.latestFiles?.[0]?.id ?? null,
+    at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  await writeStore(store).catch(() => {
+  });
+}
+async function getDownloaded() {
+  const store = await readStore();
+  const alive = {};
+  let changed = false;
+  for (const [id, rec] of Object.entries(store)) {
+    if (rec?.path) {
+      try {
+        await promises.access(rec.path);
+        alive[id] = rec;
+      } catch {
+        changed = true;
+      }
+    } else {
+      alive[id] = rec;
+    }
+  }
+  if (changed) await writeStore(alive).catch(() => {
+  });
+  return alive;
+}
+const TYPE_LABELS = {
+  1008398834: "Thumbnail",
+  877907861: "Texture",
+  734023391: "Texture (DST)",
+  11720834: "Texture (image)",
+  55242443: "CAS part",
+  832458525: "Object definition",
+  1415235194: "Data (SimData)",
+  570775514: "String table",
+  1612179606: "Python/tuning",
+  47570707: "Animation",
+  23466547: "Model (geometry)",
+  30467933: "Model (material)"
+};
+function labelFor(type) {
+  return TYPE_LABELS[type >>> 0] || `Other (0x${(type >>> 0).toString(16)})`;
+}
+async function inspectLocalMod(filePath) {
+  if (!filePath || typeof filePath !== "string") {
+    return { ok: false, error: "No file path given." };
+  }
+  const folder = path.dirname(filePath);
+  const result = { ok: true, folder, files: [], packageContents: null };
+  try {
+    const names = await promises.readdir(folder, { withFileTypes: true });
+    for (const ent of names) {
+      if (!ent.isFile()) continue;
+      const full = path.join(folder, ent.name);
+      let size = 0;
+      try {
+        size = (await promises.stat(full)).size;
+      } catch {
+      }
+      result.files.push({
+        name: ent.name,
+        size,
+        ext: path.extname(ent.name).toLowerCase(),
+        isSelf: full.toLowerCase() === filePath.toLowerCase()
+      });
+    }
+    result.files.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err2) {
+    result.error = `Could not read folder: ${err2.message}`;
+  }
+  if (/\.package(\.disabled)?$/i.test(path.basename(filePath))) {
+    try {
+      const entries = await parseDbpfEntries(filePath);
+      if (entries) {
+        const counts = /* @__PURE__ */ new Map();
+        for (const e of entries) {
+          const label = labelFor(e.type);
+          counts.set(label, (counts.get(label) || 0) + 1);
+        }
+        result.packageContents = {
+          total: entries.length,
+          types: [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
+        };
+      }
+    } catch {
+    }
+  }
+  return result;
 }
 async function toggleLocalModEnabled({ filePath, enabled, modsFolder }) {
   if (!filePath || typeof filePath !== "string") return err("filePath is required");
@@ -365,6 +852,9 @@ async function loadLocalCache() {
     return EMPTY_CATALOG;
   }
 }
+electron.protocol.registerSchemesAsPrivileged([
+  { scheme: "modimg", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
+]);
 const CONFIG_PATH = path.join(electron.app.getPath("userData"), "config.json");
 async function readConfig() {
   try {
@@ -434,7 +924,30 @@ electron.ipcMain.handle("localMods:scan", async () => {
 electron.ipcMain.handle("localMods:imageUrl", (_e, absPath) => {
   if (!absPath || typeof absPath !== "string") return null;
   if (!/\.(png|jpe?g|webp|gif)$/i.test(absPath)) return null;
-  return `file://${absPath.replace(/\\/g, "/")}`;
+  return `modimg://thumb/?p=${encodeURIComponent(absPath)}`;
+});
+electron.ipcMain.handle("localMods:extractArchive", async (_e, filePath) => {
+  try {
+    const config = await readConfig();
+    if (!config.modsFolder) return { ok: false, error: "Mods folder not configured." };
+    if (!filePath || typeof filePath !== "string" || !/\.zip$/i.test(filePath)) {
+      return { ok: false, error: "Not a zip archive." };
+    }
+    const absFile = path.resolve(filePath);
+    const absFolder = path.resolve(config.modsFolder);
+    const rel = absFile.slice(absFolder.length);
+    if (!absFile.startsWith(absFolder) || rel !== "" && !rel.startsWith(path.sep)) {
+      return { ok: false, error: "Archive is outside the configured Mods folder." };
+    }
+    const res = await extractModArchive(absFile, absFolder);
+    if (!res.ok) return res;
+    await promises.unlink(absFile).catch(() => {
+    });
+    clearCachedLocalMods();
+    return res;
+  } catch (err2) {
+    return { ok: false, error: err2.message };
+  }
 });
 electron.ipcMain.handle("localMods:toggleEnabled", async (_e, filePath, enabled) => {
   try {
@@ -463,7 +976,31 @@ electron.ipcMain.handle("catalog:get", async () => {
 electron.ipcMain.handle("curseforge:search", async (_e, params) => {
   return await searchMods(params);
 });
-electron.ipcMain.handle("shell:openExternal", (_e, url) => electron.shell.openExternal(url));
+electron.ipcMain.handle("curseforge:download", async (_e, mod) => {
+  try {
+    const config = await readConfig();
+    if (!config.modsFolder) {
+      return { ok: false, error: "Mods folder not configured." };
+    }
+    try {
+      await promises.access(config.modsFolder);
+    } catch {
+      return { ok: false, error: `Mods folder not found: ${config.modsFolder}` };
+    }
+    const res = await downloadMod(mod, config.modsFolder);
+    clearCachedLocalMods();
+    if (res.ok) await recordDownload(mod, res);
+    return res;
+  } catch (err2) {
+    return { ok: false, error: err2.message };
+  }
+});
+electron.ipcMain.handle("curseforge:getDownloaded", () => getDownloaded());
+electron.ipcMain.handle("localMods:inspect", (_e, filePath) => inspectLocalMod(filePath));
+electron.ipcMain.handle("shell:showItemInFolder", (_e, p) => {
+  if (typeof p === "string" && p) electron.shell.showItemInFolder(p);
+});
+electron.ipcMain.handle("shell:openExternal", (_e, url2) => electron.shell.openExternal(url2));
 electron.ipcMain.handle("clear-game-cache", async () => {
   try {
     const config = await readConfig();
@@ -479,6 +1016,24 @@ electron.ipcMain.handle("clear-game-cache", async () => {
   }
 });
 electron.app.whenReady().then(() => {
+  electron.protocol.handle("modimg", async (request) => {
+    try {
+      const u = new URL(request.url);
+      const p = u.searchParams.get("p") ?? "";
+      if (!/\.(png|jpe?g|webp|gif)$/i.test(p)) return new Response("forbidden", { status: 403 });
+      const config = await readConfig();
+      const absFile = path.resolve(p);
+      const roots = [config.modsFolder, getThumbCacheDir()].filter(Boolean).map((r) => path.resolve(r));
+      const allowed = roots.some((root) => {
+        const rel = absFile.slice(root.length);
+        return absFile.startsWith(root) && (rel === "" || rel.startsWith(path.sep));
+      });
+      if (!allowed) return new Response("forbidden", { status: 403 });
+      return electron.net.fetch(url.pathToFileURL(absFile).toString());
+    } catch {
+      return new Response("bad request", { status: 400 });
+    }
+  });
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -1,13 +1,24 @@
 import 'dotenv/config'
 
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
-import { join, dirname } from 'path'
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } from 'electron'
+import { join, dirname, resolve, sep } from 'path'
 import { readFile, writeFile, unlink, access } from 'fs/promises'
-import { scanMods, getCachedLocalMods, updateCachedMod } from './services/localModScanner.js'
+import { pathToFileURL } from 'url'
+import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
 import { searchMods, downloadMod } from './services/curseForgeClient.js'
+import { extractModArchive } from './services/archiveExtractor.js'
+import { recordDownload, getDownloaded } from './services/downloadStore.js'
+import { getThumbCacheDir } from './services/dbpfThumbnail.js'
+import { inspectLocalMod } from './services/localModInspector.js'
 
 import { toggleLocalModEnabled } from './services/localModActions.js'
 import { fetchAndCacheCatalog } from './services/catalogStore.js'
+
+// modimg:// serves local thumbnails — <img src="file://..."> is blocked by
+// Chromium when the renderer runs off http://localhost (dev mode).
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'modimg', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
+])
 
 const CONFIG_PATH = join(app.getPath('userData'), 'config.json')
 
@@ -92,12 +103,37 @@ ipcMain.handle('localMods:scan', async () => {
   }
 })
 
-// IPC: convert absolute image path to safe file:// URL for renderer
+// IPC: convert absolute image path to a modimg:// URL the renderer may load
 ipcMain.handle('localMods:imageUrl', (_e, absPath) => {
   if (!absPath || typeof absPath !== 'string') return null
   // Only serve image files — block path traversal attempts
   if (!/\.(png|jpe?g|webp|gif)$/i.test(absPath)) return null
-  return `file://${absPath.replace(/\\/g, '/')}`
+  return `modimg://thumb/?p=${encodeURIComponent(absPath)}`
+})
+
+// IPC: extract a zip archive that already sits in the Mods folder
+ipcMain.handle('localMods:extractArchive', async (_e, filePath) => {
+  try {
+    const config = await readConfig()
+    if (!config.modsFolder) return { ok: false, error: 'Mods folder not configured.' }
+    if (!filePath || typeof filePath !== 'string' || !/\.zip$/i.test(filePath)) {
+      return { ok: false, error: 'Not a zip archive.' }
+    }
+    // the archive must live inside the configured Mods folder
+    const absFile = resolve(filePath)
+    const absFolder = resolve(config.modsFolder)
+    const rel = absFile.slice(absFolder.length)
+    if (!absFile.startsWith(absFolder) || (rel !== '' && !rel.startsWith(sep))) {
+      return { ok: false, error: 'Archive is outside the configured Mods folder.' }
+    }
+    const res = await extractModArchive(absFile, absFolder)
+    if (!res.ok) return res
+    await unlink(absFile).catch(() => {})
+    clearCachedLocalMods()
+    return res
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
 })
 
 // IPC: toggle local mod enabled/disabled (rename file extension)
@@ -145,10 +181,26 @@ ipcMain.handle('curseforge:download', async (_e, mod) => {
     } catch {
       return { ok: false, error: `Mods folder not found: ${config.modsFolder}` }
     }
-    return await downloadMod(mod, config.modsFolder)
+    const res = await downloadMod(mod, config.modsFolder)
+    // new files may exist on disk even when extraction failed (the zip is kept
+    // for inspection) — a stale scan cache would hide them from Local Mods
+    clearCachedLocalMods()
+    if (res.ok) await recordDownload(mod, res)
+    return res
   } catch (err) {
     return { ok: false, error: err.message }
   }
+})
+
+// IPC: which CurseForge mods have already been downloaded (persisted, self-healing)
+ipcMain.handle('curseforge:getDownloaded', () => getDownloaded())
+
+// IPC: inspect a local mod — sibling files + DBPF resource summary
+ipcMain.handle('localMods:inspect', (_e, filePath) => inspectLocalMod(filePath))
+
+// IPC: reveal a file/folder in the OS file manager
+ipcMain.handle('shell:showItemInFolder', (_e, p) => {
+  if (typeof p === 'string' && p) shell.showItemInFolder(p)
 })
 
 // IPC: open external URL in default system browser (keeps links out of the app window)
@@ -172,6 +224,26 @@ ipcMain.handle('clear-game-cache', async () => {
 })
 
 app.whenReady().then(() => {
+  protocol.handle('modimg', async (request) => {
+    try {
+      const u = new URL(request.url)
+      // searchParams.get already percent-decodes — decoding twice corrupts paths containing '%'
+      const p = u.searchParams.get('p') ?? ''
+      if (!/\.(png|jpe?g|webp|gif)$/i.test(p)) return new Response('forbidden', { status: 403 })
+      // serve only from inside the Mods folder or our own thumbnail cache
+      const config = await readConfig()
+      const absFile = resolve(p)
+      const roots = [config.modsFolder, getThumbCacheDir()].filter(Boolean).map(r => resolve(r))
+      const allowed = roots.some(root => {
+        const rel = absFile.slice(root.length)
+        return absFile.startsWith(root) && (rel === '' || rel.startsWith(sep))
+      })
+      if (!allowed) return new Response('forbidden', { status: 403 })
+      return net.fetch(pathToFileURL(absFile).toString())
+    } catch {
+      return new Response('bad request', { status: 400 })
+    }
+  })
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

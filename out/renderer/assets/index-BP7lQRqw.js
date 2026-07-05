@@ -6974,30 +6974,35 @@ const NAV_ITEMS = [
   { id: "settings", label: "Settings", icon: "⚙️" }
 ];
 function Sidebar({ activePage, onNavigate }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("aside", { className: "w-56 shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 py-5 border-b border-gray-700", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("h1", { className: "text-lg font-bold text-purple-400 leading-tight", children: [
-      "Sims 4",
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("aside", { className: "w-60 shrink-0 bg-black/30 backdrop-blur border-r border-white/5 flex flex-col", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-5 py-6 border-b border-white/5", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("h1", { className: "text-lg font-bold leading-tight tracking-tight", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent", children: "Sims 4" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white", children: "Mod Manager" })
     ] }) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("nav", { className: "flex-1 py-3", children: NAV_ITEMS.map(({ id: id2, label, icon }) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "button",
-      {
-        onClick: () => onNavigate(id2),
-        className: `w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left
-              ${activePage === id2 ? "bg-purple-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`,
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-base", children: icon }),
-          label
-        ]
-      },
-      id2
-    )) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 py-3 border-t border-gray-700 text-xs text-gray-600", children: "v1.0.0" })
+    /* @__PURE__ */ jsxRuntimeExports.jsx("nav", { className: "flex-1 py-4 px-3 flex flex-col gap-1", children: NAV_ITEMS.map(({ id: id2, label, icon }) => {
+      const active = activePage === id2;
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => onNavigate(id2),
+          className: `w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-left
+                transition-all duration-150
+                ${active ? "bg-gradient-to-r from-violet-600/90 to-fuchsia-600/70 text-white shadow-md shadow-violet-950/40" : "text-gray-400 hover:bg-white/5 hover:text-white"}`,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-base transition-transform duration-150 ${active ? "scale-110" : ""}`, children: icon }),
+            label,
+            active && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-auto w-1.5 h-1.5 rounded-full bg-white/80" })
+          ]
+        },
+        id2
+      );
+    }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-5 py-4 border-t border-white/5 text-xs text-gray-600", children: "v1.0.0" })
   ] });
 }
 function Layout({ activePage, onNavigate, children }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-screen bg-gray-950 text-white overflow-hidden", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-screen app-bg text-white overflow-hidden", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(Sidebar, { activePage, onNavigate }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 overflow-y-auto", children })
   ] });
@@ -7021,50 +7026,241 @@ function Welcome({ onFolderSelected }) {
       setLoading(false);
     }
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-screen bg-gray-950 items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-md w-full mx-4 text-center", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-6xl mb-6", children: "🎮" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-3xl font-bold text-white mb-2", children: "Welcome to" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-3xl font-bold text-purple-400 mb-6", children: "Sims 4 Mod Manager" }),
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-screen app-bg items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-md w-full mx-4 text-center fade-in-up", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-6xl mb-6 drop-shadow-[0_0_25px_rgba(139,92,246,0.45)]", children: "🎮" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-3xl font-bold text-white mb-1 tracking-tight", children: "Welcome to" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-3xl font-bold mb-6 tracking-tight bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent", children: "Sims 4 Mod Manager" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 mb-8 leading-relaxed", children: [
       "To get started, select your Sims 4 ",
       /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "text-gray-200", children: "Mods" }),
       " folder. This is usually located at:",
       /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-xs text-purple-300 bg-gray-800 px-2 py-1 rounded mt-2 inline-block", children: "Documents/Electronic Arts/The Sims 4/Mods" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-xs text-violet-300 bg-white/5 border border-white/10 px-2 py-1 rounded-md mt-2 inline-block", children: "Documents/Electronic Arts/The Sims 4/Mods" })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       "button",
       {
         onClick: handleSelect,
         disabled: loading,
-        className: "w-full bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-not-allowed\r\n            text-white font-semibold py-3 px-6 rounded-lg transition-colors text-lg",
+        className: "btn-primary w-full py-3 px-6 text-lg",
         children: loading ? "Opening…" : "📁 Select Mods Folder"
       }
     ),
-    error && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-4 text-red-400 text-sm bg-red-950 border border-red-800 rounded-lg px-4 py-2", children: [
+    error && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-4 banner-error", children: [
       "Error: ",
       error
     ] })
   ] }) });
 }
-const TYPE_LABEL = { package: ".package", ts4script: ".ts4script", unknown: "?" };
-const TYPE_COLOR = { package: "bg-purple-700", ts4script: "bg-blue-700", unknown: "bg-gray-600" };
-function formatBytes(n2) {
-  if (n2 < 1024) return `${n2} B`;
-  if (n2 < 1024 * 1024) return `${(n2 / 1024).toFixed(1)} KB`;
-  return `${(n2 / 1024 / 1024).toFixed(2)} MB`;
+function Modal({ onClose, children, maxWidth = "max-w-2xl" }) {
+  reactExports.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", onMouseDown: onClose, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-black/70 backdrop-blur-sm" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: `relative ${maxWidth} w-full max-h-[88vh] overflow-y-auto bg-[#12141f] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 fade-in-up`,
+        onMouseDown: (e) => e.stopPropagation(),
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: onClose,
+              className: "absolute top-3 right-3 z-10 w-8 h-8 rounded-lg bg-black/50 hover:bg-black/70 text-gray-300 hover:text-white flex items-center justify-center transition-colors",
+              title: "Close (Esc)",
+              children: "✕"
+            }
+          ),
+          children
+        ]
+      }
+    )
+  ] });
 }
+function formatBytes(n2) {
+  if (n2 == null) return null;
+  if (n2 < 1024) return `${n2} B`;
+  if (n2 < 1024 * 1024) return `${(n2 / 1024).toFixed(0)} KB`;
+  return `${(n2 / 1024 / 1024).toFixed(1)} MB`;
+}
+function formatCount(n2) {
+  if (n2 == null) return null;
+  if (n2 < 1e3) return `${n2}`;
+  if (n2 < 1e6) return `${(n2 / 1e3).toFixed(n2 < 1e4 ? 1 : 0)}k`;
+  return `${(n2 / 1e6).toFixed(1)}M`;
+}
+function formatDate(iso) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString(void 0, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return null;
+  }
+}
+const TYPE_LABEL$1 = { package: ".package", ts4script: ".ts4script", archive: ".zip", unknown: "?" };
+const PLACEHOLDER$1 = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="100%" height="100%" fill="#181b2a"/><text x="50%" y="50%" font-size="80" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+);
+function fileIcon(ext) {
+  if (ext === ".package") return "📦";
+  if (ext === ".ts4script") return "📜";
+  if (/\.(png|jpe?g|webp|gif)$/.test(ext)) return "🖼";
+  if (/\.(trayitem|householdbinary|sgi|blueprint|room|bpi|hhi)$/.test(ext)) return "🏠";
+  if (/\.(cfg|ini|txt|md)$/.test(ext)) return "📄";
+  return "📎";
+}
+function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
+  const [imgUrl, setImgUrl] = reactExports.useState(catalogMeta?.imageUrl || null);
+  const [info, setInfo] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    if (!catalogMeta?.imageUrl && mod.thumbnail?.path) {
+      window.api.getImageUrl(mod.thumbnail.path).then((u2) => {
+        if (!cancelled) setImgUrl(u2);
+      });
+    }
+    window.api.inspectLocalMod(mod.filePath).then((res) => {
+      if (!cancelled) {
+        setInfo(res);
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mod.filePath, mod.thumbnail?.path, catalogMeta?.imageUrl]);
+  const creatorName = catalogMeta?.creatorName;
+  const isArchive = mod.type === "archive";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Modal, { onClose, maxWidth: "max-w-2xl", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-5", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "img",
+        {
+          src: imgUrl || PLACEHOLDER$1,
+          alt: mod.name,
+          className: "w-28 h-28 rounded-xl object-cover bg-[#181b2a] border border-white/10 shrink-0",
+          onError: () => setImgUrl(null)
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-lg font-bold text-white leading-tight break-words", children: mod.name }),
+        (creatorName || mod.author) && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-violet-400 text-sm mt-0.5", children: creatorName || mod.author }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mt-2 flex-wrap", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/10 text-gray-200 font-mono", children: TYPE_LABEL$1[mod.type] }),
+          !isArchive && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge ${mod.enabled ? "bg-emerald-800/50 text-emerald-300" : "bg-red-900/50 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-500 text-xs", children: formatBytes(mod.size) }),
+          mod.modifiedAt && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600 text-xs", children: [
+            "· ",
+            formatDate(mod.modifiedAt)
+          ] })
+        ] })
+      ] })
+    ] }),
+    catalogMeta?.tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5", children: catalogMeta.tags.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/5 text-gray-400", children: t2 }, t2)) }),
+    info?.packageContents && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: [
+        "Package contents · ",
+        info.packageContents.total,
+        " resources"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5", children: info.packageContents.types.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "badge bg-violet-600/20 text-violet-200", children: [
+        t2.label,
+        " ×",
+        t2.count
+      ] }, t2.label)) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: [
+        "Files ",
+        info?.files?.length ? `· ${info.files.length}` : ""
+      ] }),
+      loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1.5", children: Array.from({ length: 3 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-6 skeleton rounded" }, i)) }) : info?.files?.length ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-48 overflow-y-auto rounded-lg border border-white/5 divide-y divide-white/5", children: info.files.map((f2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: `flex items-center gap-2 px-3 py-1.5 text-xs ${f2.isSelf ? "bg-violet-600/10" : ""}`,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: fileIcon(f2.ext) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-300 truncate flex-1", title: f2.name, children: f2.name }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-600 shrink-0", children: formatBytes(f2.size) })
+          ]
+        },
+        f2.name
+      )) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs", children: info?.error || "No sibling files." })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-600 text-xs break-all", title: mod.filePath, children: [
+      "📁 ",
+      mod.relativePath
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+      !isArchive && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => {
+            onToggle?.(mod);
+            onClose();
+          },
+          className: `${mod.enabled ? "btn-danger" : "btn-success"} px-4 py-2 text-sm`,
+          children: mod.enabled ? "Disable" : "Enable"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => window.api.showItemInFolder(mod.filePath),
+          className: "btn-ghost px-4 py-2 text-sm",
+          children: "📂 Reveal in folder"
+        }
+      )
+    ] })
+  ] }) });
+}
+const TYPE_LABEL = { package: ".package", ts4script: ".ts4script", archive: ".zip", unknown: "?" };
+const TYPE_COLOR = {
+  package: "bg-violet-600/30 text-violet-200",
+  ts4script: "bg-sky-600/30 text-sky-200",
+  archive: "bg-amber-600/30 text-amber-200",
+  unknown: "bg-gray-700 text-gray-300"
+};
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "enabled", label: "Enabled" },
+  { id: "disabled", label: "Disabled" },
+  { id: "package", label: "Packages" },
+  { id: "ts4script", label: "Scripts" },
+  { id: "archive", label: "Archives" }
+];
+const SORTS = [
+  { id: "name", label: "Name" },
+  { id: "date", label: "Newest" },
+  { id: "size", label: "Size" }
+];
 function ModThumbnail({ absPath, imageUrl }) {
   const [url, setUrl] = reactExports.useState(null);
   const [tried, setTried] = reactExports.useState(false);
-  if (imageUrl) {
+  const [remoteFailed, setRemoteFailed] = reactExports.useState(false);
+  if (imageUrl && !remoteFailed) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "img",
       {
         src: imageUrl,
         alt: "thumbnail",
-        className: "w-full h-32 object-cover rounded-t-lg",
-        onError: () => setUrl(null)
+        loading: "lazy",
+        className: "w-full h-32 object-cover",
+        onError: () => setRemoteFailed(true)
       }
     );
   }
@@ -7078,48 +7274,98 @@ function ModThumbnail({ absPath, imageUrl }) {
       {
         src: url,
         alt: "thumbnail",
-        className: "w-full h-32 object-cover rounded-t-lg",
+        loading: "lazy",
+        className: "w-full h-32 object-cover",
         onError: () => setUrl(null)
       }
     );
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 rounded-t-lg bg-gray-800 flex items-center justify-center text-4xl select-none", children: "📦" });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 bg-gradient-to-br from-[#181b2a] to-[#12141f] flex items-center justify-center text-4xl select-none", children: "📦" });
 }
-function ModCard$1({ mod, pending, onToggle, catalogMeta }) {
+function ArchiveCard({ mod, pending, onExtract, onOpen }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      onClick: () => onOpen(mod),
+      className: "card card-hover flex flex-col fade-in-up border-amber-500/20 cursor-pointer",
+      title: "Click for details",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 bg-gradient-to-br from-amber-950/40 to-[#12141f] flex items-center justify-center text-4xl select-none", children: "🗜️" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1.5 flex-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight truncate", title: mod.name, children: mod.name }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 flex-wrap", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge font-mono ${TYPE_COLOR.archive}`, children: TYPE_LABEL.archive }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-amber-900/40 text-amber-300", children: "not installed" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs", children: formatBytes(mod.size) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: (e) => {
+                e.stopPropagation();
+                onExtract(mod);
+              },
+              disabled: pending,
+              className: "btn-primary mt-2 px-3 py-1.5 text-xs",
+              children: pending ? "⏳ Extracting…" : "📤 Extract to Mods"
+            }
+          )
+        ] })
+      ]
+    }
+  );
+}
+function ModCard$1({ mod, pending, onToggle, onOpen, catalogMeta }) {
   const creatorName = catalogMeta?.creatorName;
   const imageUrl = catalogMeta?.imageUrl;
   const tags = catalogMeta?.tags;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(ModThumbnail, { absPath: mod.thumbnail?.path ?? null, imageUrl }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight truncate", title: mod.name, children: mod.name }),
-      (creatorName || mod.author) && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-purple-400 text-xs truncate", title: creatorName || mod.author, children: creatorName || mod.author }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mt-1 flex-wrap", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-xs px-1.5 py-0.5 rounded font-mono ${TYPE_COLOR[mod.type]}`, children: TYPE_LABEL[mod.type] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-xs px-1.5 py-0.5 rounded ${mod.enabled ? "bg-green-800 text-green-200" : "bg-red-900 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" })
-      ] }),
-      tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1 mt-1", children: tags.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300", children: t2 }, t2)) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-1", children: formatBytes(mod.size) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          onClick: () => onToggle(mod),
-          disabled: pending,
-          className: `mt-2 px-3 py-1.5 text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${mod.enabled ? "bg-red-700 hover:bg-red-600 text-white" : "bg-green-700 hover:bg-green-600 text-white"}`,
-          children: pending ? "…" : mod.enabled ? "Disable" : "Enable"
-        }
-      )
-    ] })
-  ] });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      onClick: () => onOpen(mod),
+      className: `card card-hover flex flex-col fade-in-up cursor-pointer ${mod.enabled ? "" : "opacity-70 saturate-50"}`,
+      title: "Click for details",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(ModThumbnail, { absPath: mod.thumbnail?.path ?? null, imageUrl }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1.5 flex-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight truncate", title: mod.name, children: mod.name }),
+          (creatorName || mod.author) && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-violet-400 text-xs truncate", title: creatorName || mod.author, children: creatorName || mod.author }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 flex-wrap", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge font-mono ${TYPE_COLOR[mod.type]}`, children: TYPE_LABEL[mod.type] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge ${mod.enabled ? "bg-emerald-800/50 text-emerald-300" : "bg-red-900/50 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" })
+          ] }),
+          tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1", children: tags.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/5 text-gray-400", children: t2 }, t2)) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs", children: formatBytes(mod.size) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: (e) => {
+                e.stopPropagation();
+                onToggle(mod);
+              },
+              disabled: pending,
+              className: `${mod.enabled ? "btn-danger" : "btn-success"} mt-2 px-3 py-1.5 text-xs`,
+              children: pending ? "…" : mod.enabled ? "Disable" : "Enable"
+            }
+          )
+        ] })
+      ]
+    }
+  );
 }
 function LocalMods({ modsFolder }) {
   const [state, setState] = reactExports.useState("idle");
   const [result, setResult] = reactExports.useState(null);
   const [errorMsg, setErrorMsg] = reactExports.useState(null);
-  const [togglingPath, setTogglingPath] = reactExports.useState(null);
-  const [toggleError, setToggleError] = reactExports.useState(null);
+  const [busyPath, setBusyPath] = reactExports.useState(null);
+  const [actionError, setActionError] = reactExports.useState(null);
   const [catalog, setCatalog] = reactExports.useState({ creators: [], items: [] });
+  const [query, setQuery] = reactExports.useState("");
+  const [filter, setFilter] = reactExports.useState("all");
+  const [sort, setSort] = reactExports.useState("name");
+  const [selectedMod, setSelectedMod] = reactExports.useState(null);
   reactExports.useEffect(() => {
     window.api.getCatalog().then((cat) => {
       if (cat) setCatalog(cat);
@@ -7144,14 +7390,6 @@ function LocalMods({ modsFolder }) {
     }
     return null;
   }, [catalog.items, creatorMap]);
-  reactExports.useEffect(() => {
-    window.api.getCachedLocalMods().then((mods) => {
-      if (Array.isArray(mods) && mods.length > 0) {
-        setResult({ mods, count: mods.length, errors: [], scannedAt: null });
-        setState("done");
-      }
-    });
-  }, []);
   const scan = reactExports.useCallback(async () => {
     setState("loading");
     setErrorMsg(null);
@@ -7169,13 +7407,29 @@ function LocalMods({ modsFolder }) {
       setState("error");
     }
   }, []);
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    window.api.getCachedLocalMods().then((mods) => {
+      if (cancelled) return;
+      if (Array.isArray(mods) && mods.length > 0) {
+        setResult({ mods, count: mods.length, errors: [], scannedAt: null });
+        setState("done");
+      } else {
+        scan();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [scan]);
   const handleToggle = reactExports.useCallback(async (mod) => {
-    setToggleError(null);
-    setTogglingPath(mod.filePath);
+    if (busyPath) return;
+    setActionError(null);
+    setBusyPath(mod.filePath);
     try {
       const res = await window.api.toggleLocalModEnabled(mod.filePath, !mod.enabled);
       if (!res.ok) {
-        setToggleError(res.error?.message ?? "Toggle failed.");
+        setActionError(res.error?.message ?? "Toggle failed.");
         return;
       }
       setResult((prev) => {
@@ -7186,109 +7440,215 @@ function LocalMods({ modsFolder }) {
         return { ...prev, mods, count: mods.length };
       });
     } catch (err) {
-      setToggleError(err.message);
+      setActionError(err.message);
     } finally {
-      setTogglingPath(null);
+      setBusyPath((p2) => p2 === mod.filePath ? null : p2);
     }
-  }, []);
+  }, [busyPath]);
+  const handleExtract = reactExports.useCallback(async (mod) => {
+    if (busyPath) return;
+    setActionError(null);
+    setBusyPath(mod.filePath);
+    try {
+      const res = await window.api.extractLocalArchive(mod.filePath);
+      if (!res.ok) {
+        setActionError(res.error ?? "Extraction failed.");
+        return;
+      }
+      await scan();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setBusyPath((p2) => p2 === mod.filePath ? null : p2);
+    }
+  }, [busyPath, scan]);
+  const visibleMods = reactExports.useMemo(() => {
+    let mods = result?.mods ?? [];
+    const q2 = query.trim().toLowerCase();
+    if (q2) {
+      mods = mods.filter(
+        (m2) => m2.name?.toLowerCase().includes(q2) || m2.author?.toLowerCase().includes(q2) || m2.fileName?.toLowerCase().includes(q2)
+      );
+    }
+    if (filter === "enabled") mods = mods.filter((m2) => m2.enabled && m2.type !== "archive");
+    else if (filter === "disabled") mods = mods.filter((m2) => !m2.enabled && m2.type !== "archive");
+    else if (filter !== "all") mods = mods.filter((m2) => m2.type === filter);
+    const sorted = [...mods];
+    if (sort === "name") sorted.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    else if (sort === "date") sorted.sort((a, b) => (b.modifiedAt ?? "").localeCompare(a.modifiedAt ?? ""));
+    else if (sort === "size") sorted.sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+    return sorted;
+  }, [result, query, filter, sort]);
+  const archiveCount = reactExports.useMemo(
+    () => (result?.mods ?? []).filter((m2) => m2.type === "archive").length,
+    [result]
+  );
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between px-8 py-5 border-b border-gray-800 shrink-0", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white", children: "Local Mods" }),
-        modsFolder && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-0.5 truncate max-w-lg", title: modsFolder, children: modsFolder })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5 shrink-0", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Local Mods" }),
+          modsFolder && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle truncate max-w-lg", title: modsFolder, children: modsFolder })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: scan,
+            disabled: state === "loading",
+            className: "btn-primary px-4 py-2 text-sm",
+            children: state === "loading" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" }),
+              "Scanning…"
+            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: "🔄 Rescan" })
+          }
+        )
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          onClick: scan,
-          disabled: state === "loading",
-          className: "flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors",
-          children: state === "loading" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" }),
-            "Scanning…"
-          ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-            "🔍 ",
-            state === "done" ? "Refresh" : "Scan Mods"
-          ] })
-        }
-      )
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-wrap", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              value: query,
+              onChange: (e) => setQuery(e.target.value),
+              placeholder: "Search name, author, file…",
+              className: "input w-72 pl-9 pr-3 py-2"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-1.5 flex-wrap", children: FILTERS.map((f2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            onClick: () => setFilter(f2.id),
+            className: `chip ${filter === f2.id ? "chip-active" : ""}`,
+            children: [
+              f2.label,
+              f2.id === "archive" && archiveCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-amber-600/40 text-amber-200 ml-1", children: archiveCount })
+            ]
+          },
+          f2.id
+        )) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 ml-auto", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-600 text-xs", children: "Sort:" }),
+          SORTS.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: () => setSort(s.id),
+              className: `chip ${sort === s.id ? "chip-active" : ""}`,
+              children: s.label
+            },
+            s.id
+          ))
+        ] })
+      ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: [
-      state === "error" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm", children: [
+      state === "error" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 banner-error", children: [
         "⚠️ ",
         errorMsg
       ] }),
-      state === "done" && result?.errors?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 px-4 py-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-300 text-xs", children: [
+      state === "done" && result?.errors?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 banner-warn", children: [
         result.errors.length,
         " file(s) had errors during scan."
       ] }),
-      toggleError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm flex items-center justify-between", children: [
+      actionError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 banner-error flex items-center justify-between", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
           "⚠️ ",
-          toggleError
+          actionError
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setToggleError(null), className: "text-red-400 hover:text-red-200 text-xs", children: "✕" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setActionError(null), className: "text-red-400 hover:text-red-200 text-xs", children: "✕" })
       ] }),
-      state === "idle" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "📂" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm", children: [
-          "Press ",
-          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "text-gray-400", children: "Scan Mods" }),
-          " to load your local mods."
-        ] })
-      ] }),
-      state === "loading" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-500 gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin text-4xl inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Scanning mods folder…" })
-      ] }),
+      state === "loading" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "grid gap-4",
+          style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" },
+          children: Array.from({ length: 10 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 skeleton" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-4 w-3/4 skeleton rounded" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-1/3 skeleton rounded" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-full skeleton rounded mt-2" })
+            ] })
+          ] }, i))
+        }
+      ),
       state === "done" && result?.count === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🗂️" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No mods found in this folder." })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No mods found in this folder." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-700", children: "Download something from the CurseForge tab to get started." })
       ] }),
-      state === "done" && result?.count > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      state === "done" && result?.count > 0 && visibleMods.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🔍" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Nothing matches your search or filter." })
+      ] }),
+      state === "done" && visibleMods.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+          visibleMods.length,
+          " of ",
           result.count,
-          " mod",
+          " item",
           result.count !== 1 ? "s" : "",
-          " found",
           result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: result.mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-          ModCard$1,
-          {
-            mod,
-            pending: togglingPath === mod.filePath,
-            onToggle: handleToggle,
-            catalogMeta: catalogMetaFor(mod.fileName)
-          },
-          mod.id
-        )) })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: visibleMods.map(
+          (mod) => mod.type === "archive" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            ArchiveCard,
+            {
+              mod,
+              pending: busyPath === mod.filePath,
+              onExtract: handleExtract,
+              onOpen: setSelectedMod
+            },
+            mod.id
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+            ModCard$1,
+            {
+              mod,
+              pending: busyPath === mod.filePath,
+              onToggle: handleToggle,
+              onOpen: setSelectedMod,
+              catalogMeta: catalogMetaFor(mod.fileName)
+            },
+            mod.id
+          )
+        ) })
       ] })
-    ] })
+    ] }),
+    selectedMod && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      LocalModDetail,
+      {
+        mod: selectedMod,
+        catalogMeta: catalogMetaFor(selectedMod.fileName),
+        onToggle: handleToggle,
+        onClose: () => setSelectedMod(null)
+      }
+    )
   ] });
 }
 const LINK_LABELS = {
-  patreon: { label: "Patreon", icon: "💰", color: "bg-orange-700 hover:bg-orange-600" },
-  tumblr: { label: "Tumblr", icon: "📝", color: "bg-blue-700 hover:bg-blue-600" },
-  twitter: { label: "Twitter", icon: "🐦", color: "bg-sky-700 hover:bg-sky-600" },
-  website: { label: "Website", icon: "🌐", color: "bg-gray-700 hover:bg-gray-600" },
-  discord: { label: "Discord", icon: "💬", color: "bg-indigo-700 hover:bg-indigo-600" },
-  youtube: { label: "YouTube", icon: "▶️", color: "bg-red-700 hover:bg-red-600" }
+  patreon: { label: "Patreon", icon: "💰", color: "bg-orange-600/80 hover:bg-orange-500" },
+  tumblr: { label: "Tumblr", icon: "📝", color: "bg-blue-600/80 hover:bg-blue-500" },
+  twitter: { label: "Twitter", icon: "🐦", color: "bg-sky-600/80 hover:bg-sky-500" },
+  website: { label: "Website", icon: "🌐", color: "bg-gray-600/80 hover:bg-gray-500" },
+  discord: { label: "Discord", icon: "💬", color: "bg-indigo-600/80 hover:bg-indigo-500" },
+  youtube: { label: "YouTube", icon: "▶️", color: "bg-red-600/80 hover:bg-red-500" }
 };
 function CreatorCard({ creator }) {
   const links = Object.entries(creator.links ?? {}).filter(([, url]) => url);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg p-4 flex flex-col gap-3", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card card-hover fade-in-up p-4 flex flex-col gap-3", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-xl font-bold text-white shrink-0", children: creator.name?.charAt(0)?.toUpperCase() ?? "?" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-md shadow-violet-950/50", children: creator.name?.charAt(0)?.toUpperCase() ?? "?" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-white font-semibold text-sm leading-tight truncate", title: creator.name, children: creator.name })
     ] }),
     links.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: links.map(([key, url]) => {
-      const meta = LINK_LABELS[key] ?? { label: key, icon: "🔗", color: "bg-gray-700 hover:bg-gray-600" };
+      const meta = LINK_LABELS[key] ?? { label: key, icon: "🔗", color: "bg-gray-600/80 hover:bg-gray-500" };
       return /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "button",
         {
           onClick: () => window.api.openExternal(url),
-          className: `flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded text-white transition-colors ${meta.color}`,
+          className: `flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg text-white transition-colors ${meta.color}`,
           title: url,
           children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: meta.icon }),
@@ -7305,11 +7665,9 @@ function Creators() {
   const [isLoading, setIsLoading] = reactExports.useState(true);
   reactExports.useEffect(() => {
     async function loadData() {
-      console.log("Renderer: Calling window.api.getCatalog...");
       setIsLoading(true);
       try {
         const data = await window.api.getCatalog();
-        console.log("Fetched catalog data in UI:", data);
         if (data) setCatalog(data);
       } catch (err) {
         console.error("Failed to load catalog:", err);
@@ -7320,31 +7678,147 @@ function Creators() {
     loadData();
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 py-5 border-b border-gray-800 shrink-0", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white", children: "Creators" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-0.5", children: "Browse all creators from the catalog" })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5 shrink-0", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Creators" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Browse all creators from the catalog" })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("pre", { className: "text-xs text-green-400 bg-black/50 p-2 rounded mb-4 max-h-40 overflow-auto", children: JSON.stringify(catalog, null, 2) }),
-      isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-500 gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin text-4xl inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading creators…" })
-      ] }) : (catalog?.creators ?? []).length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🎨" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No creators found in the catalog." })
-      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
-          (catalog?.creators ?? []).length,
-          " creator",
-          (catalog?.creators ?? []).length !== 1 ? "s" : ""
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-500 gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Loading creators…" })
+    ] }) : (catalog?.creators ?? []).length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🎨" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "No creators found in the catalog." })
+    ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+        (catalog?.creators ?? []).length,
+        " creator",
+        (catalog?.creators ?? []).length !== 1 ? "s" : ""
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }, children: (catalog?.creators ?? []).map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx(CreatorCard, { creator: c }, c.id ?? c.name)) })
+    ] }) })
+  ] });
+}
+function DownloadButton({ mod, installed, onInstalled, className = "" }) {
+  const [dlState, setDlState] = reactExports.useState("idle");
+  const onDownload = async (e) => {
+    e?.stopPropagation();
+    if (dlState === "downloading") return;
+    setDlState("downloading");
+    try {
+      const res = await window.api.downloadCurseForgeMod(mod);
+      if (res?.ok) {
+        setDlState("done");
+        onInstalled?.(mod.id);
+      } else {
+        console.error("[CurseForge] Download failed:", res?.error);
+        setDlState("error");
+      }
+    } catch (err) {
+      console.error("[CurseForge] Download threw:", err);
+      setDlState("error");
+    }
+  };
+  const label = dlState === "downloading" ? "⏳ Downloading…" : dlState === "done" ? "✓ Downloaded!" : dlState === "error" ? "⚠ Failed — retry" : installed ? "↻ Re-download" : "⬇ Download";
+  const stateClass = dlState === "downloading" ? "btn-ghost cursor-wait" : dlState === "done" ? "btn-success cursor-default" : dlState === "error" ? "btn-danger" : installed ? "btn-ghost" : "btn-primary";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "button",
+    {
+      onClick: onDownload,
+      disabled: dlState === "downloading",
+      className: `${stateClass} ${className}`,
+      children: label
+    }
+  );
+}
+const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+);
+function Stat({ icon, label, value }) {
+  if (!value) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-500 text-[11px] uppercase tracking-wide", children: label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-200 text-sm", children: [
+      icon,
+      " ",
+      value
+    ] })
+  ] });
+}
+function CurseForgeModDetail({ mod, installed, onInstalled, onClose }) {
+  const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER;
+  const author = mod?.authors?.[0]?.name || "Unknown";
+  const file = mod?.latestFiles?.[0];
+  const size = formatBytes(file?.fileLength);
+  const downloads = formatCount(mod?.downloadCount);
+  const updated = formatDate(mod?.dateModified);
+  const gameVersion = file?.gameVersions?.find((v2) => /^\d/.test(v2)) || file?.gameVersions?.[0];
+  const categories = mod?.categories ?? [];
+  const screenshots = (mod?.screenshots ?? []).slice(0, 6);
+  const websiteUrl = mod?.links?.websiteUrl;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(Modal, { onClose, maxWidth: "max-w-3xl", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: banner, alt: mod.name, className: "w-full h-52 object-cover bg-[#181b2a]" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-5", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3 flex-wrap", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold text-white leading-tight flex-1", children: mod.name }),
+          installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/90 text-white shrink-0", children: "✓ Installed" })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }, children: (catalog?.creators ?? []).map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx(CreatorCard, { creator: c }, c.id ?? c.name)) })
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-violet-400 text-sm mt-1", children: [
+          "by ",
+          author
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "⬇", label: "Downloads", value: downloads }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "💾", label: "File size", value: size }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🗓", label: "Updated", value: updated }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🎮", label: "Game ver.", value: gameVersion })
+      ] }),
+      mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-300 text-sm leading-relaxed", children: mod.summary }),
+      categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "chip !cursor-default", children: [
+        c.iconUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: c.iconUrl, alt: "", className: "w-3.5 h-3.5" }),
+        c.name
+      ] }, c.id ?? c.name)) }),
+      screenshots.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: "Screenshots" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto pb-1", children: screenshots.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: s.thumbnailUrl || s.url,
+            alt: s.title || "screenshot",
+            title: s.title || "Open full size",
+            onClick: () => s.url && window.api.openExternal(s.url),
+            className: "h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 transition-colors shrink-0"
+          },
+          s.id ?? s.url
+        )) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          DownloadButton,
+          {
+            mod,
+            installed,
+            onInstalled,
+            className: "px-4 py-2 text-sm"
+          }
+        ),
+        websiteUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: () => window.api.openExternal(websiteUrl),
+            className: "btn-ghost px-4 py-2 text-sm",
+            children: "🔗 Open on CurseForge"
+          }
+        )
       ] })
     ] })
   ] });
 }
 const DEBOUNCE_MS = 500;
 const SKELETON_COUNT = 10;
+const PAGE_SIZE = 50;
+const MAX_RESULT_WINDOW = 1e4;
 const PLACEHOLDER_THUMB = "data:image/svg+xml," + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
 );
@@ -7355,87 +7829,188 @@ function getAuthor(mod) {
   return mod?.authors?.[0]?.name || "Unknown";
 }
 function SkeletonCard() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col animate-pulse", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 bg-gray-800" }),
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card flex flex-col", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-32 skeleton" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-2 flex-1", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-4 w-3/4 bg-gray-800 rounded" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-1/3 bg-gray-800 rounded" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-full bg-gray-800 rounded mt-1" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-5/6 bg-gray-800 rounded" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-full bg-gray-800 rounded mt-3" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-4 w-3/4 skeleton rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-1/3 skeleton rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-full skeleton rounded mt-1" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-5/6 skeleton rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-full skeleton rounded mt-3" })
     ] })
   ] });
 }
-function ModCard({ mod }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col transition-colors hover:border-purple-600/60 hover:bg-gray-800/60", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "img",
-      {
-        src: getThumbnail(mod),
-        alt: mod.name,
-        loading: "lazy",
-        className: "w-full h-32 object-cover bg-gray-800"
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight line-clamp-2", title: mod.name, children: mod.name }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-purple-400 text-xs truncate", title: getAuthor(mod), children: getAuthor(mod) }),
-      mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs leading-snug line-clamp-3 mt-1", title: mod.summary, children: mod.summary }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          onClick: () => console.log("[CurseForge] Download requested:", mod.id, mod.name),
-          className: "mt-3 px-3 py-1.5 text-xs font-medium rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors",
-          children: "⬇ Download"
-        }
-      )
-    ] })
-  ] });
+function ModCard({ mod, installed, onInstalled, onOpen }) {
+  const size = formatBytes(mod.latestFiles?.[0]?.fileLength);
+  const downloads = formatCount(mod.downloadCount);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      onClick: () => onOpen(mod),
+      className: `card card-hover fade-in-up flex flex-col cursor-pointer ${installed ? "ring-1 ring-emerald-500/40" : ""}`,
+      title: "Click for details",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "img",
+            {
+              src: getThumbnail(mod),
+              alt: mod.name,
+              loading: "lazy",
+              className: "w-full h-32 object-cover bg-[#181b2a]"
+            }
+          ),
+          installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-600/90 text-white shadow-md shadow-emerald-950/40 backdrop-blur-sm", children: "✓ Installed" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight line-clamp-2", title: mod.name, children: mod.name }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-violet-400 text-xs truncate", title: getAuthor(mod), children: getAuthor(mod) }),
+          mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs leading-snug line-clamp-3 mt-1", title: mod.summary, children: mod.summary }),
+          (size || downloads) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 mt-1 text-gray-500 text-[11px]", children: [
+            downloads && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: `${mod.downloadCount?.toLocaleString()} downloads`, children: [
+              "⬇ ",
+              downloads
+            ] }),
+            size && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: "File size", children: [
+              "💾 ",
+              size
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            DownloadButton,
+            {
+              mod,
+              installed,
+              onInstalled,
+              className: "mt-3 px-3 py-1.5 text-xs"
+            }
+          )
+        ] })
+      ]
+    }
+  );
 }
 function CurseForgeBrowser() {
   const [searchQuery, setSearchQuery] = reactExports.useState("");
+  const [displayedFilter, setDisplayedFilter] = reactExports.useState("");
   const [mods, setMods] = reactExports.useState([]);
+  const [pageIndex, setPageIndex] = reactExports.useState(0);
+  const [totalCount, setTotalCount] = reactExports.useState(null);
+  const [hasMore, setHasMore] = reactExports.useState(true);
   const [isLoading, setIsLoading] = reactExports.useState(true);
+  const [isLoadingMore, setIsLoadingMore] = reactExports.useState(false);
   const [isError, setIsError] = reactExports.useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = reactExports.useState(false);
+  const [downloadedIds, setDownloadedIds] = reactExports.useState(() => /* @__PURE__ */ new Set());
+  const [selectedMod, setSelectedMod] = reactExports.useState(null);
   const reqIdRef = reactExports.useRef(0);
   const timerRef = reactExports.useRef(null);
-  const fetchMods = (filter) => {
+  const activeFilterRef = reactExports.useRef("");
+  const scrollRootRef = reactExports.useRef(null);
+  const loadMoreRef = reactExports.useRef(null);
+  const fetchPage = reactExports.useCallback((filter, page) => {
     const reqId = ++reqIdRef.current;
-    setIsLoading(true);
-    setIsError(false);
-    window.api.searchCurseForge({ searchFilter: filter }).then((res) => {
+    const append = page > 0;
+    if (append) {
+      setIsLoadingMore(true);
+      setLoadMoreFailed(false);
+    } else {
+      activeFilterRef.current = filter;
+      setIsLoading(true);
+      setIsLoadingMore(false);
+      setIsError(false);
+      setLoadMoreFailed(false);
+      setHasMore(true);
+    }
+    window.api.searchCurseForge({ searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE }).then((res) => {
       if (reqId !== reqIdRef.current) return;
       if (res?.error) {
-        setIsError(true);
-        setMods([]);
-      } else {
-        setMods(res?.data ?? []);
+        if (append) {
+          setLoadMoreFailed(true);
+        } else {
+          setIsError(true);
+          setMods([]);
+        }
+        return;
       }
+      const newMods = res?.data ?? [];
+      const total = res?.pagination?.totalCount ?? null;
+      setPageIndex(page);
+      setTotalCount(total);
+      if (!append) setDisplayedFilter(filter);
+      setMods((prev) => {
+        if (!append) return newMods;
+        const seen = new Set(prev.map((m2) => m2.id));
+        return [...prev, ...newMods.filter((m2) => !seen.has(m2.id))];
+      });
+      const nextIndex = (page + 1) * PAGE_SIZE;
+      setHasMore(
+        newMods.length === PAGE_SIZE && nextIndex + PAGE_SIZE <= MAX_RESULT_WINDOW && (total == null || nextIndex < total)
+      );
     }).catch(() => {
       if (reqId !== reqIdRef.current) return;
-      setIsError(true);
-      setMods([]);
+      if (append) {
+        setLoadMoreFailed(true);
+      } else {
+        setIsError(true);
+        setMods([]);
+      }
     }).finally(() => {
-      if (reqId === reqIdRef.current) setIsLoading(false);
+      if (reqId !== reqIdRef.current) return;
+      if (append) setIsLoadingMore(false);
+      else setIsLoading(false);
     });
-  };
+  }, []);
   reactExports.useEffect(() => {
-    fetchMods("");
+    fetchPage("", 0);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
+  }, [fetchPage]);
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    window.api.getDownloadedCurseForge?.().then((rec) => {
+      if (!cancelled && rec) setDownloadedIds(new Set(Object.keys(rec).map(Number)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const markInstalled = reactExports.useCallback((id2) => {
+    setDownloadedIds((prev) => {
+      if (prev.has(id2)) return prev;
+      const next = new Set(prev);
+      next.add(id2);
+      return next;
+    });
   }, []);
   const onSearchChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => fetchMods(value), DEBOUNCE_MS);
+    timerRef.current = setTimeout(() => fetchPage(value, 0), DEBOUNCE_MS);
   };
+  reactExports.useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        if (isLoading || isLoadingMore || isError || loadMoreFailed || !hasMore) return;
+        fetchPage(activeFilterRef.current, pageIndex + 1);
+      },
+      // ponytail: 300px rootMargin prefetches the next page just before the user
+      // reaches the bottom, so scrolling feels continuous
+      { root: scrollRootRef.current, rootMargin: "300px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [pageIndex, isLoading, isLoadingMore, hasMore, isError, loadMoreFailed, mods.length, fetchPage]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-gray-800", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white", children: "CurseForge" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs mt-0.5", children: "Browse and download Sims 4 mods from CurseForge" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "CurseForge" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Browse and download Sims 4 mods from CurseForge" })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
@@ -7446,13 +8021,13 @@ function CurseForgeBrowser() {
             value: searchQuery,
             onChange: onSearchChange,
             placeholder: "Search mods…",
-            className: "w-full max-w-md bg-gray-900 border border-gray-700 focus:border-purple-600 focus:outline-none rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 transition-colors"
+            className: "input w-full max-w-md pl-9 pr-3 py-2"
           }
         )
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: [
-      isError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm", children: "⚠️ Failed to fetch mods from CurseForge. Check your API key and network connection." }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: scrollRootRef, className: "flex-1 overflow-y-auto px-8 py-6", children: [
+      isError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 banner-error", children: "⚠️ Failed to fetch mods from CurseForge. Check your API key and network connection." }),
       isLoading && /* @__PURE__ */ jsxRuntimeExports.jsx(
         "div",
         {
@@ -7465,33 +8040,81 @@ function CurseForgeBrowser() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🔍" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm", children: [
           "No mods found",
-          searchQuery ? ` for "${searchQuery}"` : "",
+          displayedFilter ? ` for "${displayedFilter}"` : "",
           "."
         ] })
       ] }),
       !isLoading && !isError && mods.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
-          mods.length,
-          " mod",
-          mods.length !== 1 ? "s" : "",
-          searchQuery && ` · results for "${searchQuery}"`
+          totalCount != null && totalCount > mods.length ? `Showing ${mods.length.toLocaleString()} of ${totalCount.toLocaleString()} mods` : `${mods.length.toLocaleString()} mod${mods.length !== 1 ? "s" : ""}`,
+          displayedFilter && ` · results for "${displayedFilter}"`,
+          (() => {
+            const n2 = mods.reduce((c, m2) => c + (downloadedIds.has(m2.id) ? 1 : 0), 0);
+            return n2 > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-emerald-400", children: [
+              " · ",
+              n2,
+              " installed"
+            ] }) : null;
+          })()
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           "div",
           {
             className: "grid gap-4",
             style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" },
-            children: mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(ModCard, { mod }, mod.id ?? mod.name))
+            children: mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              ModCard,
+              {
+                mod,
+                installed: downloadedIds.has(mod.id),
+                onInstalled: markInstalled,
+                onOpen: setSelectedMod
+              },
+              mod.id ?? mod.name
+            ))
           }
-        )
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { id: "load-more-trigger", ref: loadMoreRef, className: "h-px" }),
+        isLoadingMore && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-center gap-2 py-6 text-gray-500 text-xs", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-block w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" }),
+          "Loading more mods…"
+        ] }),
+        loadMoreFailed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center gap-2 py-6", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-red-400 text-xs", children: "⚠️ Failed to load more mods." }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: () => fetchPage(activeFilterRef.current, pageIndex + 1),
+              className: "btn-danger px-3 py-1.5 text-xs",
+              children: "Retry"
+            }
+          )
+        ] }),
+        !hasMore && !isLoadingMore && !loadMoreFailed && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-center text-gray-600 text-xs py-6", children: "— End of results —" })
       ] })
-    ] })
+    ] }),
+    selectedMod && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      CurseForgeModDetail,
+      {
+        mod: selectedMod,
+        installed: downloadedIds.has(selectedMod.id),
+        onInstalled: markInstalled,
+        onClose: () => setSelectedMod(null)
+      }
+    )
   ] });
 }
 function CustomCatalog() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-8", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white mb-2", children: "Custom Catalog" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-sm", children: "Coming in Phase 3." })
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5 shrink-0", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Custom Catalog" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Curated creator collections" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 flex items-center justify-center px-8", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-10 text-center max-w-sm fade-in-up", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-5xl mb-4", children: "📚" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold mb-1", children: "Coming soon" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-sm leading-relaxed", children: "A hand-picked catalog of creators and collections is on its way." })
+    ] }) })
   ] });
 }
 function Settings({ modsFolder, onFolderChanged }) {
@@ -7525,46 +8148,51 @@ function Settings({ modsFolder, onFolderChanged }) {
     }
     setTimeout(() => setCacheStatus(null), 5e3);
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-8 max-w-2xl", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-2xl font-bold text-white mb-8", children: "Settings" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-8", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Mods Folder" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg p-4", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-500 mb-1", children: "Current path" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-200 font-mono text-sm break-all mb-4", children: modsFolder ?? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-400", children: "Not configured" }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            onClick: handleChangeFolder,
-            disabled: folderLoading,
-            className: "bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm\r\n              font-medium py-2 px-4 rounded-lg transition-colors",
-            children: folderLoading ? "Opening…" : "📁 Change Mods Folder"
-          }
-        )
-      ] })
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5 shrink-0", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Settings" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Configure folders and maintenance actions" })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Game Cache" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-900 border border-gray-700 rounded-lg p-4", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 text-sm mb-4 leading-relaxed", children: [
-          "Deletes ",
-          /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-purple-300 bg-gray-800 px-1 rounded", children: "localthumbcache.package" }),
-          " from your Sims 4 folder. The game will regenerate it on next launch. Do this after installing or removing mods to fix thumbnail glitches."
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            onClick: handleClearCache,
-            disabled: cacheStatus === "loading" || !modsFolder,
-            className: "bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed\r\n              text-white font-semibold py-2 px-5 rounded-lg transition-colors text-sm",
-            children: cacheStatus === "loading" ? "🗑️ Deleting…" : "🗑️ Clear Game Cache"
-          }
-        ),
-        !modsFolder && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-yellow-500 text-xs", children: "Configure your Mods folder first." }),
-        cacheStatus && cacheStatus !== "loading" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `mt-4 text-sm px-4 py-2 rounded-lg border ${cacheStatus.success ? "text-green-300 bg-green-950 border-green-800" : "text-red-300 bg-red-950 border-red-800"}`, children: [
-          cacheStatus.success ? "✅" : "❌",
-          " ",
-          cacheStatus.msg
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6 max-w-2xl", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-6 fade-in-up", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Mods Folder" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-gray-500 mb-1", children: "Current path" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-200 font-mono text-sm break-all mb-4", children: modsFolder ?? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-400", children: "Not configured" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: handleChangeFolder,
+              disabled: folderLoading,
+              className: "btn-ghost py-2 px-4 text-sm",
+              children: folderLoading ? "Opening…" : "📁 Change Mods Folder"
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "fade-in-up", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Game Cache" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 text-sm mb-4 leading-relaxed", children: [
+            "Deletes ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-violet-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded", children: "localthumbcache.package" }),
+            " from your Sims 4 folder. The game will regenerate it on next launch. Do this after installing or removing mods to fix thumbnail glitches."
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: handleClearCache,
+              disabled: cacheStatus === "loading" || !modsFolder,
+              className: "btn-danger py-2 px-5 text-sm font-semibold",
+              children: cacheStatus === "loading" ? "🗑️ Deleting…" : "🗑️ Clear Game Cache"
+            }
+          ),
+          !modsFolder && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-amber-400 text-xs", children: "Configure your Mods folder first." }),
+          cacheStatus && cacheStatus !== "loading" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `mt-4 text-sm px-4 py-2 rounded-xl border ${cacheStatus.success ? "text-emerald-300 bg-emerald-950/50 border-emerald-800/60" : "text-red-300 bg-red-950/60 border-red-800/60"}`, children: [
+            cacheStatus.success ? "✅" : "❌",
+            " ",
+            cacheStatus.msg
+          ] })
         ] })
       ] })
     ] })

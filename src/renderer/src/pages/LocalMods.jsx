@@ -1,31 +1,49 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import LocalModDetail from '../components/LocalModDetail'
+import { formatBytes } from '../lib/format'
 
-const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', unknown: '?' }
-const TYPE_COLOR = { package: 'bg-purple-700', ts4script: 'bg-blue-700', unknown: 'bg-gray-600' }
-
-function formatBytes(n) {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(2)} MB`
+const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', archive: '.zip', unknown: '?' }
+const TYPE_COLOR = {
+  package: 'bg-violet-600/30 text-violet-200',
+  ts4script: 'bg-sky-600/30 text-sky-200',
+  archive: 'bg-amber-600/30 text-amber-200',
+  unknown: 'bg-gray-700 text-gray-300'
 }
+
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'enabled', label: 'Enabled' },
+  { id: 'disabled', label: 'Disabled' },
+  { id: 'package', label: 'Packages' },
+  { id: 'ts4script', label: 'Scripts' },
+  { id: 'archive', label: 'Archives' }
+]
+
+const SORTS = [
+  { id: 'name', label: 'Name' },
+  { id: 'date', label: 'Newest' },
+  { id: 'size', label: 'Size' }
+]
 
 function ModThumbnail({ absPath, imageUrl }) {
   const [url, setUrl] = useState(null)
   const [tried, setTried] = useState(false)
+  const [remoteFailed, setRemoteFailed] = useState(false)
 
-  // Remote catalog image takes priority
-  if (imageUrl) {
+  // Remote catalog image takes priority — until it 404s, then fall through to local
+  if (imageUrl && !remoteFailed) {
     return (
       <img
         src={imageUrl}
         alt="thumbnail"
-        className="w-full h-32 object-cover rounded-t-lg"
-        onError={() => setUrl(null)}
+        loading="lazy"
+        className="w-full h-32 object-cover"
+        onError={() => setRemoteFailed(true)}
       />
     )
   }
 
-  // Lazy-resolve the file:// URL via preload on first render
+  // Lazy-resolve the modimg:// URL via preload on first render
   if (!tried && absPath) {
     setTried(true)
     window.api.getImageUrl(absPath).then(u => setUrl(u))
@@ -36,72 +54,105 @@ function ModThumbnail({ absPath, imageUrl }) {
       <img
         src={url}
         alt="thumbnail"
-        className="w-full h-32 object-cover rounded-t-lg"
+        loading="lazy"
+        className="w-full h-32 object-cover"
         onError={() => setUrl(null)}
       />
     )
   }
 
   return (
-    <div className="w-full h-32 rounded-t-lg bg-gray-800 flex items-center justify-center text-4xl select-none">
+    <div className="w-full h-32 bg-gradient-to-br from-[#181b2a] to-[#12141f] flex items-center justify-center text-4xl select-none">
       📦
     </div>
   )
 }
 
-function ModCard({ mod, pending, onToggle, catalogMeta }) {
+function ArchiveCard({ mod, pending, onExtract, onOpen }) {
+  return (
+    <div
+      onClick={() => onOpen(mod)}
+      className="card card-hover flex flex-col fade-in-up border-amber-500/20 cursor-pointer"
+      title="Click for details"
+    >
+      <div className="w-full h-32 bg-gradient-to-br from-amber-950/40 to-[#12141f] flex items-center justify-center text-4xl select-none">
+        🗜️
+      </div>
+      <div className="p-3 flex flex-col gap-1.5 flex-1">
+        <p className="text-white font-semibold text-sm leading-tight truncate" title={mod.name}>
+          {mod.name}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`badge font-mono ${TYPE_COLOR.archive}`}>{TYPE_LABEL.archive}</span>
+          <span className="badge bg-amber-900/40 text-amber-300">not installed</span>
+        </div>
+        <p className="text-gray-500 text-xs">{formatBytes(mod.size)}</p>
+        <p className="text-gray-600 text-xs truncate mt-auto pt-1" title={mod.relativePath}>
+          {mod.relativePath}
+        </p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onExtract(mod) }}
+          disabled={pending}
+          className="btn-primary mt-2 px-3 py-1.5 text-xs"
+        >
+          {pending ? '⏳ Extracting…' : '📤 Extract to Mods'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ModCard({ mod, pending, onToggle, onOpen, catalogMeta }) {
   const creatorName = catalogMeta?.creatorName
   const imageUrl = catalogMeta?.imageUrl
   const tags = catalogMeta?.tags
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
+    <div
+      onClick={() => onOpen(mod)}
+      className={`card card-hover flex flex-col fade-in-up cursor-pointer ${mod.enabled ? '' : 'opacity-70 saturate-50'}`}
+      title="Click for details"
+    >
       <ModThumbnail absPath={mod.thumbnail?.path ?? null} imageUrl={imageUrl} />
 
-      <div className="p-3 flex flex-col gap-1 flex-1">
+      <div className="p-3 flex flex-col gap-1.5 flex-1">
         <p className="text-white font-semibold text-sm leading-tight truncate" title={mod.name}>
           {mod.name}
         </p>
 
         {(creatorName || mod.author) && (
-          <p className="text-purple-400 text-xs truncate" title={creatorName || mod.author}>
+          <p className="text-violet-400 text-xs truncate" title={creatorName || mod.author}>
             {creatorName || mod.author}
           </p>
         )}
 
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${TYPE_COLOR[mod.type]}`}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`badge font-mono ${TYPE_COLOR[mod.type]}`}>
             {TYPE_LABEL[mod.type]}
           </span>
-          <span className={`text-xs px-1.5 py-0.5 rounded ${mod.enabled ? 'bg-green-800 text-green-200' : 'bg-red-900 text-red-300'}`}>
+          <span className={`badge ${mod.enabled ? 'bg-emerald-800/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}`}>
             {mod.enabled ? 'enabled' : 'disabled'}
           </span>
         </div>
 
         {tags?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
+          <div className="flex flex-wrap gap-1">
             {tags.map(t => (
-              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">
-                {t}
-              </span>
+              <span key={t} className="badge bg-white/5 text-gray-400">{t}</span>
             ))}
           </div>
         )}
 
-        <p className="text-gray-500 text-xs mt-1">{formatBytes(mod.size)}</p>
+        <p className="text-gray-500 text-xs">{formatBytes(mod.size)}</p>
 
         <p className="text-gray-600 text-xs truncate mt-auto pt-1" title={mod.relativePath}>
           {mod.relativePath}
         </p>
 
         <button
-          onClick={() => onToggle(mod)}
+          onClick={(e) => { e.stopPropagation(); onToggle(mod) }}
           disabled={pending}
-          className={`mt-2 px-3 py-1.5 text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            mod.enabled
-              ? 'bg-red-700 hover:bg-red-600 text-white'
-              : 'bg-green-700 hover:bg-green-600 text-white'
-          }`}
+          className={`${mod.enabled ? 'btn-danger' : 'btn-success'} mt-2 px-3 py-1.5 text-xs`}
         >
           {pending ? '…' : mod.enabled ? 'Disable' : 'Enable'}
         </button>
@@ -114,9 +165,13 @@ export default function LocalMods({ modsFolder }) {
   const [state, setState] = useState('idle') // idle | loading | done | error
   const [result, setResult] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
-  const [togglingPath, setTogglingPath] = useState(null) // filePath being toggled
-  const [toggleError, setToggleError] = useState(null)
+  const [busyPath, setBusyPath] = useState(null) // filePath being toggled/extracted
+  const [actionError, setActionError] = useState(null)
   const [catalog, setCatalog] = useState({ creators: [], items: [] })
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [sort, setSort] = useState('name')
+  const [selectedMod, setSelectedMod] = useState(null) // detail modal target
 
   // Fetch remote catalog on mount
   useEffect(() => {
@@ -148,16 +203,6 @@ export default function LocalMods({ modsFolder }) {
     return null
   }, [catalog.items, creatorMap])
 
-  // Restore cached mods on mount so navigating away and back keeps results
-  useEffect(() => {
-    window.api.getCachedLocalMods().then(mods => {
-      if (Array.isArray(mods) && mods.length > 0) {
-        setResult({ mods, count: mods.length, errors: [], scannedAt: null })
-        setState('done')
-      }
-    })
-  }, [])
-
   const scan = useCallback(async () => {
     setState('loading')
     setErrorMsg(null)
@@ -176,13 +221,29 @@ export default function LocalMods({ modsFolder }) {
     }
   }, [])
 
+  // On mount: restore cache if present, otherwise auto-scan — no manual button press needed
+  useEffect(() => {
+    let cancelled = false
+    window.api.getCachedLocalMods().then(mods => {
+      if (cancelled) return
+      if (Array.isArray(mods) && mods.length > 0) {
+        setResult({ mods, count: mods.length, errors: [], scannedAt: null })
+        setState('done')
+      } else {
+        scan()
+      }
+    })
+    return () => { cancelled = true }
+  }, [scan])
+
   const handleToggle = useCallback(async (mod) => {
-    setToggleError(null)
-    setTogglingPath(mod.filePath)
+    if (busyPath) return // one file action at a time
+    setActionError(null)
+    setBusyPath(mod.filePath)
     try {
       const res = await window.api.toggleLocalModEnabled(mod.filePath, !mod.enabled)
       if (!res.ok) {
-        setToggleError(res.error?.message ?? 'Toggle failed.')
+        setActionError(res.error?.message ?? 'Toggle failed.')
         return
       }
       // Replace only the toggled mod in state — match by old filePath, then use returned mod
@@ -194,39 +255,128 @@ export default function LocalMods({ modsFolder }) {
         return { ...prev, mods, count: mods.length }
       })
     } catch (err) {
-      setToggleError(err.message)
+      setActionError(err.message)
     } finally {
-      setTogglingPath(null)
+      // only release the slot if it is still ours — another action may own it now
+      setBusyPath(p => (p === mod.filePath ? null : p))
     }
-  }, [])
+  }, [busyPath])
+
+  const handleExtract = useCallback(async (mod) => {
+    if (busyPath) return // one file action at a time
+    setActionError(null)
+    setBusyPath(mod.filePath)
+    try {
+      const res = await window.api.extractLocalArchive(mod.filePath)
+      if (!res.ok) {
+        setActionError(res.error ?? 'Extraction failed.')
+        return
+      }
+      await scan() // the archive is gone, new files exist — full rescan is the honest refresh
+    } catch (err) {
+      setActionError(err.message)
+    } finally {
+      setBusyPath(p => (p === mod.filePath ? null : p))
+    }
+  }, [busyPath, scan])
+
+  // search + filter + sort pipeline
+  const visibleMods = useMemo(() => {
+    let mods = result?.mods ?? []
+    const q = query.trim().toLowerCase()
+    if (q) {
+      mods = mods.filter(m =>
+        m.name?.toLowerCase().includes(q) ||
+        m.author?.toLowerCase().includes(q) ||
+        m.fileName?.toLowerCase().includes(q)
+      )
+    }
+    if (filter === 'enabled') mods = mods.filter(m => m.enabled && m.type !== 'archive')
+    else if (filter === 'disabled') mods = mods.filter(m => !m.enabled && m.type !== 'archive')
+    else if (filter !== 'all') mods = mods.filter(m => m.type === filter)
+    const sorted = [...mods]
+    if (sort === 'name') sorted.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+    else if (sort === 'date') sorted.sort((a, b) => (b.modifiedAt ?? '').localeCompare(a.modifiedAt ?? ''))
+    else if (sort === 'size') sorted.sort((a, b) => (b.size ?? 0) - (a.size ?? 0))
+    return sorted
+  }, [result, query, filter, sort])
+
+  const archiveCount = useMemo(
+    () => (result?.mods ?? []).filter(m => m.type === 'archive').length,
+    [result]
+  )
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-gray-800 shrink-0">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Local Mods</h2>
-          {modsFolder && (
-            <p className="text-gray-500 text-xs mt-0.5 truncate max-w-lg" title={modsFolder}>
-              {modsFolder}
-            </p>
-          )}
+      <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="page-title">Local Mods</h2>
+            {modsFolder && (
+              <p className="page-subtitle truncate max-w-lg" title={modsFolder}>
+                {modsFolder}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={scan}
+            disabled={state === 'loading'}
+            className="btn-primary px-4 py-2 text-sm"
+          >
+            {state === 'loading' ? (
+              <>
+                <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Scanning…
+              </>
+            ) : (
+              <>🔄 Rescan</>
+            )}
+          </button>
         </div>
 
-        <button
-          onClick={scan}
-          disabled={state === 'loading'}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          {state === 'loading' ? (
-            <>
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              Scanning…
-            </>
-          ) : (
-            <>🔍 {state === 'done' ? 'Refresh' : 'Scan Mods'}</>
-          )}
-        </button>
+        {/* Toolbar: search / filter / sort */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search name, author, file…"
+              className="input w-72 pl-9 pr-3 py-2"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {FILTERS.map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className={`chip ${filter === f.id ? 'chip-active' : ''}`}
+              >
+                {f.label}
+                {f.id === 'archive' && archiveCount > 0 && (
+                  <span className="badge bg-amber-600/40 text-amber-200 ml-1">{archiveCount}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-gray-600 text-xs">Sort:</span>
+            {SORTS.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSort(s.id)}
+                className={`chip ${sort === s.id ? 'chip-active' : ''}`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Body */}
@@ -234,71 +384,101 @@ export default function LocalMods({ modsFolder }) {
 
         {/* Error */}
         {state === 'error' && (
-          <div className="mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm">
-            ⚠️ {errorMsg}
-          </div>
+          <div className="mb-4 banner-error">⚠️ {errorMsg}</div>
         )}
 
         {/* Scan errors (partial) */}
         {state === 'done' && result?.errors?.length > 0 && (
-          <div className="mb-4 px-4 py-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-300 text-xs">
+          <div className="mb-4 banner-warn">
             {result.errors.length} file(s) had errors during scan.
           </div>
         )}
 
-        {/* Toggle error */}
-        {toggleError && (
-          <div className="mb-4 px-4 py-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm flex items-center justify-between">
-            <span>⚠️ {toggleError}</span>
-            <button onClick={() => setToggleError(null)} className="text-red-400 hover:text-red-200 text-xs">✕</button>
-          </div>
-        )}
-
-        {/* Idle */}
-        {state === 'idle' && (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <span className="text-5xl">📂</span>
-            <p className="text-sm">Press <strong className="text-gray-400">Scan Mods</strong> to load your local mods.</p>
+        {/* Toggle / extract error */}
+        {actionError && (
+          <div className="mb-4 banner-error flex items-center justify-between">
+            <span>⚠️ {actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-200 text-xs">✕</button>
           </div>
         )}
 
         {/* Loading */}
         {state === 'loading' && (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-3">
-            <span className="animate-spin text-4xl inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full" />
-            <p className="text-sm">Scanning mods folder…</p>
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
+          >
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="card">
+                <div className="w-full h-32 skeleton" />
+                <div className="p-3 flex flex-col gap-2">
+                  <div className="h-4 w-3/4 skeleton rounded" />
+                  <div className="h-3 w-1/3 skeleton rounded" />
+                  <div className="h-8 w-full skeleton rounded mt-2" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Empty */}
+        {/* Empty scan */}
         {state === 'done' && result?.count === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <span className="text-5xl">🗂️</span>
             <p className="text-sm">No mods found in this folder.</p>
+            <p className="text-xs text-gray-700">Download something from the CurseForge tab to get started.</p>
+          </div>
+        )}
+
+        {/* Empty filter result */}
+        {state === 'done' && result?.count > 0 && visibleMods.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
+            <span className="text-5xl">🔍</span>
+            <p className="text-sm">Nothing matches your search or filter.</p>
           </div>
         )}
 
         {/* Results */}
-        {state === 'done' && result?.count > 0 && (
+        {state === 'done' && visibleMods.length > 0 && (
           <>
             <p className="text-gray-500 text-xs mb-4">
-              {result.count} mod{result.count !== 1 ? 's' : ''} found
+              {visibleMods.length} of {result.count} item{result.count !== 1 ? 's' : ''}
               {result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`}
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-              {result.mods.map(mod => (
-                <ModCard
-                  key={mod.id}
-                  mod={mod}
-                  pending={togglingPath === mod.filePath}
-                  onToggle={handleToggle}
-                  catalogMeta={catalogMetaFor(mod.fileName)}
-                />
-              ))}
+              {visibleMods.map(mod =>
+                mod.type === 'archive' ? (
+                  <ArchiveCard
+                    key={mod.id}
+                    mod={mod}
+                    pending={busyPath === mod.filePath}
+                    onExtract={handleExtract}
+                    onOpen={setSelectedMod}
+                  />
+                ) : (
+                  <ModCard
+                    key={mod.id}
+                    mod={mod}
+                    pending={busyPath === mod.filePath}
+                    onToggle={handleToggle}
+                    onOpen={setSelectedMod}
+                    catalogMeta={catalogMetaFor(mod.fileName)}
+                  />
+                )
+              )}
             </div>
           </>
         )}
       </div>
+
+      {selectedMod && (
+        <LocalModDetail
+          mod={selectedMod}
+          catalogMeta={catalogMetaFor(selectedMod.fileName)}
+          onToggle={handleToggle}
+          onClose={() => setSelectedMod(null)}
+        />
+      )}
     </div>
   )
 }
