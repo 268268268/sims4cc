@@ -5,7 +5,7 @@ import { join, dirname, resolve, sep } from 'path'
 import { readFile, writeFile, unlink, access } from 'fs/promises'
 import { pathToFileURL } from 'url'
 import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
-import { searchMods, downloadMod } from './services/curseForgeClient.js'
+import { searchMods, downloadMod, getCategories } from './services/curseForgeClient.js'
 import { extractModArchive } from './services/archiveExtractor.js'
 import { recordDownload, getDownloaded } from './services/downloadStore.js'
 import { getThumbCacheDir } from './services/dbpfThumbnail.js'
@@ -167,6 +167,11 @@ ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
 // IPC: search CurseForge mods for The Sims 4
 ipcMain.handle('curseforge:search', async (_e, params) => {
   return await searchMods(params)
+})
+
+// IPC: CurseForge category list for the browse filter
+ipcMain.handle('curseforge:categories', async () => {
+  return await getCategories()
 })
 
 // IPC: download a CurseForge mod into the configured Sims 4 Mods folder

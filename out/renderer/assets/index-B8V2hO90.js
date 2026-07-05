@@ -7730,6 +7730,91 @@ function DownloadButton({ mod, installed, onInstalled, className = "" }) {
     }
   );
 }
+function Lightbox({ images, index = 0, onClose }) {
+  const count = images.length;
+  const [i, setI] = reactExports.useState(index);
+  const [loaded, setLoaded] = reactExports.useState(false);
+  const go = reactExports.useCallback((delta) => {
+    setLoaded(false);
+    setI((x2) => (x2 + delta + count) % count);
+  }, [count]);
+  reactExports.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.stopImmediatePropagation();
+        onClose();
+      } else if (e.key === "ArrowLeft") {
+        e.stopImmediatePropagation();
+        go(-1);
+      } else if (e.key === "ArrowRight") {
+        e.stopImmediatePropagation();
+        go(1);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose, go]);
+  const img = images[i];
+  const src = img?.url || img?.thumbnailUrl;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 z-[60] flex items-center justify-center p-6 select-none", onMouseDown: onClose, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-black/90 backdrop-blur-sm" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        onClick: onClose,
+        className: "absolute top-4 right-4 z-10 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg flex items-center justify-center transition-colors",
+        title: "Close (Esc)",
+        children: "✕"
+      }
+    ),
+    count > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            go(-1);
+          },
+          className: "absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors",
+          title: "Previous (←)",
+          children: "‹"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            go(1);
+          },
+          className: "absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors",
+          title: "Next (→)",
+          children: "›"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "img",
+      {
+        src,
+        alt: img?.title || `Screenshot ${i + 1}`,
+        onMouseDown: (e) => e.stopPropagation(),
+        onLoad: () => setLoaded(true),
+        className: `relative max-h-[86vh] max-w-[92vw] object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`
+      },
+      i
+    ),
+    !loaded && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute z-0 w-8 h-8 border-2 border-white/40 border-t-transparent rounded-full animate-spin" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10", children: [
+      img?.title && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-200 text-sm max-w-lg text-center px-4 truncate", children: img.title }),
+      count > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-400 text-xs", children: [
+        i + 1,
+        " / ",
+        count
+      ] })
+    ] })
+  ] });
+}
 const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
 );
@@ -7745,6 +7830,7 @@ function Stat({ icon, label, value }) {
   ] });
 }
 function CurseForgeModDetail({ mod, installed, onInstalled, onClose }) {
+  const [lightboxIndex, setLightboxIndex] = reactExports.useState(null);
   const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER;
   const author = mod?.authors?.[0]?.name || "Unknown";
   const file = mod?.latestFiles?.[0];
@@ -7753,64 +7839,152 @@ function CurseForgeModDetail({ mod, installed, onInstalled, onClose }) {
   const updated = formatDate(mod?.dateModified);
   const gameVersion = file?.gameVersions?.find((v2) => /^\d/.test(v2)) || file?.gameVersions?.[0];
   const categories = mod?.categories ?? [];
-  const screenshots = (mod?.screenshots ?? []).slice(0, 6);
+  const screenshots = (mod?.screenshots ?? []).slice(0, 20);
   const websiteUrl = mod?.links?.websiteUrl;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(Modal, { onClose, maxWidth: "max-w-3xl", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: banner, alt: mod.name, className: "w-full h-52 object-cover bg-[#181b2a]" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-5", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3 flex-wrap", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold text-white leading-tight flex-1", children: mod.name }),
-          installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/90 text-white shrink-0", children: "✓ Installed" })
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Modal, { onClose, maxWidth: "max-w-3xl", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: banner, alt: mod.name, className: "w-full h-52 object-cover bg-[#181b2a]" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3 flex-wrap", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold text-white leading-tight flex-1", children: mod.name }),
+            installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/90 text-white shrink-0", children: "✓ Installed" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-violet-400 text-sm mt-1", children: [
+            "by ",
+            author
+          ] })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-violet-400 text-sm mt-1", children: [
-          "by ",
-          author
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "⬇", label: "Downloads", value: downloads }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "💾", label: "File size", value: size }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🗓", label: "Updated", value: updated }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🎮", label: "Game ver.", value: gameVersion })
+        ] }),
+        mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-300 text-sm leading-relaxed", children: mod.summary }),
+        categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "chip !cursor-default", children: [
+          c.iconUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: c.iconUrl, alt: "", className: "w-3.5 h-3.5" }),
+          c.name
+        ] }, c.id ?? c.name)) }),
+        screenshots.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: "Screenshots" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto pb-1", children: screenshots.map((s, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "img",
+            {
+              src: s.thumbnailUrl || s.url,
+              alt: s.title || "screenshot",
+              title: s.title || "View full size",
+              onClick: () => setLightboxIndex(idx),
+              className: "h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 hover:brightness-110 transition-all shrink-0"
+            },
+            s.id ?? s.url
+          )) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            DownloadButton,
+            {
+              mod,
+              installed,
+              onInstalled,
+              className: "px-4 py-2 text-sm"
+            }
+          ),
+          websiteUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: () => window.api.openExternal(websiteUrl),
+              className: "btn-ghost px-4 py-2 text-sm",
+              children: "🔗 Open on CurseForge"
+            }
+          )
         ] })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "⬇", label: "Downloads", value: downloads }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "💾", label: "File size", value: size }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🗓", label: "Updated", value: updated }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🎮", label: "Game ver.", value: gameVersion })
-      ] }),
-      mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-300 text-sm leading-relaxed", children: mod.summary }),
-      categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "chip !cursor-default", children: [
-        c.iconUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: c.iconUrl, alt: "", className: "w-3.5 h-3.5" }),
-        c.name
-      ] }, c.id ?? c.name)) }),
-      screenshots.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: "Screenshots" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto pb-1", children: screenshots.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "img",
-          {
-            src: s.thumbnailUrl || s.url,
-            alt: s.title || "screenshot",
-            title: s.title || "Open full size",
-            onClick: () => s.url && window.api.openExternal(s.url),
-            className: "h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 transition-colors shrink-0"
-          },
-          s.id ?? s.url
-        )) })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+      ] })
+    ] }),
+    lightboxIndex !== null && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Lightbox,
+      {
+        images: screenshots,
+        index: lightboxIndex,
+        onClose: () => setLightboxIndex(null)
+      }
+    )
+  ] });
+}
+function CategoryFilter({ categories, selectedId, onSelect }) {
+  const [open, setOpen] = reactExports.useState(false);
+  const [q2, setQ] = reactExports.useState("");
+  const ref = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const selected = categories.find((c) => c.id === selectedId);
+  const needle = q2.trim().toLowerCase();
+  const shown = needle ? categories.filter((c) => c.name.toLowerCase().includes(needle)) : categories;
+  const pick = (id2) => {
+    onSelect(id2);
+    setOpen(false);
+    setQ("");
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref, className: "relative", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        onClick: () => setOpen((o) => !o),
+        className: `chip ${selectedId ? "chip-active" : ""}`,
+        title: "Filter by category",
+        children: [
+          selected?.iconUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: selected.iconUrl, alt: "", className: "w-3.5 h-3.5 rounded-sm" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "max-w-[10rem] truncate", children: selected ? selected.name : "🗂 All categories" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] opacity-70", children: "▾" })
+        ]
+      }
+    ),
+    open && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute left-0 mt-2 w-64 z-30 bg-[#12141f] border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden fade-in-up", children: [
+      categories.length > 8 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2 border-b border-white/5", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          autoFocus: true,
+          value: q2,
+          onChange: (e) => setQ(e.target.value),
+          placeholder: "Filter categories…",
+          className: "input w-full px-2.5 py-1.5 text-xs"
+        }
+      ) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-h-72 overflow-y-auto p-1", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(
-          DownloadButton,
-          {
-            mod,
-            installed,
-            onInstalled,
-            className: "px-4 py-2 text-sm"
-          }
-        ),
-        websiteUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
           "button",
           {
-            onClick: () => window.api.openExternal(websiteUrl),
-            className: "btn-ghost px-4 py-2 text-sm",
-            children: "🔗 Open on CurseForge"
+            onClick: () => pick(null),
+            className: `w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm transition-colors ${!selectedId ? "bg-violet-600/20 text-violet-200" : "text-gray-300 hover:bg-white/5"}`,
+            children: "🗂 All categories"
           }
-        )
+        ),
+        shown.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            onClick: () => pick(c.id),
+            className: `w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm transition-colors ${c.id === selectedId ? "bg-violet-600/20 text-violet-200" : "text-gray-300 hover:bg-white/5"}`,
+            children: [
+              c.iconUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: c.iconUrl, alt: "", className: "w-4 h-4 rounded-sm shrink-0" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-4 h-4 shrink-0" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate", children: c.name })
+            ]
+          },
+          c.id
+        )),
+        shown.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "px-2.5 py-3 text-gray-600 text-xs text-center", children: "No categories match." })
       ] })
     ] })
   ] });
@@ -7903,12 +8077,15 @@ function CurseForgeBrowser() {
   const [loadMoreFailed, setLoadMoreFailed] = reactExports.useState(false);
   const [downloadedIds, setDownloadedIds] = reactExports.useState(() => /* @__PURE__ */ new Set());
   const [selectedMod, setSelectedMod] = reactExports.useState(null);
+  const [categories, setCategories] = reactExports.useState([]);
+  const [categoryId, setCategoryId] = reactExports.useState(null);
   const reqIdRef = reactExports.useRef(0);
   const timerRef = reactExports.useRef(null);
   const activeFilterRef = reactExports.useRef("");
+  const activeCategoryRef = reactExports.useRef(null);
   const scrollRootRef = reactExports.useRef(null);
   const loadMoreRef = reactExports.useRef(null);
-  const fetchPage = reactExports.useCallback((filter, page) => {
+  const fetchPage = reactExports.useCallback((filter, page, category) => {
     const reqId = ++reqIdRef.current;
     const append = page > 0;
     if (append) {
@@ -7916,13 +8093,17 @@ function CurseForgeBrowser() {
       setLoadMoreFailed(false);
     } else {
       activeFilterRef.current = filter;
+      activeCategoryRef.current = category ?? null;
       setIsLoading(true);
       setIsLoadingMore(false);
       setIsError(false);
       setLoadMoreFailed(false);
       setHasMore(true);
     }
-    window.api.searchCurseForge({ searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE }).then((res) => {
+    const params = { searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE };
+    const cat = append ? activeCategoryRef.current : category ?? null;
+    if (cat != null) params.categoryId = cat;
+    window.api.searchCurseForge(params).then((res) => {
       if (reqId !== reqIdRef.current) return;
       if (res?.error) {
         if (append) {
@@ -7962,11 +8143,22 @@ function CurseForgeBrowser() {
     });
   }, []);
   reactExports.useEffect(() => {
-    fetchPage("", 0);
+    fetchPage("", 0, null);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [fetchPage]);
+  reactExports.useEffect(() => {
+    window.api.getCurseForgeCategories?.().then((res) => {
+      if (res?.data?.length) setCategories(res.data);
+    });
+  }, []);
+  const onCategoryChange = (id2) => {
+    setCategoryId(id2);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0;
+    fetchPage(activeFilterRef.current, 0, id2);
+  };
   reactExports.useEffect(() => {
     let cancelled = false;
     window.api.getDownloadedCurseForge?.().then((rec) => {
@@ -7988,7 +8180,7 @@ function CurseForgeBrowser() {
     const value = e.target.value;
     setSearchQuery(value);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => fetchPage(value, 0), DEBOUNCE_MS);
+    timerRef.current = setTimeout(() => fetchPage(value, 0, activeCategoryRef.current), DEBOUNCE_MS);
   };
   reactExports.useEffect(() => {
     const node = loadMoreRef.current;
@@ -7997,7 +8189,7 @@ function CurseForgeBrowser() {
       (entries) => {
         if (!entries[0]?.isIntersecting) return;
         if (isLoading || isLoadingMore || isError || loadMoreFailed || !hasMore) return;
-        fetchPage(activeFilterRef.current, pageIndex + 1);
+        fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current);
       },
       // ponytail: 300px rootMargin prefetches the next page just before the user
       // reaches the bottom, so scrolling feels continuous
@@ -8012,16 +8204,26 @@ function CurseForgeBrowser() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "CurseForge" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Browse and download Sims 4 mods from CurseForge" })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "input",
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-wrap", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              value: searchQuery,
+              onChange: onSearchChange,
+              placeholder: "Search mods…",
+              className: "input w-full sm:w-80 pl-9 pr-3 py-2"
+            }
+          )
+        ] }),
+        categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          CategoryFilter,
           {
-            type: "text",
-            value: searchQuery,
-            onChange: onSearchChange,
-            placeholder: "Search mods…",
-            className: "input w-full max-w-md pl-9 pr-3 py-2"
+            categories,
+            selectedId: categoryId,
+            onSelect: onCategoryChange
           }
         )
       ] })
@@ -8048,6 +8250,10 @@ function CurseForgeBrowser() {
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
           totalCount != null && totalCount > mods.length ? `Showing ${mods.length.toLocaleString()} of ${totalCount.toLocaleString()} mods` : `${mods.length.toLocaleString()} mod${mods.length !== 1 ? "s" : ""}`,
           displayedFilter && ` · results for "${displayedFilter}"`,
+          categoryId && (() => {
+            const c = categories.find((x2) => x2.id === categoryId);
+            return c ? ` · in ${c.name}` : null;
+          })(),
           (() => {
             const n2 = mods.reduce((c, m2) => c + (downloadedIds.has(m2.id) ? 1 : 0), 0);
             return n2 > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-emerald-400", children: [
@@ -8084,7 +8290,7 @@ function CurseForgeBrowser() {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
-              onClick: () => fetchPage(activeFilterRef.current, pageIndex + 1),
+              onClick: () => fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current),
               className: "btn-danger px-3 py-1.5 text-xs",
               children: "Retry"
             }

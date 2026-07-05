@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import DownloadButton from '../components/DownloadButton'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
+import CategoryFilter from '../components/CategoryFilter'
 import { formatBytes, formatCount } from '../lib/format'
 
 const DEBOUNCE_MS = 500
@@ -106,6 +107,8 @@ export default function CurseForgeBrowser() {
   // ids of mods already downloaded (persisted across restarts, self-healing on delete)
   const [downloadedIds, setDownloadedIds] = useState(() => new Set())
   const [selectedMod, setSelectedMod] = useState(null) // detail modal target
+  const [categories, setCategories] = useState([])
+  const [categoryId, setCategoryId] = useState(null) // null = all categories
 
   // ponytail: track latest in-flight request so stale results don't overwrite newer ones
   const reqIdRef = useRef(0)
@@ -113,10 +116,12 @@ export default function CurseForgeBrowser() {
   // filter the current mod list was fetched with — pagination must follow this,
   // not searchQuery, which changes on every keystroke before the debounce fires
   const activeFilterRef = useRef('')
+  // category the current list was fetched with — pagination must carry it too
+  const activeCategoryRef = useRef(null)
   const scrollRootRef = useRef(null)
   const loadMoreRef = useRef(null)
 
-  const fetchPage = useCallback((filter, page) => {
+  const fetchPage = useCallback((filter, page, category) => {
     const reqId = ++reqIdRef.current
     const append = page > 0
     if (append) {
@@ -124,6 +129,7 @@ export default function CurseForgeBrowser() {
       setLoadMoreFailed(false)
     } else {
       activeFilterRef.current = filter
+      activeCategoryRef.current = category ?? null
       setIsLoading(true)
       // ponytail: a superseded in-flight append never reaches its own .finally
       // (reqId guard), so the new search must clear its flag or the observer
@@ -133,8 +139,11 @@ export default function CurseForgeBrowser() {
       setLoadMoreFailed(false)
       setHasMore(true)
     }
+    const params = { searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE }
+    const cat = append ? activeCategoryRef.current : (category ?? null)
+    if (cat != null) params.categoryId = cat
     window.api
-      .searchCurseForge({ searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE })
+      .searchCurseForge(params)
       .then(res => {
         if (reqId !== reqIdRef.current) return
         if (res?.error) {
@@ -183,11 +192,26 @@ export default function CurseForgeBrowser() {
 
   // Load popular mods on mount
   useEffect(() => {
-    fetchPage('', 0)
+    fetchPage('', 0, null)
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [fetchPage])
+
+  // Load the category list once for the browse filter
+  useEffect(() => {
+    window.api.getCurseForgeCategories?.().then(res => {
+      if (res?.data?.length) setCategories(res.data)
+    })
+  }, [])
+
+  // Picking a category restarts the browse from page 0, keeping the search text
+  const onCategoryChange = (id) => {
+    setCategoryId(id)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
+    fetchPage(activeFilterRef.current, 0, id)
+  }
 
   // Load the "already downloaded" set on mount so cards can show the Installed
   // badge. Re-fetched whenever the page mounts, so deletes in Local Mods reflect.
@@ -213,7 +237,7 @@ export default function CurseForgeBrowser() {
     const value = e.target.value
     setSearchQuery(value)
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => fetchPage(value, 0), DEBOUNCE_MS)
+    timerRef.current = setTimeout(() => fetchPage(value, 0, activeCategoryRef.current), DEBOUNCE_MS)
   }
 
   // Infinite scroll: observe the bottom marker; when it enters the (pre-extended)
@@ -225,7 +249,7 @@ export default function CurseForgeBrowser() {
       (entries) => {
         if (!entries[0]?.isIntersecting) return
         if (isLoading || isLoadingMore || isError || loadMoreFailed || !hasMore) return
-        fetchPage(activeFilterRef.current, pageIndex + 1)
+        fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current)
       },
       // ponytail: 300px rootMargin prefetches the next page just before the user
       // reaches the bottom, so scrolling feels continuous
@@ -244,15 +268,24 @@ export default function CurseForgeBrowser() {
           <h2 className="page-title">CurseForge</h2>
           <p className="page-subtitle">Browse and download Sims 4 mods from CurseForge</p>
         </div>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={onSearchChange}
-            placeholder="Search mods…"
-            className="input w-full max-w-md pl-9 pr-3 py-2"
-          />
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={onSearchChange}
+              placeholder="Search mods…"
+              className="input w-full sm:w-80 pl-9 pr-3 py-2"
+            />
+          </div>
+          {categories.length > 0 && (
+            <CategoryFilter
+              categories={categories}
+              selectedId={categoryId}
+              onSelect={onCategoryChange}
+            />
+          )}
         </div>
       </div>
 
@@ -289,6 +322,10 @@ export default function CurseForgeBrowser() {
                 ? `Showing ${mods.length.toLocaleString()} of ${totalCount.toLocaleString()} mods`
                 : `${mods.length.toLocaleString()} mod${mods.length !== 1 ? 's' : ''}`}
               {displayedFilter && ` · results for "${displayedFilter}"`}
+              {categoryId && (() => {
+                const c = categories.find(x => x.id === categoryId)
+                return c ? ` · in ${c.name}` : null
+              })()}
               {(() => {
                 const n = mods.reduce((c, m) => c + (downloadedIds.has(m.id) ? 1 : 0), 0)
                 return n > 0 ? <span className="text-emerald-400"> · {n} installed</span> : null
@@ -321,7 +358,7 @@ export default function CurseForgeBrowser() {
               <div className="flex flex-col items-center gap-2 py-6">
                 <p className="text-red-400 text-xs">⚠️ Failed to load more mods.</p>
                 <button
-                  onClick={() => fetchPage(activeFilterRef.current, pageIndex + 1)}
+                  onClick={() => fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current)}
                   className="btn-danger px-3 py-1.5 text-xs"
                 >
                   Retry

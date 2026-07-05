@@ -97,6 +97,43 @@ function getApiKey() {
   )
 }
 
+// Categories rarely change — cache the list for the app's lifetime.
+let categoriesCache = null
+
+/**
+ * Fetch the CurseForge category list for The Sims 4 (for the browse filter).
+ * @returns {Promise<{ data: Array, error?: string }>}
+ */
+export async function getCategories() {
+  if (categoriesCache) return categoriesCache
+
+  const apiKey = getApiKey()
+  if (!apiKey) return { data: [], error: 'CURSEFORGE_API_KEY is not set.' }
+
+  try {
+    const url = new URL(`${API_BASE}/categories`)
+    url.searchParams.set('gameId', SIMS4_GAME_ID)
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json', 'x-api-key': apiKey },
+      signal: AbortSignal.timeout(15000)
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      return { data: [], error: `CurseForge categories error: ${res.status} ${res.statusText} ${body}` }
+    }
+    const json = await res.json()
+    // Only leaf categories are useful as a search filter; classes (isClass) are
+    // top-level groupings the mod search does not tag items with directly.
+    const data = (json.data ?? [])
+      .filter(c => c && c.name && !c.isClass)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    categoriesCache = { data }
+    return categoriesCache
+  } catch (err) {
+    return { data: [], error: err.message }
+  }
+}
+
 /**
  * Download a CurseForge mod's latest file into the user's Mods folder.
  * @param {Object} mod               - CurseForge mod object (must have id + latestFiles)

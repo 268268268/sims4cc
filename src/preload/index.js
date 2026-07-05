@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
       return ipcRenderer.invoke('catalog:get')
     },
   searchCurseForge: (params) => ipcRenderer.invoke('curseforge:search', params),
+  getCurseForgeCategories: () => ipcRenderer.invoke('curseforge:categories'),
   downloadCurseForgeMod: (mod) => ipcRenderer.invoke('curseforge:download', mod),
   getDownloadedCurseForge: () => ipcRenderer.invoke('curseforge:getDownloaded'),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)

@@ -17,6 +17,7 @@ electron.contextBridge.exposeInMainWorld("api", {
     return electron.ipcRenderer.invoke("catalog:get");
   },
   searchCurseForge: (params) => electron.ipcRenderer.invoke("curseforge:search", params),
+  getCurseForgeCategories: () => electron.ipcRenderer.invoke("curseforge:categories"),
   downloadCurseForgeMod: (mod) => electron.ipcRenderer.invoke("curseforge:download", mod),
   getDownloadedCurseForge: () => electron.ipcRenderer.invoke("curseforge:getDownloaded"),
   openExternal: (url) => electron.ipcRenderer.invoke("shell:openExternal", url)

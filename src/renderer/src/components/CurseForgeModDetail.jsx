@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import Modal from './Modal'
+import Lightbox from './Lightbox'
 import DownloadButton from './DownloadButton'
 import { formatBytes, formatCount, formatDate } from '../lib/format'
 
@@ -19,6 +21,7 @@ function Stat({ icon, label, value }) {
 }
 
 export default function CurseForgeModDetail({ mod, installed, onInstalled, onClose }) {
+  const [lightboxIndex, setLightboxIndex] = useState(null)
   const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER
   const author = mod?.authors?.[0]?.name || 'Unknown'
   const file = mod?.latestFiles?.[0]
@@ -27,10 +30,11 @@ export default function CurseForgeModDetail({ mod, installed, onInstalled, onClo
   const updated = formatDate(mod?.dateModified)
   const gameVersion = file?.gameVersions?.find(v => /^\d/.test(v)) || file?.gameVersions?.[0]
   const categories = mod?.categories ?? []
-  const screenshots = (mod?.screenshots ?? []).slice(0, 6)
+  const screenshots = (mod?.screenshots ?? []).slice(0, 20)
   const websiteUrl = mod?.links?.websiteUrl
 
   return (
+    <>
     <Modal onClose={onClose} maxWidth="max-w-3xl">
       <img src={banner} alt={mod.name} className="w-full h-52 object-cover bg-[#181b2a]" />
 
@@ -71,14 +75,14 @@ export default function CurseForgeModDetail({ mod, installed, onInstalled, onClo
           <div>
             <p className="text-gray-500 text-[11px] uppercase tracking-wide mb-2">Screenshots</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {screenshots.map(s => (
+              {screenshots.map((s, idx) => (
                 <img
                   key={s.id ?? s.url}
                   src={s.thumbnailUrl || s.url}
                   alt={s.title || 'screenshot'}
-                  title={s.title || 'Open full size'}
-                  onClick={() => s.url && window.api.openExternal(s.url)}
-                  className="h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 transition-colors shrink-0"
+                  title={s.title || 'View full size'}
+                  onClick={() => setLightboxIndex(idx)}
+                  className="h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 hover:brightness-110 transition-all shrink-0"
                 />
               ))}
             </div>
@@ -103,5 +107,14 @@ export default function CurseForgeModDetail({ mod, installed, onInstalled, onClo
         </div>
       </div>
     </Modal>
+
+    {lightboxIndex !== null && (
+      <Lightbox
+        images={screenshots}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
+    )}
+    </>
   )
 }

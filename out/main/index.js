@@ -586,6 +586,30 @@ async function searchMods(params = {}) {
 function getApiKey() {
   return process.env.CURSEFORGE_API_KEY || __vite_import_meta_env__?.MAIN_VITE_CURSEFORGE_API_KEY || null;
 }
+let categoriesCache = null;
+async function getCategories() {
+  if (categoriesCache) return categoriesCache;
+  const apiKey = getApiKey();
+  if (!apiKey) return { data: [], error: "CURSEFORGE_API_KEY is not set." };
+  try {
+    const url2 = new URL(`${API_BASE}/categories`);
+    url2.searchParams.set("gameId", SIMS4_GAME_ID);
+    const res = await fetch(url2, {
+      headers: { Accept: "application/json", "x-api-key": apiKey },
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { data: [], error: `CurseForge categories error: ${res.status} ${res.statusText} ${body}` };
+    }
+    const json = await res.json();
+    const data = (json.data ?? []).filter((c) => c && c.name && !c.isClass).sort((a, b) => a.name.localeCompare(b.name));
+    categoriesCache = { data };
+    return categoriesCache;
+  } catch (err2) {
+    return { data: [], error: err2.message };
+  }
+}
 async function downloadMod(mod, destinationFolder) {
   if (!mod || !mod.id) return { ok: false, error: "Invalid mod object." };
   if (!destinationFolder) return { ok: false, error: "Destination folder not provided." };
@@ -975,6 +999,9 @@ electron.ipcMain.handle("catalog:get", async () => {
 });
 electron.ipcMain.handle("curseforge:search", async (_e, params) => {
   return await searchMods(params);
+});
+electron.ipcMain.handle("curseforge:categories", async () => {
+  return await getCategories();
 });
 electron.ipcMain.handle("curseforge:download", async (_e, mod) => {
   try {
