@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import LocalModDetail from '../components/LocalModDetail'
-import { formatBytes } from '../lib/format'
+import CurseForgeModDetail from '../components/CurseForgeModDetail'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { formatBytes, formatDate } from '../lib/format'
+import { markChanged } from '../lib/sessionActivity'
 
 const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', archive: '.zip', unknown: '?' }
 const TYPE_COLOR = {
@@ -102,7 +105,7 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
   )
 }
 
-function ModCard({ mod, pending, onToggle, onOpen, catalogMeta }) {
+function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, catalogMeta }) {
   const creatorName = catalogMeta?.creatorName
   const imageUrl = catalogMeta?.imageUrl
   const tags = catalogMeta?.tags
@@ -126,13 +129,25 @@ function ModCard({ mod, pending, onToggle, onOpen, catalogMeta }) {
           </p>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`badge font-mono ${TYPE_COLOR[mod.type]}`}>
             {TYPE_LABEL[mod.type]}
           </span>
           <span className={`badge ${mod.enabled ? 'bg-emerald-800/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}`}>
             {mod.enabled ? 'enabled' : 'disabled'}
           </span>
+          {mod.kinds?.map(k => (
+            <span key={k} className="badge bg-white/5 text-gray-400">{k}</span>
+          ))}
+          {cfMatch && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenCf(cfMatch) }}
+              className="badge bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 transition-colors"
+              title="Installed from CurseForge — view details"
+            >
+              🔥 CF
+            </button>
+          )}
         </div>
 
         {tags?.length > 0 && (
@@ -143,19 +158,35 @@ function ModCard({ mod, pending, onToggle, onOpen, catalogMeta }) {
           </div>
         )}
 
-        <p className="text-gray-500 text-xs">{formatBytes(mod.size)}</p>
+        <p className="text-gray-500 text-xs">
+          {formatBytes(mod.size)}
+          {mod.folderFiles > 1 && mod.folderSize > mod.size && (
+            <span className="text-gray-600"> · folder {formatBytes(mod.folderSize)} ({mod.folderFiles})</span>
+          )}
+          {mod.dateAdded && <span className="text-gray-600"> · added {formatDate(mod.dateAdded)}</span>}
+        </p>
 
         <p className="text-gray-600 text-xs truncate mt-auto pt-1" title={mod.relativePath}>
           {mod.relativePath}
         </p>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(mod) }}
-          disabled={pending}
-          className={`${mod.enabled ? 'btn-danger' : 'btn-success'} mt-2 px-3 py-1.5 text-xs`}
-        >
-          {pending ? '…' : mod.enabled ? 'Disable' : 'Enable'}
-        </button>
+        <div className="flex items-center gap-1.5 mt-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggle(mod) }}
+            disabled={pending}
+            className={`${mod.enabled ? 'btn-danger' : 'btn-success'} flex-1 px-3 py-1.5 text-xs`}
+          >
+            {pending ? '…' : mod.enabled ? 'Disable' : 'Enable'}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(mod) }}
+            disabled={pending}
+            className="btn-ghost px-2.5 py-1.5 text-xs"
+            title="Move to Recycle Bin"
+          >
+            🗑
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -172,6 +203,10 @@ export default function LocalMods({ modsFolder }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState('name')
   const [selectedMod, setSelectedMod] = useState(null) // detail modal target
+  const [confirmTarget, setConfirmTarget] = useState(null) // mod pending delete confirmation
+  const [cfRecords, setCfRecords] = useState([]) // [{pathLower, modId, name}] from downloads.json
+  const [cfDetailMod, setCfDetailMod] = useState(null) // full CF mod for the modal
+  const [cfDetailLoading, setCfDetailLoading] = useState(false)
 
   // Fetch remote catalog on mount
   useEffect(() => {
@@ -236,6 +271,49 @@ export default function LocalMods({ modsFolder }) {
     return () => { cancelled = true }
   }, [scan])
 
+  // "Installed from CurseForge" matching data
+  useEffect(() => {
+    let cancelled = false
+    window.api.getDownloadedCurseForge?.().then(rec => {
+      if (cancelled || !rec) return
+      setCfRecords(Object.entries(rec)
+        .filter(([, r]) => r?.path)
+        .map(([modId, r]) => ({ modId: Number(modId), name: r.name, pathLower: r.path.toLowerCase() })))
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  // DropZone (or any other actor) changed files on disk while we're mounted
+  useEffect(() => {
+    const onChanged = () => scan()
+    window.addEventListener('local-mods-changed', onChanged)
+    return () => window.removeEventListener('local-mods-changed', onChanged)
+  }, [scan])
+
+  // local mod → CurseForge record (folder installs match by path prefix)
+  const cfMatchFor = useCallback((mod) => {
+    const p = mod.filePath?.toLowerCase()
+    if (!p) return null
+    return cfRecords.find(r => p === r.pathLower || p.startsWith(r.pathLower + '\\')) ?? null
+  }, [cfRecords])
+
+  // open the CurseForge detail modal for a matched local mod
+  const openCfDetail = useCallback(async (match) => {
+    if (cfDetailLoading) return
+    setCfDetailLoading(true)
+    setActionError(null)
+    try {
+      const res = await window.api.getCurseForgeModsByIds([match.modId])
+      const mod = res?.data?.[0]
+      if (mod) setCfDetailMod(mod)
+      else setActionError(`"${match.name ?? 'Mod'}" is no longer available on CurseForge.`)
+    } catch (err) {
+      setActionError(err.message)
+    } finally {
+      setCfDetailLoading(false)
+    }
+  }, [cfDetailLoading])
+
   const handleToggle = useCallback(async (mod) => {
     if (busyPath) return // one file action at a time
     setActionError(null)
@@ -246,6 +324,7 @@ export default function LocalMods({ modsFolder }) {
         setActionError(res.error?.message ?? 'Toggle failed.')
         return
       }
+      markChanged()
       // Replace only the toggled mod in state — match by old filePath, then use returned mod
       setResult(prev => {
         if (!prev) return prev
@@ -272,6 +351,7 @@ export default function LocalMods({ modsFolder }) {
         setActionError(res.error ?? 'Extraction failed.')
         return
       }
+      markChanged()
       await scan() // the archive is gone, new files exist — full rescan is the honest refresh
     } catch (err) {
       setActionError(err.message)
@@ -279,6 +359,42 @@ export default function LocalMods({ modsFolder }) {
       setBusyPath(p => (p === mod.filePath ? null : p))
     }
   }, [busyPath, scan])
+
+  // delete flow: card/detail asks → ConfirmDialog → actual trash
+  const requestDelete = useCallback((mod) => {
+    if (busyPath) return
+    setConfirmTarget(mod)
+  }, [busyPath])
+
+  const handleDelete = useCallback(async (mod) => {
+    setConfirmTarget(null)
+    setSelectedMod(null)
+    if (busyPath) return
+    setActionError(null)
+    setBusyPath(mod.filePath)
+    try {
+      const res = await window.api.deleteLocalMod(mod.filePath)
+      if (!res.ok) {
+        setActionError(res.error?.message ?? 'Delete failed.')
+        return
+      }
+      markChanged()
+      // drop every removed path from the current list without a full rescan
+      const removed = new Set((res.removed ?? [mod.filePath]).map(p => p.toLowerCase()))
+      setResult(prev => {
+        if (!prev) return prev
+        const mods = prev.mods.filter(m =>
+          !removed.has(m.filePath.toLowerCase()) &&
+          ![...removed].some(r => m.filePath.toLowerCase().startsWith(r + '\\'))
+        )
+        return { ...prev, mods, count: mods.length }
+      })
+    } catch (err) {
+      setActionError(err.message)
+    } finally {
+      setBusyPath(p => (p === mod.filePath ? null : p))
+    }
+  }, [busyPath])
 
   // search + filter + sort pipeline
   const visibleMods = useMemo(() => {
@@ -462,6 +578,9 @@ export default function LocalMods({ modsFolder }) {
                     pending={busyPath === mod.filePath}
                     onToggle={handleToggle}
                     onOpen={setSelectedMod}
+                    onDelete={requestDelete}
+                    onOpenCf={openCfDetail}
+                    cfMatch={cfMatchFor(mod)}
                     catalogMeta={catalogMetaFor(mod.fileName)}
                   />
                 )
@@ -475,8 +594,30 @@ export default function LocalMods({ modsFolder }) {
         <LocalModDetail
           mod={selectedMod}
           catalogMeta={catalogMetaFor(selectedMod.fileName)}
+          cfMatch={cfMatchFor(selectedMod)}
+          onOpenCf={openCfDetail}
           onToggle={handleToggle}
+          onDelete={requestDelete}
           onClose={() => setSelectedMod(null)}
+        />
+      )}
+
+      {cfDetailMod && (
+        <CurseForgeModDetail
+          mod={cfDetailMod}
+          installed
+          onInstalled={() => {}}
+          onClose={() => setCfDetailMod(null)}
+        />
+      )}
+
+      {confirmTarget && (
+        <ConfirmDialog
+          title={`Delete "${confirmTarget.name}"?`}
+          message="The file will be moved to the Recycle Bin (recoverable). Folders left empty are removed too."
+          confirmLabel="🗑 Delete"
+          onConfirm={() => handleDelete(confirmTarget)}
+          onCancel={() => setConfirmTarget(null)}
         />
       )}
     </div>

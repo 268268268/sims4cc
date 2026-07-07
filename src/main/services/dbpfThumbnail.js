@@ -1,4 +1,3 @@
-import { app } from 'electron'
 import { open, mkdir, writeFile, access } from 'fs/promises'
 import { join } from 'path'
 import { createHash } from 'crypto'
@@ -13,14 +12,18 @@ const COMP_NONE = 0x0000
 const COMP_ZLIB = 0x5a42
 const MAX_RESOURCE_BYTES = 4 * 1024 * 1024 // never inflate anything bigger than this
 
-// Lazily resolved so importing this module never touches Electron internals at load.
+// Lazily resolved (incl. the electron import itself) so this module and its
+// pure parsers stay importable under plain node for tests.
 let CACHE_DIR = null
-function cacheDir() {
-  if (!CACHE_DIR) CACHE_DIR = join(app.getPath('userData'), 'thumb-cache')
+async function cacheDir() {
+  if (!CACHE_DIR) {
+    const { app } = await import('electron')
+    CACHE_DIR = join(app.getPath('userData'), 'thumb-cache')
+  }
   return CACHE_DIR
 }
 export function getThumbCacheDir() {
-  return cacheDir()
+  return cacheDir() // Promise<string>
 }
 
 function imgExt(buf) {
@@ -35,7 +38,7 @@ async function readAt(fh, len, pos) {
   return buf.slice(0, bytesRead)
 }
 
-function decompress(buf, compression) {
+export function decompress(buf, compression) {
   if (compression === COMP_NONE) return buf
   if (compression === COMP_ZLIB) return zlib.inflateSync(buf)
   return null // unsupported (e.g. RefPack)
@@ -65,17 +68,17 @@ export async function parseDbpfEntries(filePath) {
 
     let o = 0
     const flags = idx.readUInt32LE(o); o += 4
-    let cType = 0
+    let cType = 0, cGroup = 0, cInstHi = 0
     if (flags & 0x1) { cType = idx.readUInt32LE(o); o += 4 }
-    if (flags & 0x2) { o += 4 } // constant group — unused
-    if (flags & 0x4) { o += 4 } // constant instance high — unused
+    if (flags & 0x2) { cGroup = idx.readUInt32LE(o); o += 4 }
+    if (flags & 0x4) { cInstHi = idx.readUInt32LE(o); o += 4 }
 
     const entries = []
     for (let i = 0; i < count; i++) {
-      let type = cType
+      let type = cType, group = cGroup, instanceHigh = cInstHi
       if (!(flags & 0x1)) { type = idx.readUInt32LE(o); o += 4 }
-      if (!(flags & 0x2)) { o += 4 } // group — unused
-      if (!(flags & 0x4)) { o += 4 } // instance high — unused
+      if (!(flags & 0x2)) { group = idx.readUInt32LE(o); o += 4 }
+      if (!(flags & 0x4)) { instanceHigh = idx.readUInt32LE(o); o += 4 }
       o += 4 // instance low
       const position = idx.readUInt32LE(o); o += 4
       const sizeField = idx.readUInt32LE(o); o += 4
@@ -84,7 +87,7 @@ export async function parseDbpfEntries(filePath) {
       const sizeDecompressed = idx.readUInt32LE(o); o += 4
       let compression = COMP_NONE
       if (hasExt) { compression = idx.readUInt16LE(o); o += 4 } // uint16 compression + uint16 committed
-      entries.push({ type, position, size, sizeDecompressed, compression })
+      entries.push({ type, group, instanceHigh, position, size, sizeDecompressed, compression })
     }
     return entries
   } catch {
@@ -144,7 +147,7 @@ async function extractThumbnailBuffer(filePath) {
  */
 export async function getCachedThumbnail(filePath, mtimeMs) {
   try {
-    const dir = cacheDir()
+    const dir = await cacheDir()
     const key = createHash('sha1').update(`${filePath}|${mtimeMs}`).digest('hex').slice(0, 16)
     const jpg = join(dir, `${key}.jpg`)
     const png = join(dir, `${key}.png`)

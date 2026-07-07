@@ -115,6 +115,35 @@ body {
   }
 }
 
+/* ---------- sanitized CurseForge description ---------- */
+
+.cf-description p { margin: 0.5rem 0; }
+.cf-description a { color: #a78bfa; text-decoration: underline; }
+.cf-description a:hover { color: #c4b5fd; }
+.cf-description h1, .cf-description h2, .cf-description h3,
+.cf-description h4, .cf-description h5, .cf-description h6 {
+  color: #fff; font-weight: 700; margin: 0.9rem 0 0.4rem;
+}
+.cf-description h1 { font-size: 1.15rem; }
+.cf-description h2 { font-size: 1.05rem; }
+.cf-description h3 { font-size: 1rem; }
+.cf-description ul, .cf-description ol { margin: 0.5rem 0 0.5rem 1.25rem; }
+.cf-description ul { list-style: disc; }
+.cf-description ol { list-style: decimal; }
+.cf-description img { max-width: 100%; border-radius: 0.5rem; margin: 0.5rem 0; }
+.cf-description blockquote {
+  border-left: 3px solid rgb(139 92 246 / 0.5);
+  padding-left: 0.75rem; margin: 0.5rem 0; color: #9ca3af;
+}
+.cf-description code, .cf-description pre {
+  background: rgb(255 255 255 / 0.06); border-radius: 4px; padding: 0 4px; font-size: 0.85em;
+}
+.cf-description table { border-collapse: collapse; margin: 0.5rem 0; }
+.cf-description td, .cf-description th {
+  border: 1px solid rgb(255 255 255 / 0.1); padding: 4px 8px;
+}
+.cf-description hr { border-color: rgb(255 255 255 / 0.1); margin: 0.75rem 0; }
+
 /* ---------- motion ---------- */
 
 @keyframes fade-in-up {

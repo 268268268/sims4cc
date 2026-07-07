@@ -6970,7 +6970,7 @@ const NAV_ITEMS = [
   { id: "local-mods", label: "Local Mods", icon: "📦" },
   { id: "creators", label: "Creators", icon: "🎨" },
   { id: "curseforge", label: "CurseForge", icon: "🔥" },
-  { id: "custom-catalog", label: "Custom Catalog", icon: "📚" },
+  { id: "discover", label: "Discover", icon: "🌐" },
   { id: "settings", label: "Settings", icon: "⚙️" }
 ];
 function Sidebar({ activePage, onNavigate }) {
@@ -7001,10 +7001,149 @@ function Sidebar({ activePage, onNavigate }) {
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-5 py-4 border-t border-white/5 text-xs text-gray-600", children: "v1.0.0" })
   ] });
 }
+let count = 0;
+let dismissed = false;
+const listeners = /* @__PURE__ */ new Set();
+function emit() {
+  for (const l2 of listeners) l2();
+}
+function markChanged() {
+  count++;
+  dismissed = false;
+  emit();
+}
+function useSessionActivity() {
+  const subscribe = reactExports.useCallback((cb2) => {
+    listeners.add(cb2);
+    return () => listeners.delete(cb2);
+  }, []);
+  const snapshot = reactExports.useSyncExternalStore(subscribe, () => dismissed ? 0 : count);
+  const dismiss = reactExports.useCallback(() => {
+    dismissed = true;
+    emit();
+  }, []);
+  return { count: snapshot, dismiss };
+}
+function CacheBanner() {
+  const { count: count2, dismiss } = useSessionActivity();
+  const [state, setState] = reactExports.useState("idle");
+  if (count2 === 0) return null;
+  const onClear = async () => {
+    setState("clearing");
+    try {
+      const res = await window.api.clearGameCache();
+      setState(res?.success ? "done" : "idle");
+      if (res?.success) setTimeout(dismiss, 1500);
+    } catch {
+      setState("idle");
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "shrink-0 px-4 py-2 bg-amber-950/50 border-b border-amber-800/40 flex items-center gap-3 text-xs text-amber-200", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "🧹 You changed mods this session — clear the game cache before playing to avoid thumbnail glitches." }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        onClick: onClear,
+        disabled: state !== "idle",
+        className: "btn-ghost px-2.5 py-1 text-xs ml-auto shrink-0",
+        children: state === "clearing" ? "Clearing…" : state === "done" ? "✓ Cleared" : "Clear cache"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: dismiss, className: "text-amber-400 hover:text-amber-100 shrink-0", title: "Dismiss", children: "✕" })
+  ] });
+}
 function Layout({ activePage, onNavigate, children }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-screen app-bg text-white overflow-hidden", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(Sidebar, { activePage, onNavigate }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 overflow-y-auto", children })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("main", { className: "flex-1 flex flex-col overflow-hidden", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CacheBanner, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto", children })
+    ] })
+  ] });
+}
+function DropZone() {
+  const [depth, setDepth] = reactExports.useState(0);
+  const [busy, setBusy] = reactExports.useState(false);
+  const [report, setReport] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    const hasFiles = (e) => [...e.dataTransfer?.types ?? []].includes("Files");
+    const onDragEnter = (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setDepth((d) => d + 1);
+    };
+    const onDragOver = (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    };
+    const onDragLeave = (e) => {
+      if (!hasFiles(e)) return;
+      setDepth((d) => Math.max(0, d - 1));
+    };
+    const onDrop = async (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setDepth(0);
+      const paths = [...e.dataTransfer.files].map((f2) => window.api.getPathForFile(f2)).filter(Boolean);
+      if (!paths.length) return;
+      setBusy(true);
+      try {
+        const res = await window.api.importFiles(paths);
+        setReport(res);
+        if (res?.ok) {
+          markChanged();
+          window.dispatchEvent(new CustomEvent("local-mods-changed"));
+        }
+      } catch (err) {
+        setReport({ ok: false, results: [], error: err.message });
+      } finally {
+        setBusy(false);
+      }
+    };
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    (depth > 0 || busy) && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-2 border-dashed border-violet-500/70 rounded-2xl px-14 py-10 bg-[#12141f]/80 text-center", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-5xl mb-3", children: busy ? "⏳" : "📥" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-lg", children: busy ? "Installing…" : "Drop mods to install" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-400 text-sm mt-1", children: ".zip, .package, .ts4script, tray files" })
+    ] }) }),
+    report && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed bottom-4 right-4 z-40 w-96 max-h-72 overflow-y-auto card p-4 fade-in-up", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm", children: report.ok ? "✅ Install finished" : "⚠️ Install failed" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setReport(null), className: "text-gray-500 hover:text-white text-xs", children: "✕" })
+      ] }),
+      report.error && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-red-400 text-xs mb-1", children: report.error }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-1", children: (report.results ?? []).map((r2, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-xs flex items-start gap-1.5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: r2.ok ? "✓" : "✗" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `${r2.ok ? "text-gray-300" : "text-red-400"} break-all`, children: [
+          r2.source.split(/[\\/]/).pop(),
+          r2.trayFiles?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-amber-300", children: [
+            " · ",
+            r2.trayFiles.length,
+            " → Tray"
+          ] }),
+          r2.note && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-500", children: [
+            " · ",
+            r2.note
+          ] }),
+          r2.error && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+            " — ",
+            r2.error
+          ] })
+        ] })
+      ] }, i)) })
+    ] })
   ] });
 }
 function Welcome({ onFolderSelected }) {
@@ -7108,8 +7247,20 @@ function formatDate(iso) {
     return null;
   }
 }
+function formatRelative(iso) {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const days = Math.floor((Date.now() - then) / 864e5);
+  if (days < 0) return null;
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} d ago`;
+  if (days < 365) return `${Math.floor(days / 30)} mo ago`;
+  return `${Math.floor(days / 365)} y ago`;
+}
 const TYPE_LABEL$1 = { package: ".package", ts4script: ".ts4script", archive: ".zip", unknown: "?" };
-const PLACEHOLDER$1 = "data:image/svg+xml," + encodeURIComponent(
+const PLACEHOLDER$3 = "data:image/svg+xml," + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="100%" height="100%" fill="#181b2a"/><text x="50%" y="50%" font-size="80" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
 );
 function fileIcon(ext) {
@@ -7120,7 +7271,7 @@ function fileIcon(ext) {
   if (/\.(cfg|ini|txt|md)$/.test(ext)) return "📄";
   return "📎";
 }
-function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
+function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, onToggle, onDelete, onClose }) {
   const [imgUrl, setImgUrl] = reactExports.useState(catalogMeta?.imageUrl || null);
   const [info, setInfo] = reactExports.useState(null);
   const [loading, setLoading] = reactExports.useState(true);
@@ -7150,7 +7301,7 @@ function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         "img",
         {
-          src: imgUrl || PLACEHOLDER$1,
+          src: imgUrl || PLACEHOLDER$3,
           alt: mod.name,
           className: "w-28 h-28 rounded-xl object-cover bg-[#181b2a] border border-white/10 shrink-0",
           onError: () => setImgUrl(null)
@@ -7162,10 +7313,15 @@ function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mt-2 flex-wrap", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/10 text-gray-200 font-mono", children: TYPE_LABEL$1[mod.type] }),
           !isArchive && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge ${mod.enabled ? "bg-emerald-800/50 text-emerald-300" : "bg-red-900/50 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" }),
+          mod.kinds?.map((k2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-violet-600/20 text-violet-200", children: k2 }, k2)),
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-500 text-xs", children: formatBytes(mod.size) }),
           mod.modifiedAt && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600 text-xs", children: [
             "· ",
             formatDate(mod.modifiedAt)
+          ] }),
+          mod.dateAdded && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600 text-xs", children: [
+            "· added ",
+            formatDate(mod.dateAdded)
           ] })
         ] })
       ] })
@@ -7205,7 +7361,7 @@ function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
       "📁 ",
       mod.relativePath
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2.5 pt-1 flex-wrap", children: [
       !isArchive && /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
@@ -7224,7 +7380,336 @@ function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
           className: "btn-ghost px-4 py-2 text-sm",
           children: "📂 Reveal in folder"
         }
+      ),
+      cfMatch && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => {
+            onClose();
+            onOpenCf?.(cfMatch);
+          },
+          className: "btn-ghost px-4 py-2 text-sm",
+          children: "🔥 View on CurseForge"
+        }
+      ),
+      onDelete && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => onDelete(mod),
+          className: "btn-ghost px-4 py-2 text-sm text-red-300 hover:text-red-200",
+          title: "Move to Recycle Bin",
+          children: "🗑 Delete"
+        }
       )
+    ] })
+  ] }) });
+}
+function Lightbox({ images, index = 0, onClose }) {
+  const count2 = images.length;
+  const [i, setI] = reactExports.useState(index);
+  const [loaded, setLoaded] = reactExports.useState(false);
+  const go = reactExports.useCallback((delta) => {
+    setLoaded(false);
+    setI((x2) => (x2 + delta + count2) % count2);
+  }, [count2]);
+  reactExports.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.stopImmediatePropagation();
+        onClose();
+      } else if (e.key === "ArrowLeft") {
+        e.stopImmediatePropagation();
+        go(-1);
+      } else if (e.key === "ArrowRight") {
+        e.stopImmediatePropagation();
+        go(1);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose, go]);
+  const img = images[i];
+  const src = img?.url || img?.thumbnailUrl;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 z-[60] flex items-center justify-center p-6 select-none", onMouseDown: onClose, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-black/90 backdrop-blur-sm" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        onClick: onClose,
+        className: "absolute top-4 right-4 z-10 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg flex items-center justify-center transition-colors",
+        title: "Close (Esc)",
+        children: "✕"
+      }
+    ),
+    count2 > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            go(-1);
+          },
+          className: "absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors",
+          title: "Previous (←)",
+          children: "‹"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            go(1);
+          },
+          className: "absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors",
+          title: "Next (→)",
+          children: "›"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "img",
+      {
+        src,
+        alt: img?.title || `Screenshot ${i + 1}`,
+        onMouseDown: (e) => e.stopPropagation(),
+        onLoad: () => setLoaded(true),
+        className: `relative max-h-[86vh] max-w-[92vw] object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`
+      },
+      i
+    ),
+    !loaded && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute z-0 w-8 h-8 border-2 border-white/40 border-t-transparent rounded-full animate-spin" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10", children: [
+      img?.title && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-200 text-sm max-w-lg text-center px-4 truncate", children: img.title }),
+      count2 > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-400 text-xs", children: [
+        i + 1,
+        " / ",
+        count2
+      ] })
+    ] })
+  ] });
+}
+function DownloadButton({ mod, installed, onInstalled, mode = "download", className = "" }) {
+  const [dlState, setDlState] = reactExports.useState("idle");
+  const [progress, setProgress] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    if (dlState !== "downloading") return;
+    const off = window.api.onCurseForgeProgress?.((p2) => {
+      if (p2.modId === mod.id) setProgress(p2);
+    });
+    return () => off?.();
+  }, [dlState, mod.id]);
+  const onClick = async (e) => {
+    e?.stopPropagation();
+    if (dlState === "downloading") return;
+    setDlState("downloading");
+    setProgress(null);
+    try {
+      const res = mode === "update" ? await window.api.updateCurseForgeMod(mod) : await window.api.downloadCurseForgeMod(mod);
+      if (res?.ok) {
+        setDlState("done");
+        markChanged();
+        onInstalled?.(mod.id);
+      } else {
+        console.error(`[CurseForge] ${mode} failed:`, res?.error);
+        setDlState("error");
+      }
+    } catch (err) {
+      console.error(`[CurseForge] ${mode} threw:`, err);
+      setDlState("error");
+    }
+  };
+  const pct = progress?.total ? Math.min(100, Math.round(progress.received / progress.total * 100)) : null;
+  const installing = progress?.phase === "installing";
+  const label = dlState === "downloading" ? installing ? "📦 Installing…" : pct != null ? `⏳ ${pct}% · ${formatBytes(progress.received)}${progress.total ? ` / ${formatBytes(progress.total)}` : ""}` : "⏳ Downloading…" : dlState === "done" ? mode === "update" ? "✓ Updated!" : "✓ Downloaded!" : dlState === "error" ? "⚠ Failed — retry" : mode === "update" ? "⬆ Update" : installed ? "↻ Re-download" : "⬇ Download";
+  const stateClass = dlState === "downloading" ? "btn-ghost cursor-wait" : dlState === "done" ? "btn-success cursor-default" : dlState === "error" ? "btn-danger" : mode === "update" ? "btn-primary" : installed ? "btn-ghost" : "btn-primary";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "button",
+    {
+      onClick,
+      disabled: dlState === "downloading",
+      className: `relative overflow-hidden ${stateClass} ${className}`,
+      children: [
+        label,
+        dlState === "downloading" && pct != null && !installing && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "span",
+          {
+            className: "absolute inset-x-0 bottom-0 h-0.5 bg-violet-400 transition-[width] duration-200",
+            style: { width: `${pct}%` }
+          }
+        )
+      ]
+    }
+  );
+}
+function pickLatestFile(mod) {
+  const files = mod?.latestFiles ?? [];
+  if (!files.length) return null;
+  return [...files].sort((a, b) => {
+    const d = new Date(b.fileDate ?? 0) - new Date(a.fileDate ?? 0);
+    return d !== 0 ? d : (b.id ?? 0) - (a.id ?? 0);
+  })[0];
+}
+const RELEASE_TYPE = {
+  1: { label: "R", title: "Release", cls: "bg-emerald-700/60 text-emerald-200" },
+  2: { label: "β", title: "Beta", cls: "bg-amber-700/60 text-amber-200" },
+  3: { label: "α", title: "Alpha", cls: "bg-red-800/60 text-red-200" }
+};
+const PLACEHOLDER$2 = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+);
+function Stat({ icon, label, value }) {
+  if (!value) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-500 text-[11px] uppercase tracking-wide", children: label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-200 text-sm", children: [
+      icon,
+      " ",
+      value
+    ] })
+  ] });
+}
+function DescriptionTab({ modId }) {
+  const [state, setState] = reactExports.useState({ loading: true, html: "", error: null });
+  const boxRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    window.api.getCurseForgeDescription(modId).then((res) => {
+      if (!cancelled) setState({ loading: false, html: res?.html ?? "", error: res?.error ?? null });
+    }).catch((err) => {
+      if (!cancelled) setState({ loading: false, html: "", error: err.message });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [modId]);
+  const onClick = (e) => {
+    const a = e.target.closest?.("a");
+    if (a?.href) {
+      e.preventDefault();
+      window.api.openExternal(a.href);
+    }
+  };
+  if (state.loading) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: Array.from({ length: 5 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-4 skeleton rounded" }, i)) });
+  }
+  if (state.error) return /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-red-400 text-sm", children: [
+    "⚠️ ",
+    state.error
+  ] });
+  if (!state.html) return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-sm", children: "No description provided." });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      ref: boxRef,
+      onClick,
+      className: "cf-description max-h-96 overflow-y-auto text-sm text-gray-300 leading-relaxed pr-1",
+      dangerouslySetInnerHTML: { __html: state.html }
+    }
+  );
+}
+function CurseForgeModDetail({ mod, installed, hasUpdate, onInstalled, onClose }) {
+  const [lightboxIndex, setLightboxIndex] = reactExports.useState(null);
+  const [tab, setTab] = reactExports.useState("overview");
+  const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER$2;
+  const author = mod?.authors?.[0]?.name || "Unknown";
+  const file = pickLatestFile(mod);
+  const size = formatBytes(file?.fileLength);
+  const downloads = formatCount(mod?.downloadCount);
+  const thumbs = mod?.thumbsUpCount > 0 ? formatCount(mod.thumbsUpCount) : null;
+  const updated = formatDate(mod?.dateModified);
+  const gameVersion = file?.gameVersions?.find((v2) => /^\d/.test(v2)) || file?.gameVersions?.[0];
+  const release = RELEASE_TYPE[file?.releaseType];
+  const categories = mod?.categories ?? [];
+  const screenshots = (mod?.screenshots ?? []).slice(0, 20);
+  const websiteUrl = mod?.links?.websiteUrl;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Modal, { onClose, maxWidth: "max-w-3xl", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: banner, alt: mod.name, className: "w-full h-52 object-cover bg-[#181b2a]" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3 flex-wrap", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold text-white leading-tight flex-1", children: mod.name }),
+            release && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge ${release.cls} shrink-0`, title: release.title, children: release.label }),
+            hasUpdate ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-amber-500/90 text-black font-semibold shrink-0", children: "⬆ Update available" }) : installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/90 text-white shrink-0", children: "✓ Installed" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-violet-400 text-sm mt-1", children: [
+            "by ",
+            author
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 sm:grid-cols-5 gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "⬇", label: "Downloads", value: downloads }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "👍", label: "Likes", value: thumbs }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "💾", label: "File size", value: size }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🗓", label: "Updated", value: updated }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🎮", label: "Game ver.", value: gameVersion })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 border-b border-white/5 pb-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setTab("overview"), className: `chip ${tab === "overview" ? "chip-active" : ""}`, children: "Overview" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setTab("description"), className: `chip ${tab === "description" ? "chip-active" : ""}`, children: "Description" })
+        ] }),
+        tab === "description" && /* @__PURE__ */ jsxRuntimeExports.jsx(DescriptionTab, { modId: mod.id }),
+        tab === "overview" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-300 text-sm leading-relaxed", children: mod.summary }),
+          categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "chip !cursor-default", children: [
+            c.iconUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: c.iconUrl, alt: "", className: "w-3.5 h-3.5" }),
+            c.name
+          ] }, c.id ?? c.name)) }),
+          screenshots.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: "Screenshots" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto pb-1", children: screenshots.map((s, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: s.thumbnailUrl || s.url,
+                alt: s.title || "screenshot",
+                title: s.title || "View full size",
+                onClick: () => setLightboxIndex(idx),
+                className: "h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 hover:brightness-110 transition-all shrink-0"
+              },
+              s.id ?? s.url
+            )) })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            DownloadButton,
+            {
+              mod,
+              installed,
+              mode: hasUpdate ? "update" : "download",
+              onInstalled,
+              className: "px-4 py-2 text-sm"
+            }
+          ),
+          websiteUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: () => window.api.openExternal(websiteUrl),
+              className: "btn-ghost px-4 py-2 text-sm",
+              children: "🔗 Open on CurseForge"
+            }
+          )
+        ] })
+      ] })
+    ] }),
+    lightboxIndex !== null && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Lightbox,
+      {
+        images: screenshots,
+        index: lightboxIndex,
+        onClose: () => setLightboxIndex(null)
+      }
+    )
+  ] });
+}
+function ConfirmDialog({ title, message, confirmLabel = "Delete", onConfirm, onCancel }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Modal, { onClose: onCancel, maxWidth: "max-w-sm", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-4", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-white font-semibold text-base pr-8", children: title }),
+    message && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-400 text-sm leading-relaxed", children: message }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onConfirm, className: "btn-danger px-4 py-2 text-sm", children: confirmLabel }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onCancel, className: "btn-ghost px-4 py-2 text-sm", children: "Cancel" })
     ] })
   ] }) });
 }
@@ -7316,7 +7801,7 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
     }
   );
 }
-function ModCard$1({ mod, pending, onToggle, onOpen, catalogMeta }) {
+function ModCard$1({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, catalogMeta }) {
   const creatorName = catalogMeta?.creatorName;
   const imageUrl = catalogMeta?.imageUrl;
   const tags = catalogMeta?.tags;
@@ -7331,25 +7816,66 @@ function ModCard$1({ mod, pending, onToggle, onOpen, catalogMeta }) {
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1.5 flex-1", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight truncate", title: mod.name, children: mod.name }),
           (creatorName || mod.author) && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-violet-400 text-xs truncate", title: creatorName || mod.author, children: creatorName || mod.author }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 flex-wrap", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 flex-wrap", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge font-mono ${TYPE_COLOR[mod.type]}`, children: TYPE_LABEL[mod.type] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge ${mod.enabled ? "bg-emerald-800/50 text-emerald-300" : "bg-red-900/50 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge ${mod.enabled ? "bg-emerald-800/50 text-emerald-300" : "bg-red-900/50 text-red-300"}`, children: mod.enabled ? "enabled" : "disabled" }),
+            mod.kinds?.map((k2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/5 text-gray-400", children: k2 }, k2)),
+            cfMatch && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: (e) => {
+                  e.stopPropagation();
+                  onOpenCf(cfMatch);
+                },
+                className: "badge bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 transition-colors",
+                title: "Installed from CurseForge — view details",
+                children: "🔥 CF"
+              }
+            )
           ] }),
           tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1", children: tags.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/5 text-gray-400", children: t2 }, t2)) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs", children: formatBytes(mod.size) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs", children: [
+            formatBytes(mod.size),
+            mod.folderFiles > 1 && mod.folderSize > mod.size && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600", children: [
+              " · folder ",
+              formatBytes(mod.folderSize),
+              " (",
+              mod.folderFiles,
+              ")"
+            ] }),
+            mod.dateAdded && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600", children: [
+              " · added ",
+              formatDate(mod.dateAdded)
+            ] })
+          ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs truncate mt-auto pt-1", title: mod.relativePath, children: mod.relativePath }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              onClick: (e) => {
-                e.stopPropagation();
-                onToggle(mod);
-              },
-              disabled: pending,
-              className: `${mod.enabled ? "btn-danger" : "btn-success"} mt-2 px-3 py-1.5 text-xs`,
-              children: pending ? "…" : mod.enabled ? "Disable" : "Enable"
-            }
-          )
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 mt-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: (e) => {
+                  e.stopPropagation();
+                  onToggle(mod);
+                },
+                disabled: pending,
+                className: `${mod.enabled ? "btn-danger" : "btn-success"} flex-1 px-3 py-1.5 text-xs`,
+                children: pending ? "…" : mod.enabled ? "Disable" : "Enable"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: (e) => {
+                  e.stopPropagation();
+                  onDelete(mod);
+                },
+                disabled: pending,
+                className: "btn-ghost px-2.5 py-1.5 text-xs",
+                title: "Move to Recycle Bin",
+                children: "🗑"
+              }
+            )
+          ] })
         ] })
       ]
     }
@@ -7366,6 +7892,10 @@ function LocalMods({ modsFolder }) {
   const [filter, setFilter] = reactExports.useState("all");
   const [sort, setSort] = reactExports.useState("name");
   const [selectedMod, setSelectedMod] = reactExports.useState(null);
+  const [confirmTarget, setConfirmTarget] = reactExports.useState(null);
+  const [cfRecords, setCfRecords] = reactExports.useState([]);
+  const [cfDetailMod, setCfDetailMod] = reactExports.useState(null);
+  const [cfDetailLoading, setCfDetailLoading] = reactExports.useState(false);
   reactExports.useEffect(() => {
     window.api.getCatalog().then((cat) => {
       if (cat) setCatalog(cat);
@@ -7422,6 +7952,41 @@ function LocalMods({ modsFolder }) {
       cancelled = true;
     };
   }, [scan]);
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    window.api.getDownloadedCurseForge?.().then((rec) => {
+      if (cancelled || !rec) return;
+      setCfRecords(Object.entries(rec).filter(([, r2]) => r2?.path).map(([modId, r2]) => ({ modId: Number(modId), name: r2.name, pathLower: r2.path.toLowerCase() })));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  reactExports.useEffect(() => {
+    const onChanged = () => scan();
+    window.addEventListener("local-mods-changed", onChanged);
+    return () => window.removeEventListener("local-mods-changed", onChanged);
+  }, [scan]);
+  const cfMatchFor = reactExports.useCallback((mod) => {
+    const p2 = mod.filePath?.toLowerCase();
+    if (!p2) return null;
+    return cfRecords.find((r2) => p2 === r2.pathLower || p2.startsWith(r2.pathLower + "\\")) ?? null;
+  }, [cfRecords]);
+  const openCfDetail = reactExports.useCallback(async (match) => {
+    if (cfDetailLoading) return;
+    setCfDetailLoading(true);
+    setActionError(null);
+    try {
+      const res = await window.api.getCurseForgeModsByIds([match.modId]);
+      const mod = res?.data?.[0];
+      if (mod) setCfDetailMod(mod);
+      else setActionError(`"${match.name ?? "Mod"}" is no longer available on CurseForge.`);
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setCfDetailLoading(false);
+    }
+  }, [cfDetailLoading]);
   const handleToggle = reactExports.useCallback(async (mod) => {
     if (busyPath) return;
     setActionError(null);
@@ -7432,6 +7997,7 @@ function LocalMods({ modsFolder }) {
         setActionError(res.error?.message ?? "Toggle failed.");
         return;
       }
+      markChanged();
       setResult((prev) => {
         if (!prev) return prev;
         const mods = prev.mods.map(
@@ -7455,6 +8021,7 @@ function LocalMods({ modsFolder }) {
         setActionError(res.error ?? "Extraction failed.");
         return;
       }
+      markChanged();
       await scan();
     } catch (err) {
       setActionError(err.message);
@@ -7462,6 +8029,37 @@ function LocalMods({ modsFolder }) {
       setBusyPath((p2) => p2 === mod.filePath ? null : p2);
     }
   }, [busyPath, scan]);
+  const requestDelete = reactExports.useCallback((mod) => {
+    if (busyPath) return;
+    setConfirmTarget(mod);
+  }, [busyPath]);
+  const handleDelete = reactExports.useCallback(async (mod) => {
+    setConfirmTarget(null);
+    setSelectedMod(null);
+    if (busyPath) return;
+    setActionError(null);
+    setBusyPath(mod.filePath);
+    try {
+      const res = await window.api.deleteLocalMod(mod.filePath);
+      if (!res.ok) {
+        setActionError(res.error?.message ?? "Delete failed.");
+        return;
+      }
+      markChanged();
+      const removed = new Set((res.removed ?? [mod.filePath]).map((p2) => p2.toLowerCase()));
+      setResult((prev) => {
+        if (!prev) return prev;
+        const mods = prev.mods.filter(
+          (m2) => !removed.has(m2.filePath.toLowerCase()) && ![...removed].some((r2) => m2.filePath.toLowerCase().startsWith(r2 + "\\"))
+        );
+        return { ...prev, mods, count: mods.length };
+      });
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setBusyPath((p2) => p2 === mod.filePath ? null : p2);
+    }
+  }, [busyPath]);
   const visibleMods = reactExports.useMemo(() => {
     let mods = result?.mods ?? [];
     const q2 = query.trim().toLowerCase();
@@ -7609,6 +8207,9 @@ function LocalMods({ modsFolder }) {
               pending: busyPath === mod.filePath,
               onToggle: handleToggle,
               onOpen: setSelectedMod,
+              onDelete: requestDelete,
+              onOpenCf: openCfDetail,
+              cfMatch: cfMatchFor(mod),
               catalogMeta: catalogMetaFor(mod.fileName)
             },
             mod.id
@@ -7621,8 +8222,31 @@ function LocalMods({ modsFolder }) {
       {
         mod: selectedMod,
         catalogMeta: catalogMetaFor(selectedMod.fileName),
+        cfMatch: cfMatchFor(selectedMod),
+        onOpenCf: openCfDetail,
         onToggle: handleToggle,
+        onDelete: requestDelete,
         onClose: () => setSelectedMod(null)
+      }
+    ),
+    cfDetailMod && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      CurseForgeModDetail,
+      {
+        mod: cfDetailMod,
+        installed: true,
+        onInstalled: () => {
+        },
+        onClose: () => setCfDetailMod(null)
+      }
+    ),
+    confirmTarget && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ConfirmDialog,
+      {
+        title: `Delete "${confirmTarget.name}"?`,
+        message: "The file will be moved to the Recycle Bin (recoverable). Folders left empty are removed too.",
+        confirmLabel: "🗑 Delete",
+        onConfirm: () => handleDelete(confirmTarget),
+        onCancel: () => setConfirmTarget(null)
       }
     )
   ] });
@@ -7637,11 +8261,19 @@ const LINK_LABELS = {
 };
 function CreatorCard({ creator }) {
   const links = Object.entries(creator.links ?? {}).filter(([, url]) => url);
+  if (creator.patreon_url && !links.some(([k2]) => k2 === "patreon")) {
+    links.unshift(["patreon", creator.patreon_url]);
+  }
+  const status = creator.status ?? null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card card-hover fade-in-up p-4 flex flex-col gap-3", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-md shadow-violet-950/50", children: creator.name?.charAt(0)?.toUpperCase() ?? "?" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-white font-semibold text-sm leading-tight truncate", title: creator.name, children: creator.name })
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-white font-semibold text-sm leading-tight truncate", title: creator.name, children: creator.name }),
+        status && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `badge mt-1 ${status === "active" ? "bg-emerald-800/50 text-emerald-300" : "bg-gray-700/60 text-gray-400"}`, children: status })
+      ] })
     ] }),
+    creator.categories?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1", children: creator.categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/5 text-gray-400", children: c }, c)) }),
     links.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: links.map(([key, url]) => {
       const meta = LINK_LABELS[key] ?? { label: key, icon: "🔗", color: "bg-gray-600/80 hover:bg-gray-500" };
       return /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -7680,7 +8312,10 @@ function Creators() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5 shrink-0", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Creators" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Browse all creators from the catalog" })
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "page-subtitle", children: [
+        "Browse all creators from the catalog",
+        catalog?.last_updated && ` · updated ${new Date(catalog.last_updated).toLocaleDateString()}`
+      ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-500 gap-3", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full" }),
@@ -7696,219 +8331,6 @@ function Creators() {
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }, children: (catalog?.creators ?? []).map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx(CreatorCard, { creator: c }, c.id ?? c.name)) })
     ] }) })
-  ] });
-}
-function DownloadButton({ mod, installed, onInstalled, className = "" }) {
-  const [dlState, setDlState] = reactExports.useState("idle");
-  const onDownload = async (e) => {
-    e?.stopPropagation();
-    if (dlState === "downloading") return;
-    setDlState("downloading");
-    try {
-      const res = await window.api.downloadCurseForgeMod(mod);
-      if (res?.ok) {
-        setDlState("done");
-        onInstalled?.(mod.id);
-      } else {
-        console.error("[CurseForge] Download failed:", res?.error);
-        setDlState("error");
-      }
-    } catch (err) {
-      console.error("[CurseForge] Download threw:", err);
-      setDlState("error");
-    }
-  };
-  const label = dlState === "downloading" ? "⏳ Downloading…" : dlState === "done" ? "✓ Downloaded!" : dlState === "error" ? "⚠ Failed — retry" : installed ? "↻ Re-download" : "⬇ Download";
-  const stateClass = dlState === "downloading" ? "btn-ghost cursor-wait" : dlState === "done" ? "btn-success cursor-default" : dlState === "error" ? "btn-danger" : installed ? "btn-ghost" : "btn-primary";
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "button",
-    {
-      onClick: onDownload,
-      disabled: dlState === "downloading",
-      className: `${stateClass} ${className}`,
-      children: label
-    }
-  );
-}
-function Lightbox({ images, index = 0, onClose }) {
-  const count = images.length;
-  const [i, setI] = reactExports.useState(index);
-  const [loaded, setLoaded] = reactExports.useState(false);
-  const go = reactExports.useCallback((delta) => {
-    setLoaded(false);
-    setI((x2) => (x2 + delta + count) % count);
-  }, [count]);
-  reactExports.useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.stopImmediatePropagation();
-        onClose();
-      } else if (e.key === "ArrowLeft") {
-        e.stopImmediatePropagation();
-        go(-1);
-      } else if (e.key === "ArrowRight") {
-        e.stopImmediatePropagation();
-        go(1);
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose, go]);
-  const img = images[i];
-  const src = img?.url || img?.thumbnailUrl;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 z-[60] flex items-center justify-center p-6 select-none", onMouseDown: onClose, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-black/90 backdrop-blur-sm" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "button",
-      {
-        onClick: onClose,
-        className: "absolute top-4 right-4 z-10 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg flex items-center justify-center transition-colors",
-        title: "Close (Esc)",
-        children: "✕"
-      }
-    ),
-    count > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          onClick: (e) => {
-            e.stopPropagation();
-            go(-1);
-          },
-          className: "absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors",
-          title: "Previous (←)",
-          children: "‹"
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          onClick: (e) => {
-            e.stopPropagation();
-            go(1);
-          },
-          className: "absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors",
-          title: "Next (→)",
-          children: "›"
-        }
-      )
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "img",
-      {
-        src,
-        alt: img?.title || `Screenshot ${i + 1}`,
-        onMouseDown: (e) => e.stopPropagation(),
-        onLoad: () => setLoaded(true),
-        className: `relative max-h-[86vh] max-w-[92vw] object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`
-      },
-      i
-    ),
-    !loaded && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute z-0 w-8 h-8 border-2 border-white/40 border-t-transparent rounded-full animate-spin" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10", children: [
-      img?.title && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-200 text-sm max-w-lg text-center px-4 truncate", children: img.title }),
-      count > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-400 text-xs", children: [
-        i + 1,
-        " / ",
-        count
-      ] })
-    ] })
-  ] });
-}
-const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
-);
-function Stat({ icon, label, value }) {
-  if (!value) return null;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-500 text-[11px] uppercase tracking-wide", children: label }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-200 text-sm", children: [
-      icon,
-      " ",
-      value
-    ] })
-  ] });
-}
-function CurseForgeModDetail({ mod, installed, onInstalled, onClose }) {
-  const [lightboxIndex, setLightboxIndex] = reactExports.useState(null);
-  const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER;
-  const author = mod?.authors?.[0]?.name || "Unknown";
-  const file = mod?.latestFiles?.[0];
-  const size = formatBytes(file?.fileLength);
-  const downloads = formatCount(mod?.downloadCount);
-  const updated = formatDate(mod?.dateModified);
-  const gameVersion = file?.gameVersions?.find((v2) => /^\d/.test(v2)) || file?.gameVersions?.[0];
-  const categories = mod?.categories ?? [];
-  const screenshots = (mod?.screenshots ?? []).slice(0, 20);
-  const websiteUrl = mod?.links?.websiteUrl;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(Modal, { onClose, maxWidth: "max-w-3xl", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: banner, alt: mod.name, className: "w-full h-52 object-cover bg-[#181b2a]" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-5", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3 flex-wrap", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold text-white leading-tight flex-1", children: mod.name }),
-            installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/90 text-white shrink-0", children: "✓ Installed" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-violet-400 text-sm mt-1", children: [
-            "by ",
-            author
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "⬇", label: "Downloads", value: downloads }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "💾", label: "File size", value: size }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🗓", label: "Updated", value: updated }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Stat, { icon: "🎮", label: "Game ver.", value: gameVersion })
-        ] }),
-        mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-300 text-sm leading-relaxed", children: mod.summary }),
-        categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "chip !cursor-default", children: [
-          c.iconUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: c.iconUrl, alt: "", className: "w-3.5 h-3.5" }),
-          c.name
-        ] }, c.id ?? c.name)) }),
-        screenshots.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: "Screenshots" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto pb-1", children: screenshots.map((s, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "img",
-            {
-              src: s.thumbnailUrl || s.url,
-              alt: s.title || "screenshot",
-              title: s.title || "View full size",
-              onClick: () => setLightboxIndex(idx),
-              className: "h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 hover:brightness-110 transition-all shrink-0"
-            },
-            s.id ?? s.url
-          )) })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            DownloadButton,
-            {
-              mod,
-              installed,
-              onInstalled,
-              className: "px-4 py-2 text-sm"
-            }
-          ),
-          websiteUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              onClick: () => window.api.openExternal(websiteUrl),
-              className: "btn-ghost px-4 py-2 text-sm",
-              children: "🔗 Open on CurseForge"
-            }
-          )
-        ] })
-      ] })
-    ] }),
-    lightboxIndex !== null && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Lightbox,
-      {
-        images: screenshots,
-        index: lightboxIndex,
-        onClose: () => setLightboxIndex(null)
-      }
-    )
   ] });
 }
 function CategoryFilter({ categories, selectedId, onSelect }) {
@@ -7989,6 +8411,12 @@ function CategoryFilter({ categories, selectedId, onSelect }) {
     ] })
   ] });
 }
+const SORT_OPTIONS = [
+  { id: null, label: "Relevance" },
+  { id: 2, label: "Popular" },
+  { id: 3, label: "Updated" },
+  { id: 6, label: "Downloads" }
+];
 const DEBOUNCE_MS = 500;
 const SKELETON_COUNT = 10;
 const PAGE_SIZE = 50;
@@ -8014,14 +8442,18 @@ function SkeletonCard() {
     ] })
   ] });
 }
-function ModCard({ mod, installed, onInstalled, onOpen }) {
-  const size = formatBytes(mod.latestFiles?.[0]?.fileLength);
+function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
+  const latest = pickLatestFile(mod);
+  const size = formatBytes(latest?.fileLength);
   const downloads = formatCount(mod.downloadCount);
+  const thumbs = mod.thumbsUpCount > 0 ? formatCount(mod.thumbsUpCount) : null;
+  const updated = formatRelative(mod.dateModified);
+  const release = RELEASE_TYPE[latest?.releaseType];
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
       onClick: () => onOpen(mod),
-      className: `card card-hover fade-in-up flex flex-col cursor-pointer ${installed ? "ring-1 ring-emerald-500/40" : ""}`,
+      className: `card card-hover fade-in-up flex flex-col cursor-pointer ${hasUpdate ? "ring-1 ring-amber-500/50" : installed ? "ring-1 ring-emerald-500/40" : ""}`,
       title: "Click for details",
       children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
@@ -8034,20 +8466,29 @@ function ModCard({ mod, installed, onInstalled, onOpen }) {
               className: "w-full h-32 object-cover bg-[#181b2a]"
             }
           ),
-          installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-600/90 text-white shadow-md shadow-emerald-950/40 backdrop-blur-sm", children: "✓ Installed" })
+          hasUpdate ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-amber-500/90 text-black font-semibold shadow-md backdrop-blur-sm", children: "⬆ Update available" }) : installed && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-600/90 text-white shadow-md shadow-emerald-950/40 backdrop-blur-sm", children: "✓ Installed" }),
+          release && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `absolute top-2 left-2 badge ${release.cls} backdrop-blur-sm`, title: release.title, children: release.label })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight line-clamp-2", title: mod.name, children: mod.name }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-violet-400 text-xs truncate", title: getAuthor(mod), children: getAuthor(mod) }),
           mod.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs leading-snug line-clamp-3 mt-1", title: mod.summary, children: mod.summary }),
-          (size || downloads) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 mt-1 text-gray-500 text-[11px]", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2.5 mt-1 text-gray-500 text-[11px] flex-wrap", children: [
             downloads && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: `${mod.downloadCount?.toLocaleString()} downloads`, children: [
               "⬇ ",
               downloads
             ] }),
+            thumbs && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: `${mod.thumbsUpCount?.toLocaleString()} thumbs up`, children: [
+              "👍 ",
+              thumbs
+            ] }),
             size && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: "File size", children: [
               "💾 ",
               size
+            ] }),
+            updated && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: "Last updated", children: [
+              "🕒 ",
+              updated
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -8055,6 +8496,7 @@ function ModCard({ mod, installed, onInstalled, onOpen }) {
             {
               mod,
               installed,
+              mode: hasUpdate ? "update" : "download",
               onInstalled,
               className: "mt-3 px-3 py-1.5 text-xs"
             }
@@ -8063,6 +8505,61 @@ function ModCard({ mod, installed, onInstalled, onOpen }) {
       ]
     }
   );
+}
+function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalled, onOpen, onRecheck }) {
+  if (checking && !updateInfo) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: Array.from({ length: 6 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(SkeletonCard, {}, i)) });
+  }
+  if (!updateInfo) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "📥" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: "Nothing downloaded through the app yet." })
+    ] });
+  }
+  const metaById = new Map(updateInfo.updates.map((u2) => [u2.modId, u2]));
+  let mods = updateInfo.mods;
+  if (filter === "updates") mods = mods.filter((m2) => metaById.get(m2.id)?.updateAvailable);
+  const missing = updateInfo.updates.filter((u2) => !u2.found);
+  const updatesCount = updateInfo.updates.filter((u2) => u2.updateAvailable).length;
+  if (!mods.length && !missing.length) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: filter === "updates" ? "✅" : "📥" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: filter === "updates" ? "Everything is up to date." : "Nothing downloaded through the app yet." }),
+      filter === "updates" && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onRecheck, className: "btn-ghost px-3 py-1.5 text-xs", children: "🔄 Re-check" })
+    ] });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+      mods.length,
+      " installed mod",
+      mods.length !== 1 ? "s" : "",
+      updatesCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-amber-400", children: [
+        " · ",
+        updatesCount,
+        " update",
+        updatesCount !== 1 ? "s" : "",
+        " available"
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }, children: mods.map((mod) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ModCard,
+      {
+        mod,
+        installed: downloadedIds.has(mod.id),
+        hasUpdate: metaById.get(mod.id)?.updateAvailable === true,
+        onInstalled,
+        onOpen
+      },
+      mod.id
+    )) }),
+    missing.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs mb-2", children: "No longer on CurseForge:" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-1", children: missing.map((u2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs", children: [
+        "✖ ",
+        u2.name ?? `Mod #${u2.modId}`
+      ] }, u2.modId)) })
+    ] })
+  ] });
 }
 function CurseForgeBrowser() {
   const [searchQuery, setSearchQuery] = reactExports.useState("");
@@ -8079,13 +8576,19 @@ function CurseForgeBrowser() {
   const [selectedMod, setSelectedMod] = reactExports.useState(null);
   const [categories, setCategories] = reactExports.useState([]);
   const [categoryId, setCategoryId] = reactExports.useState(null);
+  const [sortField, setSortField] = reactExports.useState(null);
+  const [view, setView] = reactExports.useState("browse");
+  const [installedFilter, setInstalledFilter] = reactExports.useState("all");
+  const [updateInfo, setUpdateInfo] = reactExports.useState(null);
+  const [checking, setChecking] = reactExports.useState(false);
   const reqIdRef = reactExports.useRef(0);
   const timerRef = reactExports.useRef(null);
   const activeFilterRef = reactExports.useRef("");
   const activeCategoryRef = reactExports.useRef(null);
+  const activeSortRef = reactExports.useRef(null);
   const scrollRootRef = reactExports.useRef(null);
   const loadMoreRef = reactExports.useRef(null);
-  const fetchPage = reactExports.useCallback((filter, page, category) => {
+  const fetchPage = reactExports.useCallback((filter, page, category, sort) => {
     const reqId = ++reqIdRef.current;
     const append = page > 0;
     if (append) {
@@ -8094,6 +8597,7 @@ function CurseForgeBrowser() {
     } else {
       activeFilterRef.current = filter;
       activeCategoryRef.current = category ?? null;
+      activeSortRef.current = sort ?? null;
       setIsLoading(true);
       setIsLoadingMore(false);
       setIsError(false);
@@ -8103,6 +8607,8 @@ function CurseForgeBrowser() {
     const params = { searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE };
     const cat = append ? activeCategoryRef.current : category ?? null;
     if (cat != null) params.categoryId = cat;
+    const srt = append ? activeSortRef.current : sort ?? null;
+    if (srt != null) params.sortField = srt;
     window.api.searchCurseForge(params).then((res) => {
       if (reqId !== reqIdRef.current) return;
       if (res?.error) {
@@ -8157,8 +8663,27 @@ function CurseForgeBrowser() {
     setCategoryId(id2);
     if (timerRef.current) clearTimeout(timerRef.current);
     if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0;
-    fetchPage(activeFilterRef.current, 0, id2);
+    fetchPage(activeFilterRef.current, 0, id2, activeSortRef.current);
   };
+  const onSortChange = (id2) => {
+    setSortField(id2);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0;
+    fetchPage(activeFilterRef.current, 0, activeCategoryRef.current, id2);
+  };
+  const runUpdateCheck = reactExports.useCallback(async (force) => {
+    setChecking(true);
+    try {
+      const res = await window.api.checkCurseForgeUpdates?.({ force });
+      if (res?.ok) setUpdateInfo(res);
+      else if (res?.error) console.error("[CurseForge] update check failed:", res.error);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+  reactExports.useEffect(() => {
+    if (view === "installed" && !updateInfo && !checking) runUpdateCheck(false);
+  }, [view, updateInfo, checking, runUpdateCheck]);
   reactExports.useEffect(() => {
     let cancelled = false;
     window.api.getDownloadedCurseForge?.().then((rec) => {
@@ -8176,11 +8701,18 @@ function CurseForgeBrowser() {
       return next;
     });
   }, []);
+  const outdatedIds = reactExports.useMemo(
+    () => new Set((updateInfo?.updates ?? []).filter((u2) => u2.updateAvailable).map((u2) => u2.modId)),
+    [updateInfo]
+  );
   const onSearchChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => fetchPage(value, 0, activeCategoryRef.current), DEBOUNCE_MS);
+    timerRef.current = setTimeout(
+      () => fetchPage(value, 0, activeCategoryRef.current, activeSortRef.current),
+      DEBOUNCE_MS
+    );
   };
   reactExports.useEffect(() => {
     const node = loadMoreRef.current;
@@ -8188,8 +8720,9 @@ function CurseForgeBrowser() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting) return;
+        if (view !== "browse") return;
         if (isLoading || isLoadingMore || isError || loadMoreFailed || !hasMore) return;
-        fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current);
+        fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current, activeSortRef.current);
       },
       // ponytail: 300px rootMargin prefetches the next page just before the user
       // reaches the bottom, so scrolling feels continuous
@@ -8197,7 +8730,7 @@ function CurseForgeBrowser() {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [pageIndex, isLoading, isLoadingMore, hasMore, isError, loadMoreFailed, mods.length, fetchPage]);
+  }, [pageIndex, isLoading, isLoadingMore, hasMore, isError, loadMoreFailed, mods.length, view, fetchPage]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
@@ -8205,32 +8738,90 @@ function CurseForgeBrowser() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Browse and download Sims 4 mods from CurseForge" })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-wrap", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "input",
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setView("browse"), className: `chip ${view === "browse" ? "chip-active" : ""}`, children: "Browse" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: () => setView("installed"), className: `chip ${view === "installed" ? "chip-active" : ""}`, children: [
+            "Installed",
+            downloadedIds.size > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/40 text-emerald-200 ml-1", children: downloadedIds.size }),
+            (updateInfo?.updates?.filter((u2) => u2.updateAvailable).length ?? 0) > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "badge bg-amber-500/70 text-black ml-1", children: [
+              "⬆ ",
+              updateInfo.updates.filter((u2) => u2.updateAvailable).length
+            ] })
+          ] })
+        ] }),
+        view === "browse" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                type: "text",
+                value: searchQuery,
+                onChange: onSearchChange,
+                placeholder: "Search mods…",
+                className: "input w-full sm:w-72 pl-9 pr-3 py-2"
+              }
+            )
+          ] }),
+          categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            CategoryFilter,
             {
-              type: "text",
-              value: searchQuery,
-              onChange: onSearchChange,
-              placeholder: "Search mods…",
-              className: "input w-full sm:w-80 pl-9 pr-3 py-2"
+              categories,
+              selectedId: categoryId,
+              onSelect: onCategoryChange
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-600 text-xs", children: "Sort:" }),
+            SORT_OPTIONS.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: () => onSortChange(s.id),
+                className: `chip ${sortField === s.id ? "chip-active" : ""}`,
+                children: s.label
+              },
+              String(s.id)
+            ))
+          ] })
+        ] }),
+        view === "installed" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setInstalledFilter("all"), className: `chip ${installedFilter === "all" ? "chip-active" : ""}`, children: "All" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setInstalledFilter("updates"), className: `chip ${installedFilter === "updates" ? "chip-active" : ""}`, children: "Updates only" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              onClick: () => runUpdateCheck(true),
+              disabled: checking,
+              className: "btn-ghost px-3 py-1.5 text-xs ml-auto",
+              children: checking ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" }),
+                "Checking…"
+              ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                "🔄 Check for updates",
+                updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ""
+              ] })
             }
           )
-        ] }),
-        categories.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
-          CategoryFilter,
-          {
-            categories,
-            selectedId: categoryId,
-            onSelect: onCategoryChange
-          }
-        )
+        ] })
       ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: scrollRootRef, className: "flex-1 overflow-y-auto px-8 py-6", children: [
-      isError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 banner-error", children: "⚠️ Failed to fetch mods from CurseForge. Check your API key and network connection." }),
-      isLoading && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      view === "installed" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        InstalledView,
+        {
+          updateInfo,
+          checking,
+          filter: installedFilter,
+          downloadedIds,
+          onInstalled: markInstalled,
+          onOpen: setSelectedMod,
+          onRecheck: () => runUpdateCheck(true)
+        }
+      ),
+      view === "browse" && isError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 banner-error", children: "⚠️ Failed to fetch mods from CurseForge. Check your API key and network connection." }),
+      view === "browse" && isLoading && /* @__PURE__ */ jsxRuntimeExports.jsx(
         "div",
         {
           className: "grid gap-4",
@@ -8238,7 +8829,7 @@ function CurseForgeBrowser() {
           children: Array.from({ length: SKELETON_COUNT }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(SkeletonCard, {}, i))
         }
       ),
-      !isLoading && !isError && mods.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+      view === "browse" && !isLoading && !isError && mods.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🔍" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm", children: [
           "No mods found",
@@ -8246,7 +8837,7 @@ function CurseForgeBrowser() {
           "."
         ] })
       ] }),
-      !isLoading && !isError && mods.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      view === "browse" && !isLoading && !isError && mods.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
           totalCount != null && totalCount > mods.length ? `Showing ${mods.length.toLocaleString()} of ${totalCount.toLocaleString()} mods` : `${mods.length.toLocaleString()} mod${mods.length !== 1 ? "s" : ""}`,
           displayedFilter && ` · results for "${displayedFilter}"`,
@@ -8273,6 +8864,7 @@ function CurseForgeBrowser() {
               {
                 mod,
                 installed: downloadedIds.has(mod.id),
+                hasUpdate: outdatedIds.has(mod.id),
                 onInstalled: markInstalled,
                 onOpen: setSelectedMod
               },
@@ -8290,7 +8882,7 @@ function CurseForgeBrowser() {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
-              onClick: () => fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current),
+              onClick: () => fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current, activeSortRef.current),
               className: "btn-danger px-3 py-1.5 text-xs",
               children: "Retry"
             }
@@ -8304,23 +8896,578 @@ function CurseForgeBrowser() {
       {
         mod: selectedMod,
         installed: downloadedIds.has(selectedMod.id),
+        hasUpdate: outdatedIds.has(selectedMod.id),
         onInstalled: markInstalled,
         onClose: () => setSelectedMod(null)
       }
     )
   ] });
 }
-function CustomCatalog() {
+const TYPE_META$1 = {
+  patreon: { icon: "🧡", label: "Patreon", badge: "bg-orange-600/30 text-orange-200" },
+  pinterest: { icon: "📌", label: "Pinterest", badge: "bg-red-600/30 text-red-200" },
+  tumblr: { icon: "📝", label: "Tumblr", badge: "bg-sky-600/30 text-sky-200" },
+  modthesims: { icon: "🏛", label: "ModTheSims", badge: "bg-emerald-600/30 text-emerald-200" }
+};
+const PLACEHOLDER$1 = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#4b5563">🌐</text></svg>'
+);
+function DiscoverDetail({ item, onClose, renderDownload }) {
+  const [lightbox, setLightbox] = reactExports.useState(false);
+  const meta = TYPE_META$1[item.sourceType] ?? { icon: "🌐", label: item.sourceType, badge: "bg-gray-700 text-gray-300" };
+  const banner = item.imageUrl || PLACEHOLDER$1;
+  const downloads = item.downloads ?? [];
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Modal, { onClose, maxWidth: "max-w-2xl", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: banner,
+            alt: item.title,
+            className: `w-full max-h-80 object-cover bg-[#181b2a] ${item.imageUrl ? "cursor-zoom-in" : ""}`,
+            onClick: () => item.imageUrl && setLightbox(true),
+            onError: (e) => {
+              e.currentTarget.src = PLACEHOLDER$1;
+            }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `absolute top-3 left-3 badge ${meta.badge} backdrop-blur-sm`, children: [
+          meta.icon,
+          " ",
+          meta.label
+        ] }),
+        item.locked ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-3 right-12 badge bg-black/70 text-amber-300 backdrop-blur-sm", children: "🔒 patrons" }) : downloads.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-3 right-12 badge bg-emerald-600/80 text-white backdrop-blur-sm", children: "🆓 free" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-6 flex flex-col gap-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold text-white leading-tight", children: item.title }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mt-1 text-sm", children: [
+            item.author && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-violet-400", children: item.author }),
+            item.date && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600", children: [
+              "· ",
+              formatRelative(item.date)
+            ] })
+          ] })
+        ] }),
+        item.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-300 text-sm leading-relaxed whitespace-pre-line", children: item.summary }),
+        item.tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5", children: item.tags.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "badge bg-white/5 text-gray-400", children: [
+          "#",
+          t2
+        ] }, t2)) }),
+        downloads.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-[11px] uppercase tracking-wide mb-2", children: [
+            downloads.length,
+            " file",
+            downloads.length !== 1 ? "s" : ""
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-1 max-h-40 overflow-y-auto rounded-lg border border-white/5 divide-y divide-white/5", children: downloads.map((d, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 text-xs", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: /\.zip$/i.test(d.name) ? "🗜" : "📦" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-300 truncate", title: d.name, children: d.name })
+          ] }, i)) })
+        ] }),
+        item.locked && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "banner-warn", children: "🔒 This is a patron-only post. Connect your Patreon account in Settings (if you back this creator) to download it, or open the original to view on Patreon." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1 flex-wrap", children: [
+          downloads.length > 0 && renderDownload?.(item),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => window.api.openExternal(item.url), className: "btn-ghost px-4 py-2 text-sm", children: "↗ Open original" })
+        ] })
+      ] })
+    ] }),
+    lightbox && item.imageUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(Lightbox, { images: [{ url: item.imageUrl, title: item.title }], index: 0, onClose: () => setLightbox(false) })
+  ] });
+}
+const TYPE_META = {
+  patreon: { icon: "🧡", badge: "bg-orange-600/30 text-orange-200" },
+  pinterest: { icon: "📌", badge: "bg-red-600/30 text-red-200" },
+  tumblr: { icon: "📝", badge: "bg-sky-600/30 text-sky-200" },
+  modthesims: { icon: "🏛", badge: "bg-emerald-600/30 text-emerald-200" }
+};
+const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#4b5563">🌐</text></svg>'
+);
+function AddSourceForm({ types, onAdded }) {
+  const [type, setType] = reactExports.useState("patreon");
+  const [input, setInput] = reactExports.useState("");
+  const [state, setState] = reactExports.useState("idle");
+  const [error, setError] = reactExports.useState(null);
+  const hint = types.find((t2) => t2.type === type)?.hint ?? "";
+  const onAdd = async () => {
+    const value = input.trim();
+    if (!value || state === "adding") return;
+    setState("adding");
+    setError(null);
+    try {
+      const res = await window.api.followSource({ type, input: value });
+      if (res?.ok) {
+        setInput("");
+        onAdded();
+      } else {
+        setError(res?.error ?? "Could not add this source.");
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setState("idle");
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2 flex-wrap", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "select",
+      {
+        value: type,
+        onChange: (e) => setType(e.target.value),
+        className: "input px-2.5 py-2 text-sm bg-[#12141f]",
+        children: types.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: t2.type, children: [
+          TYPE_META[t2.type]?.icon,
+          " ",
+          t2.label
+        ] }, t2.type))
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          value: input,
+          onChange: (e) => setInput(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === "Enter") onAdd();
+          },
+          placeholder: hint,
+          className: "input w-72 px-3 py-2 text-sm"
+        }
+      ),
+      error && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-red-400 text-xs mt-1 max-w-72", children: error })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onAdd, disabled: state === "adding", className: "btn-primary px-4 py-2 text-sm", children: state === "adding" ? "⏳ Checking…" : "＋ Follow" })
+  ] });
+}
+function DiscoverDownloadButton({ item }) {
+  const [state, setState] = reactExports.useState("idle");
+  const [progress, setProgress] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    if (state !== "downloading") return;
+    const off = window.api.onDiscoverProgress?.((p2) => {
+      if (p2.itemId === item.id) setProgress(p2);
+    });
+    return () => off?.();
+  }, [state, item.id]);
+  const onClick = async (e) => {
+    e.stopPropagation();
+    if (state === "downloading") return;
+    setState("downloading");
+    setProgress(null);
+    try {
+      const res = await window.api.downloadDiscoverItem(item);
+      if (res?.ok) {
+        setState("done");
+        markChanged();
+        window.dispatchEvent(new CustomEvent("local-mods-changed"));
+      } else {
+        console.error("[Discover] download failed:", res?.error, res?.errors);
+        setState("error");
+      }
+    } catch (err) {
+      console.error("[Discover] download threw:", err);
+      setState("error");
+    }
+  };
+  const pct = progress?.total ? Math.min(100, Math.round(progress.received / progress.total * 100)) : null;
+  const multi = (item.downloads?.length ?? 0) > 1 && progress?.fileCount > 1;
+  const label = state === "downloading" ? progress?.phase === "installing" ? "📦 Installing…" : `⏳ ${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ""}${pct != null ? `${pct}%` : "…"}` : state === "done" ? "✓ Installed!" : state === "error" ? "⚠ Failed — retry" : `⬇ Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ""}`;
+  const cls = state === "downloading" ? "btn-ghost cursor-wait" : state === "done" ? "btn-success cursor-default" : state === "error" ? "btn-danger" : "btn-primary";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick, disabled: state === "downloading", className: `relative overflow-hidden ${cls} mt-2 px-3 py-1.5 text-xs`, children: [
+    label,
+    state === "downloading" && pct != null && progress?.phase !== "installing" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute inset-x-0 bottom-0 h-0.5 bg-violet-400 transition-[width] duration-200", style: { width: `${pct}%` } })
+  ] });
+}
+function SuggestedCreators({ suggested, onFollow, busy }) {
+  const notFollowed = suggested.filter((s) => !s.followed);
+  if (!suggested.length) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-400 text-xs", children: "✨ Suggested creators — popular Sims 4 makers, verified working" }),
+      notFollowed.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onFollow(null), disabled: busy, className: "btn-primary px-3 py-1 text-xs", children: busy ? "Adding…" : `＋ Follow all (${notFollowed.length})` })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5 max-h-40 overflow-y-auto", children: suggested.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        onClick: () => !s.followed && onFollow([s]),
+        disabled: s.followed || busy,
+        className: `chip ${s.followed ? "chip-active !cursor-default" : "hover:border-violet-500/60"}`,
+        title: s.tag,
+        children: [
+          TYPE_META[s.type]?.icon,
+          " ",
+          s.label,
+          s.followed ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-emerald-400 ml-0.5", children: "✓" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-violet-300 ml-0.5", children: "＋" })
+        ]
+      },
+      `${s.type}:${s.input}`
+    )) })
+  ] });
+}
+function ItemCard({ item, onOpen }) {
+  const meta = TYPE_META[item.sourceType] ?? { icon: "🌐", badge: "bg-gray-700 text-gray-300" };
+  const canDownload = (item.downloads?.length ?? 0) > 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      onClick: () => onOpen(item),
+      className: "card card-hover fade-in-up flex flex-col cursor-pointer",
+      title: "Click for details",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "img",
+            {
+              src: item.imageUrl || PLACEHOLDER,
+              alt: item.title,
+              loading: "lazy",
+              className: "w-full h-36 object-cover bg-[#181b2a]",
+              onError: (e) => {
+                e.currentTarget.src = PLACEHOLDER;
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `absolute top-2 left-2 badge ${meta.badge} backdrop-blur-sm`, children: [
+            meta.icon,
+            " ",
+            item.sourceType
+          ] }),
+          item.locked ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm", title: "Patron-only post — opens on Patreon", children: "🔒 patrons" }) : canDownload && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm", title: "Free files attached — installs directly", children: "🆓 free" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight line-clamp-2", title: item.title, children: item.title }),
+          item.author && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-violet-400 text-xs truncate", children: item.author }),
+          item.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs leading-snug line-clamp-2", children: item.summary }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 mt-auto pt-1.5 text-gray-600 text-[11px]", children: [
+            item.date && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+              "🕒 ",
+              formatRelative(item.date)
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-auto text-gray-500", children: "↗ open" })
+          ] }),
+          canDownload && /* @__PURE__ */ jsxRuntimeExports.jsx(DiscoverDownloadButton, { item })
+        ] })
+      ]
+    }
+  );
+}
+function Discover() {
+  const [types, setTypes] = reactExports.useState([]);
+  const [data, setData] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [query, setQuery] = reactExports.useState("");
+  const [sourceFilter, setSourceFilter] = reactExports.useState("all");
+  const [onlyFree, setOnlyFree] = reactExports.useState(false);
+  const [showManage, setShowManage] = reactExports.useState(false);
+  const [selected, setSelected] = reactExports.useState(null);
+  const [suggested, setSuggested] = reactExports.useState([]);
+  const [followingAll, setFollowingAll] = reactExports.useState(false);
+  const load = reactExports.useCallback(async (force = false) => {
+    setLoading(true);
+    try {
+      const res = await window.api.fetchDiscover({ force });
+      if (res?.ok) setData(res);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  const refreshSuggested = reactExports.useCallback(() => {
+    window.api.getSuggestedSources?.().then((s) => setSuggested(s ?? []));
+  }, []);
+  reactExports.useEffect(() => {
+    window.api.getSourceTypes?.().then((t2) => setTypes(t2 ?? []));
+    refreshSuggested();
+    load(false);
+  }, [load, refreshSuggested]);
+  const removeSource = async (id2) => {
+    await window.api.unfollowSource(id2);
+    refreshSuggested();
+    load(false);
+  };
+  const followSuggested = reactExports.useCallback(async (entries) => {
+    setFollowingAll(true);
+    try {
+      await window.api.followSuggestedSources(entries);
+      refreshSuggested();
+      await load(false);
+    } finally {
+      setFollowingAll(false);
+    }
+  }, [load, refreshSuggested]);
+  const visible = reactExports.useMemo(() => {
+    let items = data?.items ?? [];
+    if (sourceFilter !== "all") items = items.filter((i) => i.sourceId === sourceFilter);
+    if (onlyFree) items = items.filter((i) => (i.downloads?.length ?? 0) > 0);
+    const q2 = query.trim().toLowerCase();
+    if (q2) {
+      items = items.filter(
+        (i) => i.title?.toLowerCase().includes(q2) || i.author?.toLowerCase().includes(q2) || i.summary?.toLowerCase().includes(q2)
+      );
+    }
+    return items;
+  }, [data, query, sourceFilter, onlyFree]);
+  const erroredSources = (data?.sources ?? []).filter((s) => s.error);
+  const freeCount = (data?.items ?? []).filter((i) => (i.downloads?.length ?? 0) > 0).length;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-8 pt-6 pb-4 border-b border-white/5 shrink-0", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Custom Catalog" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Curated creator collections" })
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "page-title", children: "Discover" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Follow creators on Patreon, Pinterest boards, Tumblr blogs — plus the latest from ModTheSims" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setShowManage((s) => !s), className: "btn-ghost px-3 py-2 text-sm", children: showManage ? "✕ Close" : "⚙ Sources" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => load(true), disabled: loading, className: "btn-primary px-3 py-2 text-sm", children: loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" }) : "🔄 Refresh" })
+        ] })
+      ] }),
+      showManage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-4 mb-3 flex flex-col gap-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-400 text-xs mb-2", children: "Add your own source" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(AddSourceForm, { types, onAdded: () => {
+            load(false);
+            refreshSuggested();
+          } })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SuggestedCreators,
+          {
+            suggested,
+            onFollow: followSuggested,
+            busy: followingAll
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 text-xs mb-2", children: [
+            "Following (",
+            (data?.sources ?? []).length,
+            ")"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2", children: (data?.sources ?? []).map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `chip !cursor-default ${s.error ? "!border-red-700/60" : ""}`, children: [
+            TYPE_META[s.type]?.icon,
+            " ",
+            s.label,
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-gray-600", children: [
+              "(",
+              s.count,
+              ")"
+            ] }),
+            !s.builtin && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: () => removeSource(s.id),
+                className: "text-gray-500 hover:text-red-400 ml-1",
+                title: "Unfollow",
+                children: "✕"
+              }
+            )
+          ] }, s.id)) })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-wrap", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none", children: "🔍" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              value: query,
+              onChange: (e) => setQuery(e.target.value),
+              placeholder: "Filter fetched items…",
+              className: "input w-64 pl-9 pr-3 py-2"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            onClick: () => setOnlyFree((f2) => !f2),
+            className: `chip ${onlyFree ? "chip-active" : ""}`,
+            title: "Only posts with free, directly-installable files",
+            children: [
+              "🆓 Free & installable",
+              freeCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-600/40 text-emerald-200 ml-1", children: freeCount })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 flex-wrap", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setSourceFilter("all"), className: `chip ${sourceFilter === "all" ? "chip-active" : ""}`, children: "All" }),
+          (data?.sources ?? []).filter((s) => s.count > 0 || s.error).map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              onClick: () => setSourceFilter(s.id),
+              className: `chip ${sourceFilter === s.id ? "chip-active" : ""}`,
+              title: s.error ?? s.label,
+              children: [
+                TYPE_META[s.type]?.icon,
+                " ",
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "max-w-[9rem] truncate", children: s.label }),
+                s.error && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-400", children: "⚠" })
+              ]
+            },
+            s.id
+          ))
+        ] })
+      ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 flex items-center justify-center px-8", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-10 text-center max-w-sm fade-in-up", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-5xl mb-4", children: "📚" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold mb-1", children: "Coming soon" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-sm leading-relaxed", children: "A hand-picked catalog of creators and collections is on its way." })
-    ] }) })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: [
+      erroredSources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 banner-warn", children: erroredSources.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
+        "⚠️ ",
+        s.label,
+        ": ",
+        s.error
+      ] }, s.id)) }),
+      loading && !data && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }, children: Array.from({ length: 8 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-36 skeleton" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-4 w-3/4 skeleton rounded" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-3 w-1/2 skeleton rounded" })
+        ] })
+      ] }, i)) }),
+      !loading && visible.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-64 text-gray-600 gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-5xl", children: "🌐" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm", children: query || sourceFilter !== "all" ? "Nothing matches your filter." : "Follow a creator via “⚙ Sources” to fill this feed." })
+      ] }),
+      visible.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+          visible.length,
+          " item",
+          visible.length !== 1 ? "s" : "",
+          data?.fetchedAt && ` · fetched ${new Date(data.fetchedAt).toLocaleTimeString()}`
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }, children: visible.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(ItemCard, { item, onOpen: setSelected }, item.id)) })
+      ] })
+    ] }),
+    selected && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      DiscoverDetail,
+      {
+        item: selected,
+        onClose: () => setSelected(null),
+        renderDownload: (it) => /* @__PURE__ */ jsxRuntimeExports.jsx(DiscoverDownloadButton, { item: it })
+      }
+    )
+  ] });
+}
+function ApiKeySection() {
+  const [key, setKey] = reactExports.useState("");
+  const [show, setShow] = reactExports.useState(false);
+  const [status, setStatus] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    window.api.getConfig().then((cfg) => setKey(cfg?.curseForgeApiKey ?? ""));
+  }, []);
+  const onSave = async () => {
+    setStatus("saving");
+    try {
+      await window.api.setConfig("curseForgeApiKey", key.trim() || null);
+      setStatus("saved");
+      setTimeout(() => setStatus(null), 2500);
+    } catch {
+      setStatus(null);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-6 fade-in-up", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "CurseForge API Key" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-5", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 text-sm mb-3 leading-relaxed", children: [
+        "Needed to browse and download mods. Get a free key at",
+        " ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: () => window.api.openExternal("https://console.curseforge.com/"),
+            className: "text-violet-300 underline hover:text-violet-200",
+            children: "console.curseforge.com"
+          }
+        ),
+        ". A key in a ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-violet-300 bg-white/5 px-1 rounded", children: ".env" }),
+        " file takes precedence over this one."
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            type: show ? "text" : "password",
+            value: key,
+            onChange: (e) => setKey(e.target.value),
+            placeholder: "$2a$10$…",
+            className: "input flex-1 px-3 py-2 font-mono text-xs"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setShow((s) => !s), className: "btn-ghost px-3 py-2 text-sm", title: show ? "Hide" : "Show", children: show ? "🙈" : "👁" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onSave, disabled: status === "saving", className: "btn-primary px-4 py-2 text-sm", children: status === "saving" ? "Saving…" : status === "saved" ? "✓ Saved" : "Save" })
+      ] })
+    ] })
+  ] });
+}
+const PROVIDER_ICON = { patreon: "🧡", pinterest: "📌" };
+function ConnectedAccountsSection() {
+  const [status, setStatus] = reactExports.useState({});
+  const [busy, setBusy] = reactExports.useState(null);
+  const refresh = () => window.api.getAuthStatus?.().then((s) => setStatus(s ?? {}));
+  reactExports.useEffect(() => {
+    refresh();
+  }, []);
+  const connect = async (provider) => {
+    setBusy(provider);
+    try {
+      await window.api.connectAccount(provider);
+      await refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+  const disconnect = async (provider) => {
+    setBusy(provider);
+    try {
+      await window.api.disconnectAccount(provider);
+      await refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-6 fade-in-up", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Connected Accounts" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-5", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 text-sm mb-4 leading-relaxed", children: [
+        "Sign in to your own accounts to download everything you have access to — including posts you back on Patreon. You log in on the real site in a normal window;",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "text-gray-300", children: " this app never sees your password" }),
+        "."
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", children: [
+        Object.entries(status).map(([provider, s]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2.5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-lg", children: PROVIDER_ICON[provider] ?? "🌐" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white text-sm font-medium", children: s.label }),
+          s.connected ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-emerald-800/50 text-emerald-300", children: "✓ connected" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "badge bg-white/10 text-gray-400", children: "not connected" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "ml-auto", children: s.connected ? /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => disconnect(provider), disabled: busy === provider, className: "btn-ghost px-3 py-1.5 text-xs", children: busy === provider ? "…" : "Disconnect" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => connect(provider), disabled: busy === provider, className: "btn-primary px-3 py-1.5 text-xs", children: busy === provider ? "Waiting for login…" : "Connect" }) })
+        ] }, provider)),
+        Object.keys(status).length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-xs", children: "Loading…" })
+      ] })
+    ] })
+  ] });
+}
+function ThumbCacheSection() {
+  const [status, setStatus] = reactExports.useState(null);
+  const onClear = async () => {
+    setStatus("clearing");
+    const res = await window.api.clearThumbCache();
+    setStatus(res?.ok ? "cleared" : "error");
+    setTimeout(() => setStatus(null), 2500);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-6 fade-in-up", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Thumbnail Cache" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-5", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-400 text-sm mb-3 leading-relaxed", children: [
+        "Mod previews extracted from ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-violet-300 bg-white/5 px-1 rounded", children: ".package" }),
+        " files are cached on disk. Clear it if thumbnails look stale — they regenerate on the next scan."
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => window.api.openThumbCache(), className: "btn-ghost px-4 py-2 text-sm", children: "📂 Open cache folder" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onClear, disabled: status === "clearing", className: "btn-ghost px-4 py-2 text-sm", children: status === "clearing" ? "Clearing…" : status === "cleared" ? "✓ Cleared" : status === "error" ? "⚠ Failed" : "🧹 Clear cache" })
+      ] })
+    ] })
   ] });
 }
 function Settings({ modsFolder, onFolderChanged }) {
@@ -8376,6 +9523,9 @@ function Settings({ modsFolder, onFolderChanged }) {
           )
         ] })
       ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectedAccountsSection, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ApiKeySection, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbCacheSection, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "fade-in-up", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3", children: "Game Cache" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card p-5", children: [
@@ -8408,7 +9558,7 @@ const PAGES = {
   "local-mods": LocalMods,
   "creators": Creators,
   "curseforge": CurseForgeBrowser,
-  "custom-catalog": CustomCatalog,
+  "discover": Discover,
   "settings": Settings
 };
 function App() {
@@ -8424,13 +9574,16 @@ function App() {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(Welcome, { onFolderSelected: setModsFolder });
   }
   const PageComponent = PAGES[activePage];
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(Layout, { activePage, onNavigate: setActivePage, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-    PageComponent,
-    {
-      modsFolder,
-      onFolderChanged: setModsFolder
-    }
-  ) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Layout, { activePage, onNavigate: setActivePage, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      PageComponent,
+      {
+        modsFolder,
+        onFolderChanged: setModsFolder
+      }
+    ) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(DropZone, {})
+  ] });
 }
 client.createRoot(document.getElementById("root")).render(
   /* @__PURE__ */ jsxRuntimeExports.jsx(React.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) })

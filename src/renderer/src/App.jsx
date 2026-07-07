@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react'
 import Layout from './components/Layout'
+import DropZone from './components/DropZone'
 import Welcome from './pages/Welcome'
 import LocalMods from './pages/LocalMods'
 import Creators from './pages/Creators'
 import CurseForge from './pages/CurseForgeBrowser'
-import CustomCatalog from './pages/CustomCatalog'
+import Discover from './pages/Discover'
 import Settings from './pages/Settings'
 
 const PAGES = {
   'local-mods': LocalMods,
   'creators': Creators,
   'curseforge': CurseForge,
-  'custom-catalog': CustomCatalog,
+  'discover': Discover,
   'settings': Settings
 }
 
@@ -40,11 +41,14 @@ export default function App() {
   const PageComponent = PAGES[activePage]
 
   return (
-    <Layout activePage={activePage} onNavigate={setActivePage}>
-      <PageComponent
-        modsFolder={modsFolder}
-        onFolderChanged={setModsFolder}
-      />
-    </Layout>
+    <>
+      <Layout activePage={activePage} onNavigate={setActivePage}>
+        <PageComponent
+          modsFolder={modsFolder}
+          onFolderChanged={setModsFolder}
+        />
+      </Layout>
+      <DropZone />
+    </>
   )
 }

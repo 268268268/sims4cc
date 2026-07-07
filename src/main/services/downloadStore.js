@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { readFile, writeFile, access } from 'fs/promises'
+import { pickLatestFile } from './curseForgeClient.js'
 
 // One small JSON file in userData records every CurseForge download so the
 // "Installed" marker survives restarts. Keyed by CurseForge mod id (string).
@@ -29,7 +30,8 @@ export async function recordDownload(mod, result) {
   store[String(mod.id)] = {
     name: mod.name ?? null,
     path: result?.path ?? null, // extracted folder or the .package file on disk
-    fileId: mod.latestFiles?.[0]?.id ?? null,
+    // must match what downloadMod actually installed (pickLatestFile, not [0])
+    fileId: pickLatestFile(mod)?.id ?? null,
     at: new Date().toISOString()
   }
   await writeStore(store).catch(() => {})

@@ -1,23 +1,7 @@
 import { readdir, stat } from 'fs/promises'
 import { join, dirname, basename, extname } from 'path'
 import { parseDbpfEntries } from './dbpfThumbnail.js'
-
-// Friendly names for the DBPF resource types worth surfacing to the user.
-// Anything unmapped is grouped under "Other".
-const TYPE_LABELS = {
-  0x3c1af1f2: 'Thumbnail',
-  0x3453cf95: 'Texture',
-  0x2bc04edf: 'Texture (DST)',
-  0x00b2d882: 'Texture (image)',
-  0x034aeecb: 'CAS part',
-  0x319e4f1d: 'Object definition',
-  0x545ac67a: 'Data (SimData)',
-  0x220557da: 'String table',
-  0x6017e896: 'Python/tuning',
-  0x02d5df13: 'Animation',
-  0x01661233: 'Model (geometry)',
-  0x01d0e75d: 'Model (material)'
-}
+import { TYPE_LABELS } from './dbpfTypes.js'
 
 function labelFor(type) {
   return TYPE_LABELS[type >>> 0] || `Other (0x${(type >>> 0).toString(16)})`

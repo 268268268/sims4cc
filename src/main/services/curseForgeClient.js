@@ -21,29 +21,24 @@ const SIMS4_GAME_ID = 78062
  * @returns {Promise<{ data: Array, pagination: Object|null, error?: string }>}
  */
 export async function searchMods(params = {}) {
-  const { searchFilter = '', categoryId, index = 0, pageSize = 50 } = params
+  const { searchFilter = '', categoryId, index = 0, pageSize = 50, sortField, sortOrder } = params
 
-  // ponytail: import.meta.env is a Vite/renderer concept; in the main process it
-  // is usually undefined, so guard with optional chaining to avoid a crash.
-  const apiKey =
-    process.env.CURSEFORGE_API_KEY ||
-    import.meta.env?.MAIN_VITE_CURSEFORGE_API_KEY ||
-    null
-
-  console.log(
-    'DEBUG: API Key exists:',
-    !!process.env.CURSEFORGE_API_KEY || !!import.meta.env?.MAIN_VITE_CURSEFORGE_API_KEY
-  )
+  const apiKey = await getApiKey()
 
   if (!apiKey) {
-    console.error('DEBUG: CURSEFORGE_API_KEY is missing — check .env / electron-vite env.')
-    return { data: [], pagination: null, error: 'CURSEFORGE_API_KEY is not set. Check your .env file.' }
+    console.error('DEBUG: CURSEFORGE_API_KEY is missing — check .env / Settings.')
+    return { data: [], pagination: null, error: 'CurseForge API key is not set. Add it in Settings or .env.' }
   }
 
   const url = new URL(`${API_BASE}/mods/search`)
   url.searchParams.set('gameId', SIMS4_GAME_ID)
   if (searchFilter) url.searchParams.set('searchFilter', searchFilter)
   if (categoryId != null) url.searchParams.set('categoryId', categoryId)
+  // CF sortField enum: 2=Popularity, 3=LastUpdated, 4=Name, 6=TotalDownloads
+  if (sortField != null) {
+    url.searchParams.set('sortField', sortField)
+    url.searchParams.set('sortOrder', sortOrder === 'asc' ? 'asc' : 'desc')
+  }
   url.searchParams.set('index', index)
   url.searchParams.set('pageSize', pageSize)
 
@@ -88,13 +83,123 @@ export async function searchMods(params = {}) {
   }
 }
 
-function getApiKey() {
-  // ponytail: same fallback as searchMods — process.env first (dotenv), then Vite define if present
-  return (
-    process.env.CURSEFORGE_API_KEY ||
-    import.meta.env?.MAIN_VITE_CURSEFORGE_API_KEY ||
-    null
-  )
+async function getApiKey() {
+  // precedence: .env (dotenv) → Vite define → user-entered key in Settings (config.json)
+  if (process.env.CURSEFORGE_API_KEY) return process.env.CURSEFORGE_API_KEY
+  if (import.meta.env?.MAIN_VITE_CURSEFORGE_API_KEY) return import.meta.env.MAIN_VITE_CURSEFORGE_API_KEY
+  try {
+    const { readConfig } = await import('./configStore.js')
+    return (await readConfig()).curseForgeApiKey || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The newest file of a mod. CF does NOT guarantee latestFiles[0] is newest —
+ * pick by fileDate (fallback: highest id). Used by BOTH the download path and
+ * the update check so a badge and its action can never disagree.
+ * NOTE: the renderer mirrors this logic in src/renderer/src/lib/cfFile.js —
+ * keep the two in lockstep.
+ */
+export function pickLatestFile(mod) {
+  const files = mod?.latestFiles ?? []
+  if (!files.length) return null
+  return [...files].sort((a, b) => {
+    const d = new Date(b.fileDate ?? 0) - new Date(a.fileDate ?? 0)
+    return d !== 0 ? d : (b.id ?? 0) - (a.id ?? 0)
+  })[0]
+}
+
+/**
+ * Batch-fetch mods by id (POST /v1/mods). Chunked; session-cached.
+ * @returns {Promise<{ data: Array, error?: string }>}
+ */
+const modsByIdCache = new Map() // modId -> mod (session)
+export async function getModsByIds(modIds, { force = false } = {}) {
+  const ids = [...new Set((modIds ?? []).map(Number).filter(Boolean))]
+  if (!ids.length) return { data: [] }
+
+  const apiKey = await getApiKey()
+  if (!apiKey) return { data: [], error: 'CurseForge API key is not set.' }
+
+  const missing = force ? ids : ids.filter(id => !modsByIdCache.has(id))
+  let error
+  for (let i = 0; i < missing.length; i += 200) {
+    const chunk = missing.slice(i, i + 200)
+    try {
+      const res = await fetch(`${API_BASE}/mods`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({ modIds: chunk }),
+        signal: AbortSignal.timeout(20000)
+      })
+      if (!res.ok) {
+        error = `CurseForge batch error: ${res.status} ${res.statusText}`
+        continue
+      }
+      const json = await res.json()
+      for (const mod of json.data ?? []) modsByIdCache.set(mod.id, mod)
+    } catch (err) {
+      error = err.message
+    }
+  }
+  return { data: ids.map(id => modsByIdCache.get(id)).filter(Boolean), ...(error ? { error } : {}) }
+}
+
+/**
+ * Full mod description (HTML), sanitized in main with cheerio. Session-cached.
+ * @returns {Promise<{ html: string, error?: string }>}
+ */
+const descriptionCache = new Map() // modId -> html
+const ALLOWED_TAGS = new Set([
+  'p', 'br', 'a', 'b', 'i', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'span', 'div',
+  'img', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'hr'
+])
+export async function getModDescription(modId) {
+  const id = Number(modId)
+  if (!id) return { html: '', error: 'Invalid mod id.' }
+  if (descriptionCache.has(id)) return { html: descriptionCache.get(id) }
+
+  const apiKey = await getApiKey()
+  if (!apiKey) return { html: '', error: 'CurseForge API key is not set.' }
+
+  try {
+    const res = await fetch(`${API_BASE}/mods/${id}/description`, {
+      headers: { Accept: 'application/json', 'x-api-key': apiKey },
+      signal: AbortSignal.timeout(15000)
+    })
+    if (!res.ok) return { html: '', error: `CurseForge description error: ${res.status}` }
+    const json = await res.json()
+    const raw = json.data ?? ''
+
+    const cheerio = await import('cheerio')
+    const $ = cheerio.load(raw)
+    $('script, style, iframe, object, embed, form, link, meta').remove()
+    // 'body *' — a bare '*' would also match cheerio's html/body wrappers and
+    // unwrapping those destroys the document (empty output)
+    $('body *').each((_, el) => {
+      if (el.type !== 'tag') return
+      if (!ALLOWED_TAGS.has(el.tagName?.toLowerCase())) {
+        $(el).replaceWith($(el).contents()) // unwrap unknown tags, keep text
+        return
+      }
+      const attribs = { ...el.attribs }
+      for (const attr of Object.keys(attribs)) {
+        const val = attribs[attr] ?? ''
+        const keep =
+          (attr === 'href' && /^https:/i.test(val)) ||
+          (attr === 'src' && /^https:/i.test(val))
+        if (!keep) $(el).removeAttr(attr)
+      }
+    })
+    const html = $('body').html() ?? ''
+    descriptionCache.set(id, html)
+    return { html }
+  } catch (err) {
+    return { html: '', error: err.message }
+  }
 }
 
 // Categories rarely change — cache the list for the app's lifetime.
@@ -107,8 +212,8 @@ let categoriesCache = null
 export async function getCategories() {
   if (categoriesCache) return categoriesCache
 
-  const apiKey = getApiKey()
-  if (!apiKey) return { data: [], error: 'CURSEFORGE_API_KEY is not set.' }
+  const apiKey = await getApiKey()
+  if (!apiKey) return { data: [], error: 'CurseForge API key is not set.' }
 
   try {
     const url = new URL(`${API_BASE}/categories`)
@@ -140,16 +245,17 @@ export async function getCategories() {
  * @param {string} destinationFolder - absolute path to the local Mods folder
  * @returns {Promise<{ ok: boolean, path?: string, error?: string }>}
  */
-export async function downloadMod(mod, destinationFolder) {
+export async function downloadMod(mod, destinationFolder, opts = {}) {
+  const { onProgress = null, trayFolder = null } = opts
   if (!mod || !mod.id) return { ok: false, error: 'Invalid mod object.' }
   if (!destinationFolder) return { ok: false, error: 'Destination folder not provided.' }
 
-  const apiKey = getApiKey()
+  const apiKey = await getApiKey()
   if (!apiKey) {
-    return { ok: false, error: 'CURSEFORGE_API_KEY is not set. Check your .env file.' }
+    return { ok: false, error: 'CurseForge API key is not set. Add it in Settings or .env.' }
   }
 
-  const file = mod.latestFiles?.[0]
+  const file = pickLatestFile(mod)
   if (!file || !file.id) {
     return { ok: false, error: 'This mod has no downloadable file.' }
   }
@@ -209,10 +315,18 @@ export async function downloadMod(mod, destinationFolder) {
       return { ok: false, error: 'Download failed: empty response body.' }
     }
     let bytes = 0
+    const total = Number(res.headers.get('content-length')) || file.fileLength || null
+    let lastTick = 0
     const body = Readable.fromWeb(res.body)
     body.on('data', (chunk) => {
       bytes += chunk.length
       resetIdle()
+      // throttle progress to ~4/sec — enough for a smooth bar, no IPC spam
+      const now = Date.now()
+      if (onProgress && (now - lastTick > 250 || bytes === total)) {
+        lastTick = now
+        try { onProgress({ received: bytes, total, phase: 'downloading' }) } catch { /* renderer gone */ }
+      }
     })
     await pipeline(body, createWriteStream(partPath))
     await rename(partPath, destPath)
@@ -221,13 +335,16 @@ export async function downloadMod(mod, destinationFolder) {
     // Zip archives are invisible to the game — unpack into Mods/<mod name>/
     // and drop the archive. Non-zip files (.package etc.) are already usable.
     if (/\.zip$/i.test(fileName)) {
-      const extracted = await extractModArchive(destPath, destinationFolder, mod.name)
+      if (onProgress) {
+        try { onProgress({ received: bytes, total, phase: 'installing' }) } catch { /* renderer gone */ }
+      }
+      const extracted = await extractModArchive(destPath, destinationFolder, mod.name, { trayFolder })
       if (!extracted.ok) {
         // keep the zip for manual inspection, but tell the user it is not installed
         return { ok: false, error: `Downloaded, but not installed: ${extracted.error}` }
       }
       await unlink(destPath).catch(() => {})
-      return { ok: true, path: extracted.folder, files: extracted.files }
+      return { ok: true, path: extracted.folder, files: extracted.files, trayFiles: extracted.trayFiles ?? [] }
     }
 
     return { ok: true, path: destPath }

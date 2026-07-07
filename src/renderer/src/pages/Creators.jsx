@@ -10,7 +10,13 @@ const LINK_LABELS = {
 }
 
 function CreatorCard({ creator }) {
+  // real catalog schema: { id, name, patreon_url, categories[], status };
+  // keep the legacy links object as a forward-compat fallback
   const links = Object.entries(creator.links ?? {}).filter(([, url]) => url)
+  if (creator.patreon_url && !links.some(([k]) => k === 'patreon')) {
+    links.unshift(['patreon', creator.patreon_url])
+  }
+  const status = creator.status ?? null
 
   return (
     <div className="card card-hover fade-in-up p-4 flex flex-col gap-3">
@@ -18,10 +24,25 @@ function CreatorCard({ creator }) {
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-md shadow-violet-950/50">
           {creator.name?.charAt(0)?.toUpperCase() ?? '?'}
         </div>
-        <h3 className="text-white font-semibold text-sm leading-tight truncate" title={creator.name}>
-          {creator.name}
-        </h3>
+        <div className="min-w-0">
+          <h3 className="text-white font-semibold text-sm leading-tight truncate" title={creator.name}>
+            {creator.name}
+          </h3>
+          {status && (
+            <span className={`badge mt-1 ${status === 'active' ? 'bg-emerald-800/50 text-emerald-300' : 'bg-gray-700/60 text-gray-400'}`}>
+              {status}
+            </span>
+          )}
+        </div>
       </div>
+
+      {creator.categories?.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {creator.categories.map(c => (
+            <span key={c} className="badge bg-white/5 text-gray-400">{c}</span>
+          ))}
+        </div>
+      )}
 
       {links.length > 0 ? (
         <div className="flex flex-wrap gap-2">
@@ -70,7 +91,10 @@ export default function Creators() {
     <div className="flex flex-col h-full">
       <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
         <h2 className="page-title">Creators</h2>
-        <p className="page-subtitle">Browse all creators from the catalog</p>
+        <p className="page-subtitle">
+          Browse all creators from the catalog
+          {catalog?.last_updated && ` · updated ${new Date(catalog.last_updated).toLocaleDateString()}`}
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-8 py-6">

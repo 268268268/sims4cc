@@ -2,7 +2,7 @@ const NAV_ITEMS = [
   { id: 'local-mods', label: 'Local Mods', icon: '📦' },
   { id: 'creators', label: 'Creators', icon: '🎨' },
   { id: 'curseforge', label: 'CurseForge', icon: '🔥' },
-  { id: 'custom-catalog', label: 'Custom Catalog', icon: '📚' },
+  { id: 'discover', label: 'Discover', icon: '🌐' },
   { id: 'settings', label: 'Settings', icon: '⚙️' }
 ]
 

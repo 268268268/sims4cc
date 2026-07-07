@@ -1,8 +1,8 @@
 import { readdir, stat, access } from 'fs/promises'
 import { join, relative, dirname, basename, extname, sep } from 'path'
 import { createHash } from 'crypto'
-import { tryParseDbpf } from './dbpfParser.js'
 import { getCachedThumbnail } from './dbpfThumbnail.js'
+import { getPackageMeta, loadMetaCache, saveMetaCache } from './packageMeta.js'
 
 const MOD_EXTENSIONS = new Set(['.package', '.ts4script'])
 // sidecar image suffixes to probe, in priority order
@@ -137,7 +137,7 @@ async function buildArchiveDto(filePath, modsFolder) {
  * Never throws — errors are captured in the DTO.
  * Exported so toggle action can reuse it after rename.
  */
-export async function buildLocalModDto(filePath, modsFolder) {
+export async function buildLocalModDto(filePath, modsFolder, metaCache = null) {
   const fileName = basename(filePath)
   const relPath = relative(modsFolder, filePath)
   const id = makeId(relPath)
@@ -146,6 +146,7 @@ export async function buildLocalModDto(filePath, modsFolder) {
 
   let size = 0
   let modifiedAt = new Date().toISOString()
+  let dateAdded = null
   let mtimeMs = 0
   let parseStatus = 'fallback'
   let error
@@ -154,24 +155,21 @@ export async function buildLocalModDto(filePath, modsFolder) {
     const info = await stat(filePath)
     size = info.size
     modifiedAt = info.mtime.toISOString()
+    dateAdded = info.birthtime?.toISOString() ?? null
     mtimeMs = info.mtimeMs
   } catch (err) {
     error = `stat failed: ${err.message}`
     parseStatus = 'error'
   }
 
-  // DBPF parse — extract real mod name from STBL; only for .package files
+  // DBPF parse — real display name from STBL + coarse content kinds
   let realName = null
+  let kinds = []
   if (type === 'package' && !error) {
-    try {
-      const dbpf = await tryParseDbpf(filePath)
-      parseStatus = dbpf.isDbpf ? 'parsed' : 'unsupported'
-      if (!dbpf.ok && dbpf.error) error = dbpf.error
-      realName = dbpf.name ?? null
-    } catch (err) {
-      parseStatus = 'error'
-      error = err.message
-    }
+    const meta = await getPackageMeta(filePath, mtimeMs, metaCache)
+    parseStatus = meta.parsed ? 'parsed' : 'unsupported'
+    realName = meta.name
+    kinds = meta.kinds
   }
 
   let thumbnail = await detectThumbnail(filePath)
@@ -193,6 +191,8 @@ export async function buildLocalModDto(filePath, modsFolder) {
     enabled,
     size,
     modifiedAt,
+    dateAdded,
+    kinds,
     thumbnail,
     parseStatus,
     ...(error ? { error } : {})
@@ -208,17 +208,19 @@ let cachedMods = null
  * @returns {{ mods: object[], errors: object[] }}
  */
 export async function scanMods(modsFolder) {
+  const t0 = Date.now()
   const allFiles = await walkDir(modsFolder)
   const modFiles = allFiles.filter(f => isModFile(basename(f)))
   const archiveFiles = allFiles.filter(f => isArchiveFile(basename(f)))
 
   const mods = []
   const errors = []
+  const metaCache = await loadMetaCache()
 
   // ponytail: sequential to avoid hammering disk with hundreds of parallel opens
   for (const filePath of modFiles) {
     try {
-      const mod = await buildLocalModDto(filePath, modsFolder)
+      const mod = await buildLocalModDto(filePath, modsFolder, metaCache)
       mods.push(mod)
     } catch (err) {
       errors.push({ file: filePath, message: err.message })
@@ -231,9 +233,23 @@ export async function scanMods(modsFolder) {
       errors.push({ file: filePath, message: err.message })
     }
   }
+  await saveMetaCache(metaCache)
+
+  // Per-folder rollups so cards can show "part of a multi-file mod" info.
+  // Sums scanned items only (packages/scripts/archives) — cheap, no extra I/O.
+  const folderSize = new Map()
+  const folderFiles = new Map()
+  for (const m of mods) {
+    folderSize.set(m.folderPath, (folderSize.get(m.folderPath) || 0) + (m.size || 0))
+    folderFiles.set(m.folderPath, (folderFiles.get(m.folderPath) || 0) + 1)
+  }
+  for (const m of mods) {
+    m.folderSize = folderSize.get(m.folderPath) || m.size
+    m.folderFiles = folderFiles.get(m.folderPath) || 1
+  }
 
   cachedMods = mods
-  return { mods, errors }
+  return { mods, errors, durationMs: Date.now() - t0 }
 }
 
 /** Return cached mods (or [] if none scanned yet). */

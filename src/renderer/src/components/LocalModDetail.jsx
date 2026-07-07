@@ -19,7 +19,7 @@ function fileIcon(ext) {
   return '📎'
 }
 
-export default function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) {
+export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, onToggle, onDelete, onClose }) {
   const [imgUrl, setImgUrl] = useState(catalogMeta?.imageUrl || null)
   const [info, setInfo] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -61,8 +61,12 @@ export default function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) 
                   {mod.enabled ? 'enabled' : 'disabled'}
                 </span>
               )}
+              {mod.kinds?.map(k => (
+                <span key={k} className="badge bg-violet-600/20 text-violet-200">{k}</span>
+              ))}
               <span className="text-gray-500 text-xs">{formatBytes(mod.size)}</span>
               {mod.modifiedAt && <span className="text-gray-600 text-xs">· {formatDate(mod.modifiedAt)}</span>}
+              {mod.dateAdded && <span className="text-gray-600 text-xs">· added {formatDate(mod.dateAdded)}</span>}
             </div>
           </div>
         </div>
@@ -123,7 +127,7 @@ export default function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) 
         </p>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 pt-1">
+        <div className="flex items-center gap-2.5 pt-1 flex-wrap">
           {!isArchive && (
             <button
               onClick={() => { onToggle?.(mod); onClose() }}
@@ -138,6 +142,23 @@ export default function LocalModDetail({ mod, catalogMeta, onToggle, onClose }) 
           >
             📂 Reveal in folder
           </button>
+          {cfMatch && (
+            <button
+              onClick={() => { onClose(); onOpenCf?.(cfMatch) }}
+              className="btn-ghost px-4 py-2 text-sm"
+            >
+              🔥 View on CurseForge
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(mod)}
+              className="btn-ghost px-4 py-2 text-sm text-red-300 hover:text-red-200"
+              title="Move to Recycle Bin"
+            >
+              🗑 Delete
+            </button>
+          )}
         </div>
       </div>
     </Modal>
