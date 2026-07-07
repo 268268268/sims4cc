@@ -62,3 +62,50 @@ export async function getDownloaded() {
   if (changed) await writeStore(alive).catch(() => {})
   return alive
 }
+
+// ---- Discover (Patreon/Tumblr) downloads ----
+// Separate file, keyed by Discover item id (e.g. "patreon:12345"). Records the
+// installed file paths so the "Installed" marker self-heals when the user deletes
+// the files, and the offered file names so the same file re-posted elsewhere is
+// still recognised as already-downloaded.
+const DISCOVER_STORE_PATH = join(app.getPath('userData'), 'discover-downloads.json')
+
+async function readDiscover() {
+  try { return JSON.parse(await readFile(DISCOVER_STORE_PATH, 'utf-8')) } catch { return {} }
+}
+
+/** Record a successful Discover download. @param result downloadRemoteItem result. */
+export async function recordDiscoverDownload(item, result) {
+  if (!item?.id || !result?.installed?.length) return
+  const store = await readDiscover()
+  store[item.id] = {
+    name: item.title ?? null,
+    paths: result.installed,                         // files on disk (for self-heal)
+    files: (item.downloads ?? []).map(d => d.name),  // offered names (for cross-post match)
+    at: new Date().toISOString()
+  }
+  await writeFile(DISCOVER_STORE_PATH, JSON.stringify(store, null, 2), 'utf-8').catch(() => {})
+}
+
+/**
+ * Downloaded Discover items, self-healing: an entry is dropped once none of its
+ * installed files still exist on disk.
+ * @returns {Promise<{ ids: string[], files: string[] }>} ids + all offered file names
+ */
+export async function getDiscoverDownloaded() {
+  const store = await readDiscover()
+  const alive = {}
+  let changed = false
+  for (const [id, rec] of Object.entries(store)) {
+    const paths = rec?.paths ?? []
+    if (!paths.length) { alive[id] = rec; continue }
+    let anyAlive = false
+    for (const p of paths) { try { await access(p); anyAlive = true; break } catch { /* gone */ } }
+    if (anyAlive) alive[id] = rec; else changed = true
+  }
+  if (changed) await writeFile(DISCOVER_STORE_PATH, JSON.stringify(alive, null, 2)).catch(() => {})
+  return {
+    ids: Object.keys(alive),
+    files: [...new Set(Object.values(alive).flatMap(r => r.files ?? []))]
+  }
+}

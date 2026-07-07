@@ -202,6 +202,20 @@ export async function buildLocalModDto(filePath, modsFolder, metaCache = null) {
 // ponytail: in-memory cache so renderer can restore mods after unmount; lost on app restart, which is fine
 let cachedMods = null
 
+/** Worker-pool map with a concurrency cap (same pattern as discover.js). */
+async function mapPool(items, limit, fn) {
+  const out = new Array(items.length)
+  let i = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++
+      out[idx] = await fn(items[idx])
+    }
+  })
+  await Promise.all(workers)
+  return out
+}
+
 /**
  * Scan modsFolder and return all LocalMod DTOs.
  * @param {string} modsFolder absolute path
@@ -217,22 +231,18 @@ export async function scanMods(modsFolder) {
   const errors = []
   const metaCache = await loadMetaCache()
 
-  // ponytail: sequential to avoid hammering disk with hundreds of parallel opens
-  for (const filePath of modFiles) {
+  // ponytail: bounded concurrency — most wall-clock is I/O waits (each package does
+  // ~4 opens + ~14 access probes), so overlapping them is the big win. 8 > CPU count
+  // on purpose: workers sit in I/O wait, not pegging the 4 cores on zlib inflate.
+  const build = async (filePath, fn) => {
     try {
-      const mod = await buildLocalModDto(filePath, modsFolder, metaCache)
-      mods.push(mod)
+      mods.push(await fn(filePath))
     } catch (err) {
       errors.push({ file: filePath, message: err.message })
     }
   }
-  for (const filePath of archiveFiles) {
-    try {
-      mods.push(await buildArchiveDto(filePath, modsFolder))
-    } catch (err) {
-      errors.push({ file: filePath, message: err.message })
-    }
-  }
+  await mapPool(modFiles, 8, (f) => build(f, (p) => buildLocalModDto(p, modsFolder, metaCache)))
+  await mapPool(archiveFiles, 8, (f) => build(f, (p) => buildArchiveDto(p, modsFolder)))
   await saveMetaCache(metaCache)
 
   // Per-folder rollups so cards can show "part of a multi-file mod" info.

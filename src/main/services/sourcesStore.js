@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 import { createHash } from 'crypto'
+import { DEFAULT_SOURCES } from './defaultSources.js'
 
 // Followed external sources, persisted in userData/sources.json:
 // [{ id, type: 'patreon'|'pinterest'|'tumblr', input, label, addedAt }]
@@ -12,12 +13,21 @@ function storePath() {
   return STORE_PATH
 }
 
+function makeEntry(e) {
+  const id = createHash('sha1').update(`${e.type}|${e.input}`.toLowerCase()).digest('hex').slice(0, 10)
+  return { id, type: e.type, input: e.input, label: e.label ?? e.input, addedAt: new Date().toISOString() }
+}
+
 export async function listSources() {
   try {
     const list = JSON.parse(await readFile(storePath(), 'utf-8'))
     return Array.isArray(list) ? list : []
-  } catch {
-    return []
+  } catch (err) {
+    if (err.code !== 'ENOENT') return [] // corrupt/unreadable — don't clobber the user's file
+    // first run: seed the shipped default creators so the feed isn't empty
+    const seeded = DEFAULT_SOURCES.map(makeEntry)
+    await save(seeded).catch(() => {})
+    return seeded
   }
 }
 

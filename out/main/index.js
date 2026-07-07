@@ -522,6 +522,18 @@ async function buildLocalModDto(filePath, modsFolder, metaCache = null) {
   };
 }
 let cachedMods = null;
+async function mapPool$1(items, limit, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
 async function scanMods(modsFolder) {
   const t0 = Date.now();
   const allFiles = await walkDir(modsFolder);
@@ -530,21 +542,15 @@ async function scanMods(modsFolder) {
   const mods = [];
   const errors = [];
   const metaCache = await loadMetaCache();
-  for (const filePath of modFiles) {
+  const build = async (filePath, fn) => {
     try {
-      const mod = await buildLocalModDto(filePath, modsFolder, metaCache);
-      mods.push(mod);
+      mods.push(await fn(filePath));
     } catch (err2) {
       errors.push({ file: filePath, message: err2.message });
     }
-  }
-  for (const filePath of archiveFiles) {
-    try {
-      mods.push(await buildArchiveDto(filePath, modsFolder));
-    } catch (err2) {
-      errors.push({ file: filePath, message: err2.message });
-    }
-  }
+  };
+  await mapPool$1(modFiles, 8, (f) => build(f, (p) => buildLocalModDto(p, modsFolder, metaCache)));
+  await mapPool$1(archiveFiles, 8, (f) => build(f, (p) => buildArchiveDto(p, modsFolder)));
   await saveMetaCache(metaCache);
   const folderSize = /* @__PURE__ */ new Map();
   const folderFiles = /* @__PURE__ */ new Map();
@@ -1016,6 +1022,57 @@ async function getDownloaded() {
   });
   return alive;
 }
+const DISCOVER_STORE_PATH = path.join(electron.app.getPath("userData"), "discover-downloads.json");
+async function readDiscover() {
+  try {
+    return JSON.parse(await promises.readFile(DISCOVER_STORE_PATH, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+async function recordDiscoverDownload(item, result) {
+  if (!item?.id || !result?.installed?.length) return;
+  const store = await readDiscover();
+  store[item.id] = {
+    name: item.title ?? null,
+    paths: result.installed,
+    // files on disk (for self-heal)
+    files: (item.downloads ?? []).map((d) => d.name),
+    // offered names (for cross-post match)
+    at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  await promises.writeFile(DISCOVER_STORE_PATH, JSON.stringify(store, null, 2), "utf-8").catch(() => {
+  });
+}
+async function getDiscoverDownloaded() {
+  const store = await readDiscover();
+  const alive = {};
+  let changed = false;
+  for (const [id, rec] of Object.entries(store)) {
+    const paths = rec?.paths ?? [];
+    if (!paths.length) {
+      alive[id] = rec;
+      continue;
+    }
+    let anyAlive = false;
+    for (const p of paths) {
+      try {
+        await promises.access(p);
+        anyAlive = true;
+        break;
+      } catch {
+      }
+    }
+    if (anyAlive) alive[id] = rec;
+    else changed = true;
+  }
+  if (changed) await promises.writeFile(DISCOVER_STORE_PATH, JSON.stringify(alive, null, 2)).catch(() => {
+  });
+  return {
+    ids: Object.keys(alive),
+    files: [...new Set(Object.values(alive).flatMap((r) => r.files ?? []))]
+  };
+}
 function labelFor(type) {
   return TYPE_LABELS[type >>> 0] || `Other (0x${(type >>> 0).toString(16)})`;
 }
@@ -1220,17 +1277,168 @@ async function updateInstalledMod(mod, modsFolder, opts = {}) {
   invalidateUpdateCache();
   return res;
 }
+const DEFAULT_SOURCES = [
+  // ---- Patreon (131) ----
+  { type: "patreon", input: "148dazed", label: "148DAZED" },
+  { type: "patreon", input: "adeepindigo", label: "adeepindigo" },
+  { type: "patreon", input: "aharris00britney", label: "aharris00britney" },
+  { type: "patreon", input: "akaysims", label: "akaysims" },
+  { type: "patreon", input: "alaina", label: "Alaina" },
+  { type: "patreon", input: "alainalina", label: "Alaina Lina" },
+  { type: "patreon", input: "angissi", label: "ANGISSI" },
+  { type: "patreon", input: "arethabee", label: "arethabee" },
+  { type: "patreon", input: "awingedllama", label: "awingedllama" },
+  { type: "patreon", input: "azeterna", label: "azeterna" },
+  { type: "patreon", input: "babyfacesim", label: "babyfacesim" },
+  { type: "patreon", input: "blahberrypancake", label: "Blahberry Pancake" },
+  { type: "patreon", input: "bloodmoon", label: "BloodMoon" },
+  { type: "patreon", input: "brazenlotus", label: "brazenlotus" },
+  { type: "patreon", input: "candysims4", label: "CandySims4" },
+  { type: "patreon", input: "casteru", label: "casteru" },
+  { type: "patreon", input: "cemetery", label: "Anastasiya Cemetery (Algrass)" },
+  { type: "patreon", input: "cemeterybrat", label: "𝓬𝓮𝓶𝓮𝓽𝓮𝓻𝔂𝓫𝓻𝓪𝓽 ᡣ𐭩ྀིྀི₊ ⊹" },
+  { type: "patreon", input: "charlypancakes", label: "CharlyPancakes" },
+  { type: "patreon", input: "charonlee", label: "charonlee" },
+  { type: "patreon", input: "clumsyalien", label: "clumsyalien" },
+  { type: "patreon", input: "crypticsim", label: "crypticsim" },
+  { type: "patreon", input: "dallasgirl", label: "DallasGirl" },
+  { type: "patreon", input: "dansimsfantasy", label: "DanSimsFantasy" },
+  { type: "patreon", input: "darte77", label: "Darte77" },
+  { type: "patreon", input: "daylifesims", label: "DAYLIFESIMS" },
+  { type: "patreon", input: "ddarkstonee", label: "DdarkStonee" },
+  { type: "patreon", input: "diosasims", label: "DiosaSims" },
+  { type: "patreon", input: "dogsill", label: "Dogsill" },
+  { type: "patreon", input: "dreamteamsims", label: "dreamteamsims" },
+  { type: "patreon", input: "ebonixsims", label: "Ebonixsims" },
+  { type: "patreon", input: "elliesimple", label: "Elliesimple" },
+  { type: "patreon", input: "enriques4", label: "EnriqueS4" },
+  { type: "patreon", input: "evellsims", label: "EvellSims" },
+  { type: "patreon", input: "fashionsimsta", label: "FashionSimsta" },
+  { type: "patreon", input: "felixandre", label: "Felixandre" },
+  { type: "patreon", input: "ghostputty", label: "ghostputty" },
+  { type: "patreon", input: "golyhawhaw", label: "Golyhawhaw" },
+  { type: "patreon", input: "goppolsme", label: "GoppolsMe" },
+  { type: "patreon", input: "greenllamas", label: "GreenLlamas" },
+  { type: "patreon", input: "grimcookies", label: "grimcookies" },
+  { type: "patreon", input: "harrie", label: "Captain Harrie" },
+  { type: "patreon", input: "helgatisha", label: "Helgatisha" },
+  { type: "patreon", input: "herasims", label: "Hera Sims" },
+  { type: "patreon", input: "heyharrie", label: "heyharrie" },
+  { type: "patreon", input: "hydrangeachainsaw", label: "hydrangeachainsaw" },
+  { type: "patreon", input: "ikarisims", label: "IkariSims" },
+  { type: "patreon", input: "imvikai", label: "imVikai" },
+  { type: "patreon", input: "isjao", label: "IsJao" },
+  { type: "patreon", input: "johnnysims", label: "JohnnySims" },
+  { type: "patreon", input: "joliebean", label: "joliebean" },
+  { type: "patreon", input: "kamiiri", label: "Kamiiri" },
+  { type: "patreon", input: "katverse", label: "katverse" },
+  { type: "patreon", input: "kawaiistacie", label: "KawaiiStacie" },
+  { type: "patreon", input: "kiarazurk", label: "kiarazurk" },
+  { type: "patreon", input: "kikim1ki", label: "kikim1ki" },
+  { type: "patreon", input: "kiro", label: "Kiro" },
+  { type: "patreon", input: "kiwitrait", label: "kiwitrait" },
+  { type: "patreon", input: "korkassims", label: "Korkassims" },
+  { type: "patreon", input: "kumikya", label: "Kumikya" },
+  { type: "patreon", input: "kyrzwrld", label: "Kyrzwrld" },
+  { type: "patreon", input: "lamz", label: "LAMZ" },
+  { type: "patreon", input: "leahlillith", label: "LeahLillith" },
+  { type: "patreon", input: "lin-dian", label: "LIN-DIAN" },
+  { type: "patreon", input: "littledica", label: "littledica" },
+  { type: "patreon", input: "llazyneiph", label: "llazyneiph" },
+  { type: "patreon", input: "lumpinou", label: "Lumpinou" },
+  { type: "patreon", input: "luumia", label: "Luumia" },
+  { type: "patreon", input: "macmacs", label: "macmacs" },
+  { type: "patreon", input: "madlen", label: "Madlen" },
+  { type: "patreon", input: "magicbot", label: "MADMAN" },
+  { type: "patreon", input: "mellosakicc", label: "mellosakicc" },
+  { type: "patreon", input: "mirosims", label: "mirosims" },
+  { type: "patreon", input: "mmsims", label: "MMSIMS" },
+  { type: "patreon", input: "myshunosun", label: "myshunosun" },
+  { type: "patreon", input: "natalia_auditore", label: "natalia_auditore" },
+  { type: "patreon", input: "natalia-auditore", label: "Natalia-Auditore" },
+  { type: "patreon", input: "nitropanic", label: "Nitropanic" },
+  { type: "patreon", input: "nords", label: "Nords" },
+  { type: "patreon", input: "northernsiberiawinds", label: "Northern Siberia Winds" },
+  { type: "patreon", input: "nucrests", label: "Nucrests" },
+  { type: "patreon", input: "oakiyo", label: "oakiyo" },
+  { type: "patreon", input: "obscurus_sims", label: "obscurus-sims" },
+  { type: "patreon", input: "obscurus-sims", label: "obscurus-sims" },
+  { type: "patreon", input: "okruee", label: "okruee" },
+  { type: "patreon", input: "oydis", label: "Oydis" },
+  { type: "patreon", input: "peacemakeric", label: "Peacemaker IC" },
+  { type: "patreon", input: "pierisim", label: "Pierisim" },
+  { type: "patreon", input: "powluna", label: "powluna" },
+  { type: "patreon", input: "pralinesims", label: "pralinesims" },
+  { type: "patreon", input: "qicc", label: "qicc" },
+  { type: "patreon", input: "ravasheen", label: "RAVASHEEN" },
+  { type: "patreon", input: "raven", label: "Raven" },
+  { type: "patreon", input: "remussirion", label: "RemusSirion" },
+  { type: "patreon", input: "ridgeport", label: "ridgeport" },
+  { type: "patreon", input: "rimings", label: "RIMINGs" },
+  { type: "patreon", input: "roburky", label: "roBurky" },
+  { type: "patreon", input: "rona", label: "Rona" },
+  { type: "patreon", input: "rottenmothboy", label: "Giggle Coffin" },
+  { type: "patreon", input: "sacrificial", label: "Sacrificial" },
+  { type: "patreon", input: "saruin", label: "Saruin" },
+  { type: "patreon", input: "sclub", label: "S - Club" },
+  { type: "patreon", input: "sentate", label: "Sentate" },
+  { type: "patreon", input: "serenitycc", label: "serenitycc" },
+  { type: "patreon", input: "severinka", label: "Severinka" },
+  { type: "patreon", input: "sheabuttyr", label: "sheabuttyr" },
+  { type: "patreon", input: "shojoangel", label: "ShojoAngel" },
+  { type: "patreon", input: "simkoos", label: "simkoos" },
+  { type: "patreon", input: "simmandy", label: "SIMANDY" },
+  { type: "patreon", input: "simpliciaty", label: "Simpliciaty" },
+  { type: "patreon", input: "simrealist", label: "SimRealist" },
+  { type: "patreon", input: "sims4nexus", label: "Sims 4 Nexus (Samantha Gump)" },
+  { type: "patreon", input: "simstrouble", label: "simstrouble" },
+  { type: "patreon", input: "sixamcc", label: "sixamcc" },
+  { type: "patreon", input: "snootysims", label: "SNOOTYSIMS" },
+  { type: "patreon", input: "solistair", label: "Solistair" },
+  { type: "patreon", input: "soloriya", label: "Soloriya" },
+  { type: "patreon", input: "sonyasims", label: "SonyaSims" },
+  { type: "patreon", input: "squeamishsims", label: "squea(mishsims)" },
+  { type: "patreon", input: "stephanine", label: "stephanine" },
+  { type: "patreon", input: "storyteller", label: "Phoenix Chorus" },
+  { type: "patreon", input: "strange", label: "Strange Eventful History" },
+  { type: "patreon", input: "sunivaa", label: "Sunivaa" },
+  { type: "patreon", input: "tauve", label: "Tauve" },
+  { type: "patreon", input: "thecluttercat", label: "The Clutter Cat" },
+  { type: "patreon", input: "thisisthem", label: "THIS IS THEM" },
+  { type: "patreon", input: "trillyke", label: "Trillyke" },
+  { type: "patreon", input: "twistedcat", label: "twistedcat" },
+  { type: "patreon", input: "wistful", label: "Wistful" },
+  { type: "patreon", input: "wistfulcastle", label: "Wistful Castle" },
+  { type: "patreon", input: "zeussim", label: "Zeussim - Sims 4 CC-Creator" },
+  // ---- Tumblr (8) ----
+  { type: "tumblr", input: "citrontart", label: "CITRONTART" },
+  { type: "tumblr", input: "emilyccfinds", label: "Emily CC Finds" },
+  { type: "tumblr", input: "maxismatchccworld", label: "Maxis Match CC World" },
+  { type: "tumblr", input: "mmfinds", label: "MMFINDS" },
+  { type: "tumblr", input: "peppermint-ginger", label: "peppermint & ginger" },
+  { type: "tumblr", input: "thesimscatalog", label: "The Sims Catalog" },
+  { type: "tumblr", input: "ts4-maxis-match", label: "Sims 4 Maxis Match" },
+  { type: "tumblr", input: "zx-ta", label: "Zx-Ta" }
+];
 let STORE_PATH = null;
 function storePath() {
   if (!STORE_PATH) STORE_PATH = path.join(electron.app.getPath("userData"), "sources.json");
   return STORE_PATH;
 }
+function makeEntry(e) {
+  const id = crypto.createHash("sha1").update(`${e.type}|${e.input}`.toLowerCase()).digest("hex").slice(0, 10);
+  return { id, type: e.type, input: e.input, label: e.label ?? e.input, addedAt: (/* @__PURE__ */ new Date()).toISOString() };
+}
 async function listSources() {
   try {
     const list = JSON.parse(await promises.readFile(storePath(), "utf-8"));
     return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
+  } catch (err2) {
+    if (err2.code !== "ENOENT") return [];
+    const seeded = DEFAULT_SOURCES.map(makeEntry);
+    await save(seeded).catch(() => {
+    });
+    return seeded;
   }
 }
 async function save(list) {
@@ -1289,6 +1497,54 @@ const SUGGESTED_SOURCES = [
   { type: "patreon", input: "llazyneiph", label: "llazyneiph", tag: "CAS" },
   { type: "patreon", input: "natalia-auditore", label: "Natalia-Auditore", tag: "CAS" },
   { type: "patreon", input: "wistfulcastle", label: "Wistful Castle", tag: "Build/Buy" },
+  // ---- Extended creator pack ----
+  // Curated from well-known, long-running Sims 4 Patreon creators. Not each one
+  // is probe-verified like the block above; a dead slug just shows a ⚠ in its
+  // feed row (per-source error isolation) and can be unfollowed — self-healing.
+  { type: "patreon", input: "simpliciaty", label: "Simpliciaty", tag: "Hair · CAS" },
+  { type: "patreon", input: "clumsyalienn", label: "ClumsyAlienn", tag: "CAS" },
+  { type: "patreon", input: "northernsiberiawinds", label: "Northern Siberia Winds", tag: "CAS" },
+  { type: "patreon", input: "greenllamas", label: "GreenLlamas", tag: "Hair · CAS" },
+  { type: "patreon", input: "trillyke", label: "Trillyke", tag: "CAS" },
+  { type: "patreon", input: "imvikai", label: "imVikai", tag: "CAS" },
+  { type: "patreon", input: "dogsill", label: "Dogsill", tag: "Hair · CAS" },
+  { type: "patreon", input: "charonlee", label: "charonlee", tag: "CAS" },
+  { type: "patreon", input: "oydis", label: "Oydis", tag: "CAS" },
+  { type: "patreon", input: "madlensims", label: "MadlenSims", tag: "CAS" },
+  { type: "patreon", input: "glorianasims", label: "GlorianaSims", tag: "CAS" },
+  { type: "patreon", input: "rimings", label: "RIMINGs", tag: "CAS" },
+  { type: "patreon", input: "avelinesims", label: "Aveline Sims", tag: "CAS" },
+  { type: "patreon", input: "helgatisha", label: "Helgatisha", tag: "CAS" },
+  { type: "patreon", input: "solistair", label: "Solistair", tag: "CAS" },
+  { type: "patreon", input: "candysims4", label: "CandySims4", tag: "CAS" },
+  { type: "patreon", input: "akaysims", label: "akaysims", tag: "CAS" },
+  { type: "patreon", input: "redheadsims", label: "RedHeadSims", tag: "CAS" },
+  { type: "patreon", input: "ddarkstonee", label: "DdarkStonee", tag: "CAS" },
+  { type: "patreon", input: "mauvemorn", label: "Mauvemorn", tag: "CAS" },
+  { type: "patreon", input: "sifix", label: "Sifix", tag: "Hair · CAS" },
+  { type: "patreon", input: "luumia", label: "Luumia", tag: "CAS · Overrides" },
+  { type: "patreon", input: "thisisthem", label: "THIS IS THEM", tag: "CAS" },
+  { type: "patreon", input: "qicc", label: "qicc", tag: "CAS" },
+  { type: "patreon", input: "nucrests", label: "Nucrests", tag: "CAS" },
+  { type: "patreon", input: "goppolsme", label: "GoppolsMe", tag: "CAS" },
+  { type: "patreon", input: "simandy", label: "Simandy", tag: "CAS" },
+  { type: "patreon", input: "dinhagamer", label: "Dinha Gamer", tag: "CAS" },
+  { type: "patreon", input: "felixandre", label: "Felixandre", tag: "Build/Buy" },
+  { type: "patreon", input: "pierisim", label: "Pierisim", tag: "Build/Buy" },
+  { type: "patreon", input: "severinka", label: "Severinka", tag: "Build/Buy" },
+  { type: "patreon", input: "soloriya", label: "Soloriya", tag: "Build/Buy" },
+  { type: "patreon", input: "syboulette", label: "Syboulette", tag: "Build/Buy" },
+  { type: "patreon", input: "khippie", label: "k-hippie", tag: "Build/Buy" },
+  { type: "patreon", input: "peacemakeric", label: "Peacemaker IC", tag: "Build/Buy" },
+  { type: "patreon", input: "plumbobteasociety", label: "Plumbob Tea Society", tag: "Build/Buy" },
+  { type: "patreon", input: "lumpinou", label: "Lumpinou", tag: "Gameplay mods" },
+  { type: "patreon", input: "kawaiistacie", label: "KawaiiStacie", tag: "Gameplay mods" },
+  { type: "patreon", input: "adeepindigo", label: "adeepindigo", tag: "Gameplay mods" },
+  { type: "patreon", input: "sacrificial", label: "Sacrificial", tag: "Gameplay mods" },
+  { type: "patreon", input: "simrealist", label: "SimRealist", tag: "Gameplay mods" },
+  { type: "patreon", input: "roburky", label: "roBurky", tag: "Gameplay mods" },
+  { type: "patreon", input: "zerbu", label: "Zerbu", tag: "Gameplay mods" },
+  { type: "patreon", input: "turbodriver", label: "TURBODRIVER", tag: "Gameplay mods" },
   // ---- Tumblr CC hubs (huge variety of finds) ----
   { type: "tumblr", input: "maxismatchccworld", label: "Maxis Match CC World", tag: "Finds hub" },
   { type: "tumblr", input: "emilyccfinds", label: "Emily CC Finds", tag: "Finds hub" },
@@ -1451,27 +1707,32 @@ async function resolveCampaign(slug) {
   campaignCache.set(slug, resolved);
   return resolved;
 }
-async function fetchPatreon(input, sourceId) {
+function patreonNextCursor(json) {
+  if (json.meta?.pagination?.cursors?.next) return json.meta.pagination.cursors.next;
+  const m = json.links?.next?.match(/page(?:%5B|\[)cursor(?:%5D|\])=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+async function fetchPatreon(input, sourceId, opts = {}) {
   const slug = normalizePatreonInput(input);
   if (!slug) throw new Error("Not a valid Patreon creator name or URL.");
   const campaign = await resolveCampaign(slug);
-  const api = `https://www.patreon.com/api/posts?filter[campaign_id]=${campaign.id}&filter[contains_exclusive_posts]=true&sort=-published_at&json-api-version=1.0&json-api-use-default-includes=false&include=attachments&fields[post]=title,teaser_text,content,url,published_at,current_user_can_view,is_paid,image&fields[attachment]=name,url&page[count]=30`;
+  const api = `https://www.patreon.com/api/posts?filter[campaign_id]=${campaign.id}&filter[contains_exclusive_posts]=true&sort=-published_at&json-api-version=1.0&json-api-use-default-includes=false&include=attachments,media&fields[post]=title,teaser_text,content,url,published_at,current_user_can_view,is_paid,image&fields[attachment]=name,url&fields[media]=file_name,download_url&page[count]=50` + (opts.cursor ? `&page[cursor]=${encodeURIComponent(opts.cursor)}` : "");
   const json = await fetchJson(api);
-  const attById = {};
+  const fileById = {};
   for (const inc of json.included ?? []) {
-    if (inc.type === "attachment") attById[inc.id] = inc.attributes;
+    if (inc.type === "attachment") fileById[inc.id] = { name: inc.attributes?.name, url: inc.attributes?.url };
+    else if (inc.type === "media") fileById[inc.id] = { name: inc.attributes?.file_name, url: inc.attributes?.download_url };
   }
   const items = [];
   for (const post of json.data ?? []) {
     const a = post.attributes ?? {};
     const viewable = a.current_user_can_view !== false;
-    const rels = post.relationships?.attachments?.data ?? [];
-    const attachments = rels.map((r) => attById[r.id]).filter((a2) => a2?.url && a2?.name);
-    const downloads = viewable ? attachments.filter((a2) => isInstallable(a2.name)).map((a2) => ({
-      name: a2.name,
-      url: a2.url,
-      via: "patreon-attachment"
-    })) : [];
+    const rels = [
+      ...post.relationships?.attachments?.data ?? [],
+      ...post.relationships?.media?.data ?? []
+    ];
+    const seen = /* @__PURE__ */ new Set();
+    const downloads = viewable ? rels.map((r) => fileById[r.id]).filter((f) => f?.url && f?.name && isInstallable(f.name) && !seen.has(f.name) && seen.add(f.name)).map((f) => ({ name: f.name, url: f.url, via: "patreon" })) : [];
     items.push({
       id: `patreon:${post.id}`,
       sourceId,
@@ -1487,7 +1748,7 @@ async function fetchPatreon(input, sourceId) {
       tags: []
     });
   }
-  return { label: campaign.name, items };
+  return { label: campaign.name, items, nextCursor: patreonNextCursor(json) };
 }
 function isInstallable(name) {
   return /\.(zip|package|ts4script)$/i.test(String(name ?? ""));
@@ -1538,18 +1799,20 @@ const SOURCE_TYPES = [
 const BUILTINS = [{ id: "builtin-mts", type: "modthesims", input: null, label: "ModTheSims · Sims 4", builtin: true }];
 const CACHE_TTL_MS = 10 * 60 * 1e3;
 const cache = /* @__PURE__ */ new Map();
-async function fetchSource(source, force) {
-  const hit = cache.get(source.id);
-  if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit;
+async function fetchSource(source, force, cursor = null) {
+  if (!cursor) {
+    const hit = cache.get(source.id);
+    if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit;
+  }
   const adapter = ADAPTERS[source.type];
   let entry;
   try {
-    const { label, items } = await adapter(source.input, source.id);
-    entry = { at: Date.now(), label, items };
+    const { label, items, nextCursor } = await adapter(source.input, source.id, { cursor });
+    entry = { at: Date.now(), label, items, nextCursor: nextCursor ?? null };
   } catch (err2) {
     entry = { at: Date.now(), error: err2.message, items: [] };
   }
-  cache.set(source.id, entry);
+  if (!cursor) cache.set(source.id, entry);
   return entry;
 }
 async function getSources() {
@@ -1559,9 +1822,10 @@ async function getSources() {
     error: cache.get(s.id)?.error ?? null
   }));
 }
+let probeSeq = 0;
 async function followSource({ type, input }) {
   if (!ADAPTERS[type] || type === "modthesims") return { ok: false, error: "Unknown source type." };
-  const probeId = `probe-${type}-${Date.now()}`;
+  const probeId = `probe-${type}-${Date.now()}-${probeSeq++}`;
   const probe = await fetchSource({ id: probeId, type, input }, true);
   cache.delete(probeId);
   if (probe.error) return { ok: false, error: probe.error };
@@ -1597,6 +1861,21 @@ async function mapPool(items, limit, fn) {
   await Promise.all(workers);
   return out;
 }
+async function followBatch({ type, text }) {
+  if (!ADAPTERS[type] || type === "modthesims") return { ok: false, error: "Unknown source type." };
+  const inputs = [...new Set(String(text ?? "").split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))];
+  if (!inputs.length) return { ok: false, error: "Enter at least one creator name or URL." };
+  const probed = await mapPool(inputs, 5, async (input) => {
+    const probeId = `probe-${type}-${Date.now()}-${probeSeq++}`;
+    const probe = await fetchSource({ id: probeId, type, input }, true);
+    cache.delete(probeId);
+    return { input, ok: !probe.error, label: probe.label, count: probe.items?.length ?? 0, error: probe.error };
+  });
+  const res = await addManySources(
+    probed.filter((p) => p.ok).map((p) => ({ type, input: p.input, label: p.label }))
+  );
+  return { ok: res.added > 0, added: res.added, results: probed };
+}
 async function fetchDiscover({ force = false } = {}) {
   const sources = [...BUILTINS, ...await listSources()];
   const results = await mapPool(sources, 5, async (s) => ({ s, r: await fetchSource(s, force) }));
@@ -1619,7 +1898,33 @@ async function fetchDiscover({ force = false } = {}) {
     });
   }
   items.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  return { ok: true, items, sources: sourceMeta, fetchedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const hasMore = sources.some((s) => cache.get(s.id)?.nextCursor);
+  return { ok: true, items, sources: sourceMeta, fetchedAt: (/* @__PURE__ */ new Date()).toISOString(), hasMore };
+}
+async function fetchMoreDiscover() {
+  const sources = [...BUILTINS, ...await listSources()];
+  const pageable = sources.filter((s) => cache.get(s.id)?.nextCursor);
+  if (!pageable.length) return { ok: true, items: [], hasMore: false };
+  const pages = await mapPool(pageable, 5, async (s) => {
+    const page = await fetchSource(s, true, cache.get(s.id).nextCursor);
+    const base = cache.get(s.id);
+    if (base && !page.error) {
+      base.nextCursor = page.nextCursor ?? null;
+      base.items = [...base.items ?? [], ...page.items ?? []];
+    }
+    return { s, items: page.items ?? [] };
+  });
+  const items = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const { s, items: its } of pages) {
+    for (const it of its) {
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      items.push({ ...it, sourceId: s.id });
+    }
+  }
+  items.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  return { ok: true, items, hasMore: sources.some((s) => cache.get(s.id)?.nextCursor) };
 }
 const IDLE_TIMEOUT_MS = 3e4;
 async function streamToFile(url2, destPath, onProgress) {
@@ -2151,6 +2456,13 @@ electron.ipcMain.handle("discover:follow", async (_e, payload) => {
     return { ok: false, error: err2.message };
   }
 });
+electron.ipcMain.handle("discover:followBatch", async (_e, payload) => {
+  try {
+    return await followBatch(payload ?? {});
+  } catch (err2) {
+    return { ok: false, error: err2.message };
+  }
+});
 electron.ipcMain.handle("discover:unfollow", async (_e, id) => {
   try {
     return await unfollowSource(id);
@@ -2163,6 +2475,13 @@ electron.ipcMain.handle("discover:fetch", async (_e, opts) => {
     return await fetchDiscover(opts ?? {});
   } catch (err2) {
     return { ok: false, items: [], sources: [], error: err2.message };
+  }
+});
+electron.ipcMain.handle("discover:fetchMore", async () => {
+  try {
+    return await fetchMoreDiscover();
+  } catch (err2) {
+    return { ok: false, items: [], hasMore: false, error: err2.message };
   }
 });
 electron.ipcMain.handle("discover:suggested", () => getSuggested());
@@ -2190,12 +2509,16 @@ electron.ipcMain.handle("discover:download", async (e, item) => {
         if (!sender.isDestroyed()) sender.send("discover:progress", { itemId: item?.id, ...p });
       }
     });
-    if (res.ok) clearCachedLocalMods();
+    if (res.ok) {
+      clearCachedLocalMods();
+      await recordDiscoverDownload(item, res);
+    }
     return res;
   } catch (err2) {
     return { ok: false, error: err2.message };
   }
 });
+electron.ipcMain.handle("discover:getDownloaded", () => getDiscoverDownloaded());
 electron.ipcMain.handle("thumbCache:open", async () => {
   electron.shell.openPath(await getThumbCacheDir());
 });

@@ -25,18 +25,21 @@ const BUILTINS = [{ id: 'builtin-mts', type: 'modthesims', input: null, label: '
 const CACHE_TTL_MS = 10 * 60 * 1000
 const cache = new Map() // sourceId -> { at, label, items } | { at, error }
 
-async function fetchSource(source, force) {
-  const hit = cache.get(source.id)
-  if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit
+async function fetchSource(source, force, cursor = null) {
+  if (!cursor) {
+    const hit = cache.get(source.id)
+    if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit
+  }
   const adapter = ADAPTERS[source.type]
   let entry
   try {
-    const { label, items } = await adapter(source.input, source.id)
-    entry = { at: Date.now(), label, items }
+    // nextCursor is Patreon-only; other adapters ignore opts and return undefined.
+    const { label, items, nextCursor } = await adapter(source.input, source.id, { cursor })
+    entry = { at: Date.now(), label, items, nextCursor: nextCursor ?? null }
   } catch (err) {
     entry = { at: Date.now(), error: err.message, items: [] }
   }
-  cache.set(source.id, entry)
+  if (!cursor) cache.set(source.id, entry) // first page seeds the cache; later pages accumulate in fetchMore
   return entry
 }
 
@@ -53,9 +56,11 @@ export async function getSources() {
  * Validate + persist a new source. Validation = one real fetch, which also
  * warms the cache and derives the display label.
  */
+let probeSeq = 0 // keep concurrent probe ids collision-free (Date.now alone can tie)
+
 export async function followSource({ type, input }) {
   if (!ADAPTERS[type] || type === 'modthesims') return { ok: false, error: 'Unknown source type.' }
-  const probeId = `probe-${type}-${Date.now()}`
+  const probeId = `probe-${type}-${Date.now()}-${probeSeq++}`
   const probe = await fetchSource({ id: probeId, type, input }, true)
   cache.delete(probeId)
   if (probe.error) return { ok: false, error: probe.error }
@@ -105,6 +110,31 @@ async function mapPool(items, limit, fn) {
   return out
 }
 
+/**
+ * Follow a group of creators from a free-form string: names and/or URLs split on
+ * spaces, commas, semicolons or newlines. Each is validated with a real probe
+ * fetch (capped concurrency to stay polite) and added if it resolves.
+ * @returns {Promise<{ ok, added, results: [{ input, ok, label?, count?, error? }] }>}
+ */
+export async function followBatch({ type, text }) {
+  if (!ADAPTERS[type] || type === 'modthesims') return { ok: false, error: 'Unknown source type.' }
+  const inputs = [...new Set(String(text ?? '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean))]
+  if (!inputs.length) return { ok: false, error: 'Enter at least one creator name or URL.' }
+  // Probe all in parallel (this IS the validation), then persist the winners in a
+  // SINGLE write via addManySources — concurrent addSource() calls would race on
+  // sources.json (read-modify-write) and drop entries.
+  const probed = await mapPool(inputs, 5, async (input) => {
+    const probeId = `probe-${type}-${Date.now()}-${probeSeq++}`
+    const probe = await fetchSource({ id: probeId, type, input }, true)
+    cache.delete(probeId)
+    return { input, ok: !probe.error, label: probe.label, count: probe.items?.length ?? 0, error: probe.error }
+  })
+  const res = await addManySources(
+    probed.filter(p => p.ok).map(p => ({ type, input: p.input, label: p.label }))
+  )
+  return { ok: res.added > 0, added: res.added, results: probed }
+}
+
 export async function fetchDiscover({ force = false } = {}) {
   const sources = [...BUILTINS, ...(await listSources())]
   // cap concurrency so following 20+ creators doesn't hammer Patreon at once
@@ -133,5 +163,39 @@ export async function fetchDiscover({ force = false } = {}) {
   }
   // newest first; undated items sink to the end but stay grouped by source order
   items.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
-  return { ok: true, items, sources: sourceMeta, fetchedAt: new Date().toISOString() }
+  const hasMore = sources.some(s => cache.get(s.id)?.nextCursor)
+  return { ok: true, items, sources: sourceMeta, fetchedAt: new Date().toISOString(), hasMore }
+}
+
+/**
+ * Fetch the next page from every source that still has a cursor (Patreon), append
+ * to the session cache, and return the freshly-loaded items to the renderer.
+ * @returns {Promise<{ ok, items, hasMore }>}
+ */
+export async function fetchMoreDiscover() {
+  const sources = [...BUILTINS, ...(await listSources())]
+  const pageable = sources.filter(s => cache.get(s.id)?.nextCursor)
+  if (!pageable.length) return { ok: true, items: [], hasMore: false }
+
+  const pages = await mapPool(pageable, 5, async (s) => {
+    const page = await fetchSource(s, true, cache.get(s.id).nextCursor) // cursor set → bypasses cache
+    const base = cache.get(s.id)
+    if (base && !page.error) {
+      base.nextCursor = page.nextCursor ?? null
+      base.items = [...(base.items ?? []), ...(page.items ?? [])]
+    }
+    return { s, items: page.items ?? [] }
+  })
+
+  const items = []
+  const seen = new Set()
+  for (const { s, items: its } of pages) {
+    for (const it of its) {
+      if (seen.has(it.id)) continue
+      seen.add(it.id)
+      items.push({ ...it, sourceId: s.id })
+    }
+  }
+  items.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+  return { ok: true, items, hasMore: sources.some(s => cache.get(s.id)?.nextCursor) }
 }

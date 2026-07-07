@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
@@ -21,22 +21,27 @@ function AddSourceForm({ types, onAdded }) {
   const [input, setInput] = useState('')
   const [state, setState] = useState('idle') // idle | adding
   const [error, setError] = useState(null)
+  const [report, setReport] = useState(null) // { added, results:[{input,ok,error}] } from a batch
 
   const hint = types.find(t => t.type === type)?.hint ?? ''
+  // count tokens the same way the backend splits, so the button label matches
+  const count = input.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean).length
 
   const onAdd = async () => {
     const value = input.trim()
     if (!value || state === 'adding') return
     setState('adding')
     setError(null)
+    setReport(null)
     try {
-      const res = await window.api.followSource({ type, input: value })
-      if (res?.ok) {
+      // one endpoint handles 1..N — it splits names/URLs on spaces, commas, newlines
+      const res = await window.api.followSourcesBatch({ type, text: value })
+      if (res?.added > 0) {
         setInput('')
         onAdded()
-      } else {
-        setError(res?.error ?? 'Could not add this source.')
       }
+      if (res?.error) setError(res.error)
+      else if (res?.results) setReport(res) // show per-creator outcome (incl. failures)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -44,37 +49,55 @@ function AddSourceForm({ types, onAdded }) {
     }
   }
 
+  const failed = report?.results?.filter(r => !r.ok) ?? []
+
   return (
-    <div className="flex items-start gap-2 flex-wrap">
-      <select
-        value={type}
-        onChange={e => setType(e.target.value)}
-        className="input px-2.5 py-2 text-sm bg-[#12141f]"
-      >
-        {types.map(t => (
-          <option key={t.type} value={t.type}>{TYPE_META[t.type]?.icon} {t.label}</option>
-        ))}
-      </select>
-      <div className="flex flex-col">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') onAdd() }}
-          placeholder={hint}
-          className="input w-72 px-3 py-2 text-sm"
-        />
-        {error && <p className="text-red-400 text-xs mt-1 max-w-72">{error}</p>}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-start gap-2 flex-wrap">
+        <select
+          value={type}
+          onChange={e => setType(e.target.value)}
+          className="input px-2.5 py-2 text-sm bg-[#12141f]"
+        >
+          {types.map(t => (
+            <option key={t.type} value={t.type}>{TYPE_META[t.type]?.icon} {t.label}</option>
+          ))}
+        </select>
+        <div className="flex flex-col flex-1 min-w-[18rem]">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onAdd() }}
+            placeholder={`${hint} — add several at once, separated by spaces, commas or new lines`}
+            rows={2}
+            className="input w-full px-3 py-2 text-sm resize-y"
+          />
+          {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+        </div>
+        <button onClick={onAdd} disabled={state === 'adding'} className="btn-primary px-4 py-2 text-sm whitespace-nowrap">
+          {state === 'adding' ? '⏳ Checking…' : `＋ Follow${count > 1 ? ` (${count})` : ''}`}
+        </button>
       </div>
-      <button onClick={onAdd} disabled={state === 'adding'} className="btn-primary px-4 py-2 text-sm">
-        {state === 'adding' ? '⏳ Checking…' : '＋ Follow'}
-      </button>
+      {report && (
+        <p className="text-xs">
+          <span className="text-emerald-400">✓ Added {report.added}</span>
+          {failed.length > 0 && (
+            <span className="text-red-400 ml-2">
+              ⚠ {failed.length} failed: {failed.map(f => `${f.input} (${f.error ?? 'error'})`).join(', ')}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   )
 }
 
-function DiscoverDownloadButton({ item }) {
-  const [state, setState] = useState('idle') // idle | downloading | done | error
+function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
+  const [state, setState] = useState(installed ? 'done' : 'idle') // idle | downloading | done | error
   const [progress, setProgress] = useState(null)
+
+  // reflect the persisted "already downloaded" flag once it loads / changes
+  useEffect(() => { if (installed) setState(s => (s === 'idle' ? 'done' : s)) }, [installed])
 
   useEffect(() => {
     if (state !== 'downloading') return
@@ -86,7 +109,7 @@ function DiscoverDownloadButton({ item }) {
 
   const onClick = async (e) => {
     e.stopPropagation()
-    if (state === 'downloading') return
+    if (state === 'downloading' || state === 'done') return // already installed — no re-download
     setState('downloading')
     setProgress(null)
     try {
@@ -94,6 +117,7 @@ function DiscoverDownloadButton({ item }) {
       if (res?.ok) {
         setState('done')
         markChanged()
+        onDownloaded?.(item)
         window.dispatchEvent(new CustomEvent('local-mods-changed'))
       } else {
         console.error('[Discover] download failed:', res?.error, res?.errors)
@@ -112,7 +136,7 @@ function DiscoverDownloadButton({ item }) {
       ? progress?.phase === 'installing'
         ? '📦 Installing…'
         : `⏳ ${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ''}${pct != null ? `${pct}%` : '…'}`
-      : state === 'done' ? '✓ Installed!'
+      : state === 'done' ? '✓ Installed'
         : state === 'error' ? '⚠ Failed — retry'
           : `⬇ Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ''}`
 
@@ -123,7 +147,7 @@ function DiscoverDownloadButton({ item }) {
           : 'btn-primary'
 
   return (
-    <button onClick={onClick} disabled={state === 'downloading'} className={`relative overflow-hidden ${cls} mt-2 px-3 py-1.5 text-xs`}>
+    <button onClick={onClick} disabled={state === 'downloading' || state === 'done'} title={state === 'done' ? 'Already downloaded through the app' : undefined} className={`relative overflow-hidden ${cls} mt-2 px-3 py-1.5 text-xs`}>
       {label}
       {state === 'downloading' && pct != null && progress?.phase !== 'installing' && (
         <span className="absolute inset-x-0 bottom-0 h-0.5 bg-violet-400 transition-[width] duration-200" style={{ width: `${pct}%` }} />
@@ -133,22 +157,28 @@ function DiscoverDownloadButton({ item }) {
 }
 
 function SuggestedCreators({ suggested, onFollow, busy }) {
+  const [open, setOpen] = useState(false)
   const notFollowed = suggested.filter(s => !s.followed)
   if (!suggested.length) return null
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-gray-400 text-xs">
-          ✨ Suggested creators — popular Sims 4 makers, verified working
-        </p>
-        {notFollowed.length > 0 && (
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="text-gray-400 hover:text-gray-200 text-xs flex items-center gap-1"
+        >
+          <span className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+          ✨ Suggested creators — popular Sims 4 makers ({suggested.length})
+        </button>
+        {open && notFollowed.length > 0 && (
           <button onClick={() => onFollow(null)} disabled={busy} className="btn-primary px-3 py-1 text-xs">
             {busy ? 'Adding…' : `＋ Follow all (${notFollowed.length})`}
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+      {open && (
+      <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto">
         {suggested.map(s => (
           <button
             key={`${s.type}:${s.input}`}
@@ -162,11 +192,12 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
           </button>
         ))}
       </div>
+      )}
     </div>
   )
 }
 
-function ItemCard({ item, onOpen }) {
+function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
   const meta = TYPE_META[item.sourceType] ?? { icon: '🌐', badge: 'bg-gray-700 text-gray-300' }
   const canDownload = (item.downloads?.length ?? 0) > 0
   return (
@@ -190,6 +221,10 @@ function ItemCard({ item, onOpen }) {
           <span className="absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm" title="Patron-only post — opens on Patreon">
             🔒 patrons
           </span>
+        ) : installed ? (
+          <span className="absolute top-2 right-2 badge bg-emerald-500 text-white backdrop-blur-sm" title="Already downloaded through the app">
+            ✓ installed
+          </span>
         ) : canDownload && (
           <span className="absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm" title="Free files attached — installs directly">
             🆓 free
@@ -208,7 +243,7 @@ function ItemCard({ item, onOpen }) {
           {item.date && <span>🕒 {formatRelative(item.date)}</span>}
           <span className="ml-auto text-gray-500">↗ open</span>
         </div>
-        {canDownload && <DiscoverDownloadButton item={item} />}
+        {canDownload && <DiscoverDownloadButton item={item} installed={installed} onDownloaded={onDownloaded} />}
       </div>
     </div>
   )
@@ -225,6 +260,29 @@ export default function Discover() {
   const [selected, setSelected] = useState(null) // detail modal target
   const [suggested, setSuggested] = useState([])
   const [followingAll, setFollowingAll] = useState(false)
+  const [downloaded, setDownloaded] = useState(() => ({ ids: new Set(), files: new Set() }))
+
+  const refreshDownloaded = useCallback(() => {
+    window.api.getDownloadedDiscover?.().then(r =>
+      setDownloaded({ ids: new Set(r?.ids ?? []), files: new Set(r?.files ?? []) })
+    )
+  }, [])
+
+  // an item counts as installed if we downloaded this exact post, or every file it
+  // offers was already downloaded (same mod re-posted elsewhere)
+  const isInstalled = useCallback((item) => {
+    if (downloaded.ids.has(item.id)) return true
+    const dls = item.downloads ?? []
+    return dls.length > 0 && dls.every(d => downloaded.files.has(d.name))
+  }, [downloaded])
+
+  const markDownloaded = useCallback((item) => {
+    setDownloaded(prev => {
+      const ids = new Set(prev.ids); ids.add(item.id)
+      const files = new Set(prev.files); for (const d of item.downloads ?? []) files.add(d.name)
+      return { ids, files }
+    })
+  }, [])
 
   const load = useCallback(async (force = false) => {
     setLoading(true)
@@ -243,8 +301,9 @@ export default function Discover() {
   useEffect(() => {
     window.api.getSourceTypes?.().then(t => setTypes(t ?? []))
     refreshSuggested()
+    refreshDownloaded()
     load(false)
-  }, [load, refreshSuggested])
+  }, [load, refreshSuggested, refreshDownloaded])
 
   const removeSource = async (id) => {
     await window.api.unfollowSource(id)
@@ -278,6 +337,46 @@ export default function Discover() {
     }
     return items
   }, [data, query, sourceFilter, onlyFree])
+
+  // Infinite feed. Variant 1: only render `shown` cards, widen the window as the
+  // sentinel scrolls in. Variant 2: once every loaded item is on screen, pull the
+  // next network page (Patreon cursor) and merge it in.
+  const PAGE = 40
+  const [shown, setShown] = useState(PAGE)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef(null)
+
+  useEffect(() => { setShown(PAGE) }, [query, sourceFilter, onlyFree]) // reset window when the filtered set changes
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return
+    setLoadingMore(true)
+    try {
+      const res = await window.api.fetchMoreDiscover?.()
+      setData(d => {
+        if (!d) return d
+        if (!res?.items?.length) return { ...d, hasMore: false }
+        const seen = new Set(d.items.map(i => i.id))
+        const merged = [...d.items, ...res.items.filter(i => !seen.has(i.id))]
+        merged.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+        return { ...d, items: merged, hasMore: res.hasMore }
+      })
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore])
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return
+      if (shown < visible.length) setShown(s => s + PAGE)
+      else if (data?.hasMore) loadMore()
+    }, { rootMargin: '600px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [shown, visible.length, data?.hasMore, loadMore])
 
   const erroredSources = (data?.sources ?? []).filter(s => s.error)
   const freeCount = (data?.items ?? []).filter(i => (i.downloads?.length ?? 0) > 0).length
@@ -363,17 +462,25 @@ export default function Discover() {
             <button onClick={() => setSourceFilter('all')} className={`chip ${sourceFilter === 'all' ? 'chip-active' : ''}`}>
               All
             </button>
-            {(data?.sources ?? []).filter(s => s.count > 0 || s.error).map(s => (
-              <button
-                key={s.id}
-                onClick={() => setSourceFilter(s.id)}
-                className={`chip ${sourceFilter === s.id ? 'chip-active' : ''}`}
-                title={s.error ?? s.label}
-              >
-                {TYPE_META[s.type]?.icon} <span className="max-w-[9rem] truncate">{s.label}</span>
-                {s.error && <span className="text-red-400">⚠</span>}
-              </button>
-            ))}
+            {(() => {
+              const opts = (data?.sources ?? []).filter(s => s.count > 0 || s.error)
+              if (!opts.length) return null
+              return (
+                <select
+                  value={sourceFilter === 'all' ? '' : sourceFilter}
+                  onChange={e => setSourceFilter(e.target.value || 'all')}
+                  className="input px-2.5 py-2 text-sm bg-[#12141f] max-w-[14rem]"
+                  title="Filter by source"
+                >
+                  <option value="">▾ By source ({opts.length})</option>
+                  {opts.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {TYPE_META[s.type]?.icon} {s.label}{s.count ? ` (${s.count})` : ''}{s.error ? ' ⚠' : ''}
+                    </option>
+                  ))}
+                </select>
+              )
+            })()}
           </div>
         </div>
       </div>
@@ -416,13 +523,20 @@ export default function Discover() {
         {visible.length > 0 && (
           <>
             <p className="text-gray-500 text-xs mb-4">
-              {visible.length} item{visible.length !== 1 ? 's' : ''}
+              Showing {Math.min(shown, visible.length)} of {visible.length}
               {data?.fetchedAt && ` · fetched ${new Date(data.fetchedAt).toLocaleTimeString()}`}
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
-              {visible.map(item => (
-                <ItemCard key={item.id} item={item} onOpen={setSelected} />
+              {visible.slice(0, shown).map(item => (
+                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} />
               ))}
+            </div>
+            {/* sentinel: scrolling it into view widens the window / pulls the next page */}
+            <div ref={sentinelRef} className="h-10 flex items-center justify-center">
+              {loadingMore && <span className="animate-spin inline-block w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full" />}
+              {!loadingMore && shown >= visible.length && !data?.hasMore && (
+                <span className="text-gray-600 text-xs">— конец ленты —</span>
+              )}
             </div>
           </>
         )}
@@ -432,7 +546,7 @@ export default function Discover() {
         <DiscoverDetail
           item={selected}
           onClose={() => setSelected(null)}
-          renderDownload={(it) => <DiscoverDownloadButton item={it} />}
+          renderDownload={(it) => <DiscoverDownloadButton item={it} installed={isInstalled(it)} onDownloaded={markDownloaded} />}
         />
       )}
     </div>

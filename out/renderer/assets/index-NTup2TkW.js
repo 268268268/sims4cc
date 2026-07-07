@@ -8990,61 +8990,83 @@ function AddSourceForm({ types, onAdded }) {
   const [input, setInput] = reactExports.useState("");
   const [state, setState] = reactExports.useState("idle");
   const [error, setError] = reactExports.useState(null);
+  const [report, setReport] = reactExports.useState(null);
   const hint = types.find((t2) => t2.type === type)?.hint ?? "";
+  const count2 = input.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean).length;
   const onAdd = async () => {
     const value = input.trim();
     if (!value || state === "adding") return;
     setState("adding");
     setError(null);
+    setReport(null);
     try {
-      const res = await window.api.followSource({ type, input: value });
-      if (res?.ok) {
+      const res = await window.api.followSourcesBatch({ type, text: value });
+      if (res?.added > 0) {
         setInput("");
         onAdded();
-      } else {
-        setError(res?.error ?? "Could not add this source.");
       }
+      if (res?.error) setError(res.error);
+      else if (res?.results) setReport(res);
     } catch (err) {
       setError(err.message);
     } finally {
       setState("idle");
     }
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2 flex-wrap", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "select",
-      {
-        value: type,
-        onChange: (e) => setType(e.target.value),
-        className: "input px-2.5 py-2 text-sm bg-[#12141f]",
-        children: types.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: t2.type, children: [
-          TYPE_META[t2.type]?.icon,
-          " ",
-          t2.label
-        ] }, t2.type))
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", children: [
+  const failed = report?.results?.filter((r2) => !r2.ok) ?? [];
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2 flex-wrap", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "input",
+        "select",
         {
-          value: input,
-          onChange: (e) => setInput(e.target.value),
-          onKeyDown: (e) => {
-            if (e.key === "Enter") onAdd();
-          },
-          placeholder: hint,
-          className: "input w-72 px-3 py-2 text-sm"
+          value: type,
+          onChange: (e) => setType(e.target.value),
+          className: "input px-2.5 py-2 text-sm bg-[#12141f]",
+          children: types.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: t2.type, children: [
+            TYPE_META[t2.type]?.icon,
+            " ",
+            t2.label
+          ] }, t2.type))
         }
       ),
-      error && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-red-400 text-xs mt-1 max-w-72", children: error })
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col flex-1 min-w-[18rem]", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "textarea",
+          {
+            value: input,
+            onChange: (e) => setInput(e.target.value),
+            onKeyDown: (e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) onAdd();
+            },
+            placeholder: `${hint} — add several at once, separated by spaces, commas or new lines`,
+            rows: 2,
+            className: "input w-full px-3 py-2 text-sm resize-y"
+          }
+        ),
+        error && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-red-400 text-xs mt-1", children: error })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onAdd, disabled: state === "adding", className: "btn-primary px-4 py-2 text-sm whitespace-nowrap", children: state === "adding" ? "⏳ Checking…" : `＋ Follow${count2 > 1 ? ` (${count2})` : ""}` })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onAdd, disabled: state === "adding", className: "btn-primary px-4 py-2 text-sm", children: state === "adding" ? "⏳ Checking…" : "＋ Follow" })
+    report && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-emerald-400", children: [
+        "✓ Added ",
+        report.added
+      ] }),
+      failed.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-red-400 ml-2", children: [
+        "⚠ ",
+        failed.length,
+        " failed: ",
+        failed.map((f2) => `${f2.input} (${f2.error ?? "error"})`).join(", ")
+      ] })
+    ] })
   ] });
 }
-function DiscoverDownloadButton({ item }) {
-  const [state, setState] = reactExports.useState("idle");
+function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
+  const [state, setState] = reactExports.useState(installed ? "done" : "idle");
   const [progress, setProgress] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    if (installed) setState((s) => s === "idle" ? "done" : s);
+  }, [installed]);
   reactExports.useEffect(() => {
     if (state !== "downloading") return;
     const off = window.api.onDiscoverProgress?.((p2) => {
@@ -9054,7 +9076,7 @@ function DiscoverDownloadButton({ item }) {
   }, [state, item.id]);
   const onClick = async (e) => {
     e.stopPropagation();
-    if (state === "downloading") return;
+    if (state === "downloading" || state === "done") return;
     setState("downloading");
     setProgress(null);
     try {
@@ -9062,6 +9084,7 @@ function DiscoverDownloadButton({ item }) {
       if (res?.ok) {
         setState("done");
         markChanged();
+        onDownloaded?.(item);
         window.dispatchEvent(new CustomEvent("local-mods-changed"));
       } else {
         console.error("[Discover] download failed:", res?.error, res?.errors);
@@ -9074,22 +9097,35 @@ function DiscoverDownloadButton({ item }) {
   };
   const pct = progress?.total ? Math.min(100, Math.round(progress.received / progress.total * 100)) : null;
   const multi = (item.downloads?.length ?? 0) > 1 && progress?.fileCount > 1;
-  const label = state === "downloading" ? progress?.phase === "installing" ? "📦 Installing…" : `⏳ ${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ""}${pct != null ? `${pct}%` : "…"}` : state === "done" ? "✓ Installed!" : state === "error" ? "⚠ Failed — retry" : `⬇ Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ""}`;
+  const label = state === "downloading" ? progress?.phase === "installing" ? "📦 Installing…" : `⏳ ${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ""}${pct != null ? `${pct}%` : "…"}` : state === "done" ? "✓ Installed" : state === "error" ? "⚠ Failed — retry" : `⬇ Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ""}`;
   const cls = state === "downloading" ? "btn-ghost cursor-wait" : state === "done" ? "btn-success cursor-default" : state === "error" ? "btn-danger" : "btn-primary";
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick, disabled: state === "downloading", className: `relative overflow-hidden ${cls} mt-2 px-3 py-1.5 text-xs`, children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick, disabled: state === "downloading" || state === "done", title: state === "done" ? "Already downloaded through the app" : void 0, className: `relative overflow-hidden ${cls} mt-2 px-3 py-1.5 text-xs`, children: [
     label,
     state === "downloading" && pct != null && progress?.phase !== "installing" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute inset-x-0 bottom-0 h-0.5 bg-violet-400 transition-[width] duration-200", style: { width: `${pct}%` } })
   ] });
 }
 function SuggestedCreators({ suggested, onFollow, busy }) {
+  const [open, setOpen] = reactExports.useState(false);
   const notFollowed = suggested.filter((s) => !s.followed);
   if (!suggested.length) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-2", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-400 text-xs", children: "✨ Suggested creators — popular Sims 4 makers, verified working" }),
-      notFollowed.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onFollow(null), disabled: busy, className: "btn-primary px-3 py-1 text-xs", children: busy ? "Adding…" : `＋ Follow all (${notFollowed.length})` })
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => setOpen((o) => !o),
+          className: "text-gray-400 hover:text-gray-200 text-xs flex items-center gap-1",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-block transition-transform ${open ? "rotate-90" : ""}`, children: "▶" }),
+            "✨ Suggested creators — popular Sims 4 makers (",
+            suggested.length,
+            ")"
+          ]
+        }
+      ),
+      open && notFollowed.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onFollow(null), disabled: busy, className: "btn-primary px-3 py-1 text-xs", children: busy ? "Adding…" : `＋ Follow all (${notFollowed.length})` })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5 max-h-40 overflow-y-auto", children: suggested.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    open && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5 max-h-56 overflow-y-auto", children: suggested.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "button",
       {
         onClick: () => !s.followed && onFollow([s]),
@@ -9107,7 +9143,7 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
     )) })
   ] });
 }
-function ItemCard({ item, onOpen }) {
+function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
   const meta = TYPE_META[item.sourceType] ?? { icon: "🌐", badge: "bg-gray-700 text-gray-300" };
   const canDownload = (item.downloads?.length ?? 0) > 0;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -9135,7 +9171,7 @@ function ItemCard({ item, onOpen }) {
             " ",
             item.sourceType
           ] }),
-          item.locked ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm", title: "Patron-only post — opens on Patreon", children: "🔒 patrons" }) : canDownload && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm", title: "Free files attached — installs directly", children: "🆓 free" })
+          item.locked ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm", title: "Patron-only post — opens on Patreon", children: "🔒 patrons" }) : installed ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-500 text-white backdrop-blur-sm", title: "Already downloaded through the app", children: "✓ installed" }) : canDownload && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm", title: "Free files attached — installs directly", children: "🆓 free" })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 flex flex-col gap-1 flex-1", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-white font-semibold text-sm leading-tight line-clamp-2", title: item.title, children: item.title }),
@@ -9148,7 +9184,7 @@ function ItemCard({ item, onOpen }) {
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-auto text-gray-500", children: "↗ open" })
           ] }),
-          canDownload && /* @__PURE__ */ jsxRuntimeExports.jsx(DiscoverDownloadButton, { item })
+          canDownload && /* @__PURE__ */ jsxRuntimeExports.jsx(DiscoverDownloadButton, { item, installed, onDownloaded })
         ] })
       ]
     }
@@ -9165,6 +9201,26 @@ function Discover() {
   const [selected, setSelected] = reactExports.useState(null);
   const [suggested, setSuggested] = reactExports.useState([]);
   const [followingAll, setFollowingAll] = reactExports.useState(false);
+  const [downloaded, setDownloaded] = reactExports.useState(() => ({ ids: /* @__PURE__ */ new Set(), files: /* @__PURE__ */ new Set() }));
+  const refreshDownloaded = reactExports.useCallback(() => {
+    window.api.getDownloadedDiscover?.().then(
+      (r2) => setDownloaded({ ids: new Set(r2?.ids ?? []), files: new Set(r2?.files ?? []) })
+    );
+  }, []);
+  const isInstalled = reactExports.useCallback((item) => {
+    if (downloaded.ids.has(item.id)) return true;
+    const dls = item.downloads ?? [];
+    return dls.length > 0 && dls.every((d) => downloaded.files.has(d.name));
+  }, [downloaded]);
+  const markDownloaded = reactExports.useCallback((item) => {
+    setDownloaded((prev) => {
+      const ids = new Set(prev.ids);
+      ids.add(item.id);
+      const files = new Set(prev.files);
+      for (const d of item.downloads ?? []) files.add(d.name);
+      return { ids, files };
+    });
+  }, []);
   const load = reactExports.useCallback(async (force = false) => {
     setLoading(true);
     try {
@@ -9180,8 +9236,9 @@ function Discover() {
   reactExports.useEffect(() => {
     window.api.getSourceTypes?.().then((t2) => setTypes(t2 ?? []));
     refreshSuggested();
+    refreshDownloaded();
     load(false);
-  }, [load, refreshSuggested]);
+  }, [load, refreshSuggested, refreshDownloaded]);
   const removeSource = async (id2) => {
     await window.api.unfollowSource(id2);
     refreshSuggested();
@@ -9209,6 +9266,41 @@ function Discover() {
     }
     return items;
   }, [data, query, sourceFilter, onlyFree]);
+  const PAGE = 40;
+  const [shown, setShown] = reactExports.useState(PAGE);
+  const [loadingMore, setLoadingMore] = reactExports.useState(false);
+  const sentinelRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    setShown(PAGE);
+  }, [query, sourceFilter, onlyFree]);
+  const loadMore = reactExports.useCallback(async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await window.api.fetchMoreDiscover?.();
+      setData((d) => {
+        if (!d) return d;
+        if (!res?.items?.length) return { ...d, hasMore: false };
+        const seen = new Set(d.items.map((i) => i.id));
+        const merged = [...d.items, ...res.items.filter((i) => !seen.has(i.id))];
+        merged.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+        return { ...d, items: merged, hasMore: res.hasMore };
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore]);
+  reactExports.useEffect(() => {
+    const el2 = sentinelRef.current;
+    if (!el2) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      if (shown < visible.length) setShown((s) => s + PAGE);
+      else if (data?.hasMore) loadMore();
+    }, { rootMargin: "600px" });
+    io.observe(el2);
+    return () => io.disconnect();
+  }, [shown, visible.length, data?.hasMore, loadMore]);
   const erroredSources = (data?.sources ?? []).filter((s) => s.error);
   const freeCount = (data?.items ?? []).filter((i) => (i.downloads?.length ?? 0) > 0).length;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
@@ -9293,21 +9385,33 @@ function Discover() {
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 flex-wrap", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => setSourceFilter("all"), className: `chip ${sourceFilter === "all" ? "chip-active" : ""}`, children: "All" }),
-          (data?.sources ?? []).filter((s) => s.count > 0 || s.error).map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "button",
-            {
-              onClick: () => setSourceFilter(s.id),
-              className: `chip ${sourceFilter === s.id ? "chip-active" : ""}`,
-              title: s.error ?? s.label,
-              children: [
-                TYPE_META[s.type]?.icon,
-                " ",
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "max-w-[9rem] truncate", children: s.label }),
-                s.error && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-400", children: "⚠" })
-              ]
-            },
-            s.id
-          ))
+          (() => {
+            const opts = (data?.sources ?? []).filter((s) => s.count > 0 || s.error);
+            if (!opts.length) return null;
+            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "select",
+              {
+                value: sourceFilter === "all" ? "" : sourceFilter,
+                onChange: (e) => setSourceFilter(e.target.value || "all"),
+                className: "input px-2.5 py-2 text-sm bg-[#12141f] max-w-[14rem]",
+                title: "Filter by source",
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: "", children: [
+                    "▾ By source (",
+                    opts.length,
+                    ")"
+                  ] }),
+                  opts.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: s.id, children: [
+                    TYPE_META[s.type]?.icon,
+                    " ",
+                    s.label,
+                    s.count ? ` (${s.count})` : "",
+                    s.error ? " ⚠" : ""
+                  ] }, s.id))
+                ]
+              }
+            );
+          })()
         ] })
       ] })
     ] }),
@@ -9331,12 +9435,17 @@ function Discover() {
       ] }),
       visible.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-gray-500 text-xs mb-4", children: [
+          "Showing ",
+          Math.min(shown, visible.length),
+          " of ",
           visible.length,
-          " item",
-          visible.length !== 1 ? "s" : "",
           data?.fetchedAt && ` · fetched ${new Date(data.fetchedAt).toLocaleTimeString()}`
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }, children: visible.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(ItemCard, { item, onOpen: setSelected }, item.id)) })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4", style: { gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }, children: visible.slice(0, shown).map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(ItemCard, { item, onOpen: setSelected, installed: isInstalled(item), onDownloaded: markDownloaded }, item.id)) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: sentinelRef, className: "h-10 flex items-center justify-center", children: [
+          loadingMore && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "animate-spin inline-block w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full" }),
+          !loadingMore && shown >= visible.length && !data?.hasMore && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-600 text-xs", children: "— конец ленты —" })
+        ] })
       ] })
     ] }),
     selected && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -9344,7 +9453,7 @@ function Discover() {
       {
         item: selected,
         onClose: () => setSelected(null),
-        renderDownload: (it) => /* @__PURE__ */ jsxRuntimeExports.jsx(DiscoverDownloadButton, { item: it })
+        renderDownload: (it) => /* @__PURE__ */ jsxRuntimeExports.jsx(DiscoverDownloadButton, { item: it, installed: isInstalled(it), onDownloaded: markDownloaded })
       }
     )
   ] });

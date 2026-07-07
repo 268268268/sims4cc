@@ -1122,6 +1122,10 @@
     margin-left: var(--spacing);
   }
 
+  .ml-2 {
+    margin-left: calc(var(--spacing) * 2);
+  }
+
   .ml-auto {
     margin-left: auto;
   }
@@ -1178,6 +1182,10 @@
 
   .h-4 {
     height: calc(var(--spacing) * 4);
+  }
+
+  .h-5 {
+    height: calc(var(--spacing) * 5);
   }
 
   .h-6 {
@@ -1244,6 +1252,10 @@
     max-height: calc(var(--spacing) * 48);
   }
 
+  .max-h-56 {
+    max-height: calc(var(--spacing) * 56);
+  }
+
   .max-h-72 {
     max-height: calc(var(--spacing) * 72);
   }
@@ -1286,6 +1298,10 @@
 
   .w-4 {
     width: calc(var(--spacing) * 4);
+  }
+
+  .w-5 {
+    width: calc(var(--spacing) * 5);
   }
 
   .w-5\/6 {
@@ -1340,16 +1356,12 @@
     max-width: var(--container-3xl);
   }
 
-  .max-w-72 {
-    max-width: calc(var(--spacing) * 72);
-  }
-
-  .max-w-\[9rem\] {
-    max-width: 9rem;
-  }
-
   .max-w-\[10rem\] {
     max-width: 10rem;
+  }
+
+  .max-w-\[14rem\] {
+    max-width: 14rem;
   }
 
   .max-w-\[92vw\] {
@@ -1370,6 +1382,10 @@
 
   .min-w-0 {
     min-width: 0;
+  }
+
+  .min-w-\[18rem\] {
+    min-width: 18rem;
   }
 
   .flex-1 {
@@ -1397,6 +1413,10 @@
     scale: var(--tw-scale-x) var(--tw-scale-y);
   }
 
+  .rotate-90 {
+    rotate: 90deg;
+  }
+
   .animate-spin {
     animation: var(--animate-spin);
   }
@@ -1419,6 +1439,10 @@
 
   .cursor-zoom-in {
     cursor: zoom-in;
+  }
+
+  .resize-y {
+    resize: vertical;
   }
 
   .grid-cols-2 {
@@ -1638,6 +1662,10 @@
     }
   }
 
+  .border-violet-400 {
+    border-color: var(--color-violet-400);
+  }
+
   .border-violet-500 {
     border-color: var(--color-violet-500);
   }
@@ -1830,6 +1858,10 @@
     .bg-blue-600\/80 {
       background-color: color-mix(in oklab, var(--color-blue-600) 80%, transparent);
     }
+  }
+
+  .bg-emerald-500 {
+    background-color: var(--color-emerald-500);
   }
 
   .bg-emerald-600\/30 {
@@ -2456,6 +2488,10 @@
     word-break: break-all;
   }
 
+  .whitespace-nowrap {
+    white-space: nowrap;
+  }
+
   .whitespace-pre-line {
     white-space: pre-line;
   }
@@ -2796,6 +2832,10 @@
 
     .hover\:text-amber-100:hover {
       color: var(--color-amber-100);
+    }
+
+    .hover\:text-gray-200:hover {
+      color: var(--color-gray-200);
     }
 
     .hover\:text-red-200:hover {

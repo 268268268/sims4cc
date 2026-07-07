@@ -7,13 +7,13 @@ import { pathToFileURL } from 'url'
 import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
 import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription } from './services/curseForgeClient.js'
 import { extractModArchive } from './services/archiveExtractor.js'
-import { recordDownload, getDownloaded } from './services/downloadStore.js'
+import { recordDownload, getDownloaded, recordDiscoverDownload, getDiscoverDownloaded } from './services/downloadStore.js'
 import { getThumbCacheDir } from './services/dbpfThumbnail.js'
 import { inspectLocalMod } from './services/localModInspector.js'
 import { deleteLocalMod } from './services/localModDelete.js'
 import { importFiles } from './services/modImporter.js'
 import { checkUpdates, updateInstalledMod } from './services/updateService.js'
-import { getSources, followSource, unfollowSource, fetchDiscover, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
+import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
 
@@ -326,6 +326,13 @@ ipcMain.handle('discover:follow', async (_e, payload) => {
     return { ok: false, error: err.message }
   }
 })
+ipcMain.handle('discover:followBatch', async (_e, payload) => {
+  try {
+    return await followBatch(payload ?? {})
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
 ipcMain.handle('discover:unfollow', async (_e, id) => {
   try {
     return await unfollowSource(id)
@@ -338,6 +345,13 @@ ipcMain.handle('discover:fetch', async (_e, opts) => {
     return await fetchDiscover(opts ?? {})
   } catch (err) {
     return { ok: false, items: [], sources: [], error: err.message }
+  }
+})
+ipcMain.handle('discover:fetchMore', async () => {
+  try {
+    return await fetchMoreDiscover()
+  } catch (err) {
+    return { ok: false, items: [], hasMore: false, error: err.message }
   }
 })
 ipcMain.handle('discover:suggested', () => getSuggested())
@@ -365,12 +379,16 @@ ipcMain.handle('discover:download', async (e, item) => {
       trayFolder,
       onProgress: (p) => { if (!sender.isDestroyed()) sender.send('discover:progress', { itemId: item?.id, ...p }) }
     })
-    if (res.ok) clearCachedLocalMods()
+    if (res.ok) {
+      clearCachedLocalMods()
+      await recordDiscoverDownload(item, res) // remember it so it shows Installed / can't re-download
+    }
     return res
   } catch (err) {
     return { ok: false, error: err.message }
   }
 })
+ipcMain.handle('discover:getDownloaded', () => getDiscoverDownloaded())
 
 // IPC: thumbnail cache maintenance (Settings)
 ipcMain.handle('thumbCache:open', async () => {

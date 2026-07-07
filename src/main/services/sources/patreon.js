@@ -41,6 +41,13 @@ async function resolveCampaign(slug) {
   return resolved
 }
 
+/** Next-page cursor from the JSON:API response, or null on the last page. */
+function patreonNextCursor(json) {
+  if (json.meta?.pagination?.cursors?.next) return json.meta.pagination.cursors.next
+  const m = json.links?.next?.match(/page(?:%5B|\[)cursor(?:%5D|\])=([^&]+)/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
 /**
  * PUBLIC posts of a Patreon creator via the unauthenticated JSON API.
  * Patron-only posts are listed with locked:true (title/teaser/thumbnail only,
@@ -48,7 +55,7 @@ async function resolveCampaign(slug) {
  * clicking opens the post page on patreon.com.
  * @returns {Promise<{ label: string, items: Array }>}
  */
-export async function fetchPatreon(input, sourceId) {
+export async function fetchPatreon(input, sourceId, opts = {}) {
   const slug = normalizePatreonInput(input)
   if (!slug) throw new Error('Not a valid Patreon creator name or URL.')
   const campaign = await resolveCampaign(slug)
@@ -57,30 +64,38 @@ export async function fetchPatreon(input, sourceId) {
     `https://www.patreon.com/api/posts?filter[campaign_id]=${campaign.id}` +
     '&filter[contains_exclusive_posts]=true&sort=-published_at' +
     '&json-api-version=1.0&json-api-use-default-includes=false' +
-    '&include=attachments' +
+    // media = files uploaded straight to the post (most free CC lives here, NOT in
+    // attachments); page[count]=50 doubles first-page depth (cursor still paginates)
+    '&include=attachments,media' +
     '&fields[post]=title,teaser_text,content,url,published_at,current_user_can_view,is_paid,image' +
     '&fields[attachment]=name,url' +
-    '&page[count]=30'
+    '&fields[media]=file_name,download_url' +
+    '&page[count]=50' +
+    (opts.cursor ? `&page[cursor]=${encodeURIComponent(opts.cursor)}` : '')
   const json = await fetchJson(api)
 
-  // attachments live in the `included` section, referenced by post relationships
-  const attById = {}
+  // resolvable files live in the `included` section, referenced by post relationships.
+  // Normalize both kinds to { name, url } so downloads read from one shape.
+  const fileById = {}
   for (const inc of json.included ?? []) {
-    if (inc.type === 'attachment') attById[inc.id] = inc.attributes
+    if (inc.type === 'attachment') fileById[inc.id] = { name: inc.attributes?.name, url: inc.attributes?.url }
+    else if (inc.type === 'media') fileById[inc.id] = { name: inc.attributes?.file_name, url: inc.attributes?.download_url }
   }
 
   const items = []
   for (const post of json.data ?? []) {
     const a = post.attributes ?? {}
     const viewable = a.current_user_can_view !== false
-    const rels = post.relationships?.attachments?.data ?? []
-    const attachments = rels.map(r => attById[r.id]).filter(a => a?.url && a?.name)
-    // only offer files we can actually install; the post always stays openable
-    const downloads = viewable ? attachments.filter(a => isInstallable(a.name)).map(a => ({
-      name: a.name,
-      url: a.url,
-      via: 'patreon-attachment'
-    })) : []
+    const rels = [
+      ...(post.relationships?.attachments?.data ?? []),
+      ...(post.relationships?.media?.data ?? [])
+    ]
+    // only offer installable files; dedupe by name (some posts list the zip twice)
+    const seen = new Set()
+    const downloads = viewable ? rels
+      .map(r => fileById[r.id])
+      .filter(f => f?.url && f?.name && isInstallable(f.name) && !seen.has(f.name) && seen.add(f.name))
+      .map(f => ({ name: f.name, url: f.url, via: 'patreon' })) : []
 
     items.push({
       id: `patreon:${post.id}`,
@@ -97,7 +112,7 @@ export async function fetchPatreon(input, sourceId) {
       tags: []
     })
   }
-  return { label: campaign.name, items }
+  return { label: campaign.name, items, nextCursor: patreonNextCursor(json) }
 }
 
 /** Installable in-game files we know how to place. */
