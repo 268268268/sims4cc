@@ -76,7 +76,7 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
   return (
     <div
       onClick={() => onOpen(mod)}
-      className="card card-hover flex flex-col fade-in-up border-amber-500/20 cursor-pointer"
+      className="card card-hover flex flex-col border-amber-500/20 cursor-pointer"
       title="Click for details"
     >
       <div className="w-full h-32 bg-gradient-to-br from-amber-950/40 to-black/20 flex items-center justify-center select-none">
@@ -116,7 +116,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
   return (
     <div
       onClick={() => onOpen(mod)}
-      className={`card card-hover flex flex-col fade-in-up cursor-pointer ${mod.enabled ? '' : 'opacity-70 saturate-50'}`}
+      className={`card card-hover flex flex-col cursor-pointer ${mod.enabled ? '' : 'opacity-70 saturate-50'}`}
       title="Click for details"
     >
       <ModThumbnail absPath={mod.thumbnail?.path ?? null} imageUrl={imageUrl} />
@@ -205,6 +205,8 @@ export default function LocalMods({ modsFolder }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState('name')
+  const [dense, setDense] = useState(() => localStorage.getItem('mods-dense') === '1')
+  const toggleDense = () => setDense(d => { localStorage.setItem('mods-dense', d ? '0' : '1'); return !d })
   const [selectedMod, setSelectedMod] = useState(null) // detail modal target
   const [confirmTarget, setConfirmTarget] = useState(null) // mod pending delete confirmation
   const [cfRecords, setCfRecords] = useState([]) // [{pathLower, modId, name}] from downloads.json
@@ -428,7 +430,7 @@ export default function LocalMods({ modsFolder }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
+      <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="page-title">Local Mods</h2>
@@ -494,12 +496,19 @@ export default function LocalMods({ modsFolder }) {
                 {s.label}
               </button>
             ))}
+            <button
+              onClick={toggleDense}
+              title="Toggle grid density"
+              className={`chip ml-1 ${dense ? 'chip-active' : ''}`}
+            >
+              {dense ? 'Compact' : 'Comfort'}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-6 py-5">
 
         {/* Error */}
         {state === 'error' && (
@@ -524,8 +533,8 @@ export default function LocalMods({ modsFolder }) {
         {/* Loading */}
         {state === 'loading' && (
           <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
+            className={`grid ${dense ? 'gap-2.5' : 'gap-4'}`}
+            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${dense ? 150 : 200}px, 1fr))` }}
           >
             {Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="card">
@@ -543,7 +552,7 @@ export default function LocalMods({ modsFolder }) {
         {/* Empty scan */}
         {state === 'done' && result?.count === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <FolderDashed size={52} weight="thin" className="text-gray-700" />
+            <FolderDashed size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm">No mods found in this folder.</p>
             <p className="text-xs text-gray-700">Download something from the CurseForge tab to get started.</p>
           </div>
@@ -552,7 +561,7 @@ export default function LocalMods({ modsFolder }) {
         {/* Empty filter result */}
         {state === 'done' && result?.count > 0 && visibleMods.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <MagnifyingGlass size={52} weight="thin" className="text-gray-700" />
+            <MagnifyingGlass size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm">Nothing matches your search or filter.</p>
           </div>
         )}
@@ -564,7 +573,7 @@ export default function LocalMods({ modsFolder }) {
               {visibleMods.length} of {result.count} item{result.count !== 1 ? 's' : ''}
               {result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`}
             </p>
-            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+            <div className={`grid ${dense ? 'gap-2.5' : 'gap-4'}`} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${dense ? 150 : 200}px, 1fr))` }}>
               {visibleMods.map(mod =>
                 mod.type === 'archive' ? (
                   <ArchiveCard

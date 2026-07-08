@@ -48,14 +48,18 @@ body {
 /* ---------- components ---------- */
 
 @layer components {
-  /* liquid glass: translucent, blurred + saturated, with a bright specular top edge */
+  /* card: near-solid dark-green panel with a specular top edge.
+     ponytail: NO backdrop-blur here — cards repeat by the hundreds and per-card
+     backdrop-filter over the animated app-bg is the main first-paint jank.
+     The /95 keeps a hair of the glow at the edges for ~free. Blur stays on the
+     few large static surfaces (sidebar, .glass modals) where it's cheap. */
   .card {
-    @apply bg-white/[0.055] backdrop-blur-2xl backdrop-saturate-150 border border-white/10 rounded-xl overflow-hidden
+    @apply bg-[#0f1a15]/95 border border-white/10 rounded-xl overflow-hidden
       shadow-[0_10px_34px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.16)]
-      transition-all duration-200;
+      transition-[transform,box-shadow,border-color,background-color] duration-200;
   }
   .card-hover {
-    @apply hover:border-emerald-300/45 hover:bg-white/[0.08] hover:-translate-y-0.5
+    @apply hover:border-emerald-300/45 hover:bg-[#16241e] hover:-translate-y-0.5
       hover:shadow-[0_16px_44px_-10px_rgba(5,150,105,0.35),inset_0_1px_0_rgba(255,255,255,0.22)];
   }
 
@@ -112,7 +116,7 @@ body {
   }
 
   .page-title {
-    @apply text-2xl font-bold text-white tracking-tight;
+    @apply text-xl font-bold text-white tracking-tight;
   }
   .page-subtitle {
     @apply text-gray-500 text-xs mt-0.5;

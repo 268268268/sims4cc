@@ -200,12 +200,12 @@ export default function Settings({ modsFolder, onFolderChanged }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
+      <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
         <h2 className="page-title">Settings</h2>
         <p className="page-subtitle">Configure folders and maintenance actions</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-6 max-w-2xl">
+      <div className="flex-1 overflow-y-auto px-6 py-5 max-w-2xl">
         {/* Mods Folder */}
         <section className="mb-6 fade-in-up">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">

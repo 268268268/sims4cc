@@ -213,7 +213,7 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
   return (
     <div
       onClick={() => onOpen(item)}
-      className="card card-hover fade-in-up flex flex-col cursor-pointer"
+      className="card card-hover flex flex-col cursor-pointer"
       title="Click for details"
     >
       <div className="relative">
@@ -394,7 +394,7 @@ export default function Discover() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
+      <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="page-title">Discover</h2>
@@ -496,7 +496,7 @@ export default function Discover() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-6 py-5">
         {erroredSources.length > 0 && (
           <div className="mb-4 banner-warn">
             {erroredSources.map(s => (
@@ -521,7 +521,7 @@ export default function Discover() {
 
         {!loading && visible.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <Globe size={52} weight="thin" className="text-gray-700" />
+            <Globe size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm flex items-center gap-1 flex-wrap justify-center">
               {query || sourceFilter !== 'all'
                 ? 'Nothing matches your filter.'

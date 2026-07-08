@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Layout from './components/Layout'
+import Plumbob from './components/Plumbob'
 import DropZone from './components/DropZone'
 import Welcome from './pages/Welcome'
 import LocalMods from './pages/LocalMods'
@@ -27,8 +28,11 @@ export default function App() {
   // Still loading config
   if (modsFolder === undefined) {
     return (
-      <div className="flex h-screen bg-gray-950 items-center justify-center">
-        <div className="text-gray-500 text-sm">Loading…</div>
+      <div className="flex h-screen app-bg items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Plumbob size={44} spin />
+          <div className="text-gray-500 text-sm">Loading…</div>
+        </div>
       </div>
     )
   }

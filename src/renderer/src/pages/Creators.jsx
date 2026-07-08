@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { HeartStraight, NotePencil, TwitterLogo, Globe, DiscordLogo, YoutubeLogo, LinkSimple, CircleNotch, PaintBrush } from '@phosphor-icons/react'
+import { HeartStraight, NotePencil, TwitterLogo, Globe, DiscordLogo, YoutubeLogo, LinkSimple, PaintBrush } from '@phosphor-icons/react'
+import Plumbob from '../components/Plumbob'
 
 const LINK_LABELS = {
   patreon: { label: 'Patreon', Icon: HeartStraight, color: 'bg-orange-600/80 hover:bg-orange-500' },
@@ -20,7 +21,7 @@ function CreatorCard({ creator }) {
   const status = creator.status ?? null
 
   return (
-    <div className="card card-hover fade-in-up p-4 flex flex-col gap-3">
+    <div className="card card-hover p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-md shadow-emerald-950/50">
           {creator.name?.charAt(0)?.toUpperCase() ?? '?'}
@@ -91,7 +92,7 @@ export default function Creators() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-8 pt-6 pb-4 border-b border-white/5 shrink-0">
+      <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
         <h2 className="page-title">Creators</h2>
         <p className="page-subtitle">
           Browse all creators from the catalog
@@ -99,15 +100,15 @@ export default function Creators() {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-6 py-5">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-3">
-            <CircleNotch size={40} weight="bold" className="animate-spin text-emerald-400" />
+            <Plumbob size={40} spin />
             <p className="text-sm">Loading creators…</p>
           </div>
         ) : (catalog?.creators ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <PaintBrush size={52} weight="thin" className="text-gray-700" />
+            <PaintBrush size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm">No creators found in the catalog.</p>
           </div>
         ) : (

@@ -60,7 +60,7 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
   return (
     <div
       onClick={() => onOpen(mod)}
-      className={`card card-hover fade-in-up flex flex-col cursor-pointer ${hasUpdate ? 'ring-1 ring-amber-500/50' : installed ? 'ring-1 ring-emerald-500/40' : ''}`}
+      className={`card card-hover flex flex-col cursor-pointer ${hasUpdate ? 'ring-1 ring-amber-500/50' : installed ? 'ring-1 ring-emerald-500/40' : ''}`}
       title="Click for details"
     >
       <div className="relative">
@@ -126,7 +126,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
   if (!updateInfo) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-        <Tray size={52} weight="thin" className="text-gray-700" />
+        <Tray size={52} weight="thin" className="text-emerald-500/30" />
         <p className="text-sm">Nothing downloaded through the app yet.</p>
       </div>
     )
@@ -143,7 +143,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
       <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
         {filter === 'updates'
           ? <Check size={52} weight="bold" className="text-emerald-500/70" />
-          : <Tray size={52} weight="thin" className="text-gray-700" />}
+          : <Tray size={52} weight="thin" className="text-emerald-500/30" />}
         <p className="text-sm">
           {filter === 'updates' ? 'Everything is up to date.' : 'Nothing downloaded through the app yet.'}
         </p>
@@ -402,7 +402,7 @@ export default function CurseForgeBrowser() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-8 pt-6 pb-4 border-b border-white/5">
+      <div className="px-6 pt-4 pb-3 border-b border-white/5">
         <div className="mb-3">
           <h2 className="page-title">CurseForge</h2>
           <p className="page-subtitle">Browse and download Sims 4 mods from CurseForge</p>
@@ -490,7 +490,7 @@ export default function CurseForgeBrowser() {
       </div>
 
       {/* Body */}
-      <div ref={scrollRootRef} className="flex-1 overflow-y-auto px-8 py-6">
+      <div ref={scrollRootRef} className="flex-1 overflow-y-auto px-6 py-5">
         {view === 'installed' && (
           <InstalledView
             updateInfo={updateInfo}
@@ -522,7 +522,7 @@ export default function CurseForgeBrowser() {
 
         {view === 'browse' && !isLoading && !isError && mods.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <MagnifyingGlass size={52} weight="thin" className="text-gray-700" />
+            <MagnifyingGlass size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm">No mods found{displayedFilter ? ` for "${displayedFilter}"` : ''}.</p>
           </div>
         )}
