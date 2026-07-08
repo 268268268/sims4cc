@@ -127,7 +127,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
         <Tray size={52} weight="thin" className="text-emerald-500/30" />
-        <p className="text-sm">Nothing downloaded through the app yet.</p>
+        <p className="text-sm">No CurseForge mods installed yet.</p>
       </div>
     )
   }
@@ -145,7 +145,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
           ? <Check size={52} weight="bold" className="text-emerald-500/70" />
           : <Tray size={52} weight="thin" className="text-emerald-500/30" />}
         <p className="text-sm">
-          {filter === 'updates' ? 'Everything is up to date.' : 'Nothing downloaded through the app yet.'}
+          {filter === 'updates' ? 'Everything is up to date.' : 'No CurseForge mods installed yet.'}
         </p>
         {filter === 'updates' && (
           <button onClick={onRecheck} className="btn-ghost px-3 py-1.5 text-xs"><ArrowsClockwise size={14} weight="bold" /> Re-check</button>
@@ -165,7 +165,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
           <ModCard
             key={mod.id}
             mod={mod}
-            installed={downloadedIds.has(mod.id)}
+            installed  // everything in this list is installed (downloaded or fingerprint-matched)
             hasUpdate={metaById.get(mod.id)?.updateAvailable === true}
             onInstalled={onInstalled}
             onOpen={onOpen}

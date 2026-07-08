@@ -5,15 +5,15 @@ import { join, dirname, resolve, sep } from 'path'
 import { unlink, access, rm, mkdir } from 'fs/promises'
 import { pathToFileURL } from 'url'
 import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
-import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription, matchFingerprints, pickLatestFile } from './services/curseForgeClient.js'
-import { fingerprintFile, loadFpCache, saveFpCache } from './services/curseForgeFingerprint.js'
+import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription } from './services/curseForgeClient.js'
+import { matchLocalMods } from './services/curseForgeLocalMatch.js'
 import { extractModArchive } from './services/archiveExtractor.js'
 import { recordDownload, getDownloaded, recordDiscoverDownload, getDiscoverDownloaded } from './services/downloadStore.js'
 import { getThumbCacheDir } from './services/dbpfThumbnail.js'
 import { inspectLocalMod } from './services/localModInspector.js'
 import { deleteLocalMod } from './services/localModDelete.js'
 import { importFiles } from './services/modImporter.js'
-import { checkUpdates, updateInstalledMod } from './services/updateService.js'
+import { checkUpdates, updateInstalledMod, invalidateUpdateCache } from './services/updateService.js'
 import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
@@ -49,6 +49,13 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 // config now lives in a shared service so other main-process services can read it
+
+// Local mods changed on disk (download/update/import/delete): drop the mod-scan
+// cache AND the update-check cache so the Installed view reflects new mods.
+function onLocalModsChanged() {
+  clearCachedLocalMods()
+  invalidateUpdateCache()
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -147,7 +154,7 @@ ipcMain.handle('localMods:extractArchive', async (_e, filePath) => {
     const res = await extractModArchive(absFile, absFolder, undefined, { trayFolder })
     if (!res.ok) return res
     await unlink(absFile).catch(() => {})
-    clearCachedLocalMods()
+    onLocalModsChanged()
     return res
   } catch (err) {
     return { ok: false, error: err.message }
@@ -208,7 +215,7 @@ ipcMain.handle('curseforge:download', async (e, mod) => {
     })
     // new files may exist on disk even when extraction failed (the zip is kept
     // for inspection) — a stale scan cache would hide them from Local Mods
-    clearCachedLocalMods()
+    onLocalModsChanged()
     if (res.ok) await recordDownload(mod, res)
     return res
   } catch (err) {
@@ -243,54 +250,24 @@ ipcMain.handle('curseforge:update', async (e, mod) => {
       trayFolder,
       onProgress: progressSender(e, mod?.id)
     })
-    clearCachedLocalMods()
+    onLocalModsChanged()
     return res
   } catch (err) {
     return { ok: false, error: err.message }
   }
 })
 
-// IPC: batch-fetch CurseForge mods by id (Installed view, local "from CF" detail)
 // IPC: identify which local mods come from CurseForge (by file fingerprint) and
 // whether a newer file exists. Returns { [filePathLower]: { modId, name, hasUpdate } }.
 ipcMain.handle('curseforge:matchLocal', async () => {
-  const mods = (await getCachedLocalMods()).filter(m => m.type === 'package' && m.filePath)
-  if (!mods.length) return {}
-
-  const cache = await loadFpCache()
-  const fpByPath = new Map() // fingerprint -> filePath
-  let idx = 0
-  await Promise.all(Array.from({ length: Math.min(8, mods.length) }, async () => {
-    while (idx < mods.length) {
-      const m = mods[idx++]
-      try {
-        const fp = await fingerprintFile(m.filePath, m.modifiedAt, cache)
-        fpByPath.set(fp, m.filePath)
-      } catch { /* unreadable file — skip */ }
-    }
-  }))
-  await saveFpCache(cache)
-
-  const { matches } = await matchFingerprints([...fpByPath.keys()])
-  const result = {}
-  const modIds = []
-  for (const mt of matches) {
-    const file = mt.file
-    const filePath = file && fpByPath.get(file.fileFingerprint)
-    if (!filePath) continue
-    const latest = pickLatestFile({ latestFiles: mt.latestFiles })
-    result[filePath.toLowerCase()] = {
-      modId: file.modId,
-      installedFileId: file.id,
-      hasUpdate: !!(latest && latest.id !== file.id),
-      name: null
-    }
-    modIds.push(file.modId)
-  }
-  // fill in display names in one batch
-  const { data } = await getModsByIds(modIds)
+  const found = await matchLocalMods()
+  if (!found.length) return {}
+  const { data } = await getModsByIds(found.map(f => f.modId))
   const nameById = new Map((data ?? []).map(m => [m.id, m.name]))
-  for (const k of Object.keys(result)) result[k].name = nameById.get(result[k].modId) ?? null
+  const result = {}
+  for (const f of found) {
+    result[f.filePath.toLowerCase()] = { modId: f.modId, name: nameById.get(f.modId) ?? null, hasUpdate: f.hasUpdate }
+  }
   return result
 })
 
@@ -334,7 +311,7 @@ ipcMain.handle('localMods:delete', async (_e, filePath) => {
     const config = await readConfig()
     if (!config.modsFolder) return { ok: false, error: { message: 'Mods folder not configured.' } }
     const res = await deleteLocalMod({ filePath, modsFolder: config.modsFolder })
-    if (res.ok) clearCachedLocalMods()
+    if (res.ok) onLocalModsChanged()
     return res
   } catch (err) {
     return { ok: false, error: { message: err.message } }
@@ -353,7 +330,7 @@ ipcMain.handle('localMods:import', async (_e, paths) => {
     }
     const trayFolder = await findTrayFolder(config.modsFolder)
     const res = await importFiles({ paths, modsFolder: config.modsFolder, trayFolder })
-    if (res.ok) clearCachedLocalMods()
+    if (res.ok) onLocalModsChanged()
     return res
   } catch (err) {
     return { ok: false, results: [], error: err.message }
@@ -425,7 +402,7 @@ ipcMain.handle('discover:download', async (e, item) => {
       onProgress: (p) => { if (!sender.isDestroyed()) sender.send('discover:progress', { itemId: item?.id, ...p }) }
     })
     if (res.ok) {
-      clearCachedLocalMods()
+      onLocalModsChanged()
       await recordDiscoverDownload(item, res) // remember it so it shows Installed / can't re-download
     }
     return res
@@ -444,7 +421,7 @@ ipcMain.handle('thumbCache:clear', async () => {
     const dir = await getThumbCacheDir()
     await rm(dir, { recursive: true, force: true })
     await mkdir(dir, { recursive: true })
-    clearCachedLocalMods()
+    onLocalModsChanged()
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
