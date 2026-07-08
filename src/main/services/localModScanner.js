@@ -1,4 +1,4 @@
-import { readdir, stat, access } from 'fs/promises'
+import { readdir, stat, access, readFile, writeFile, unlink } from 'fs/promises'
 import { join, relative, dirname, basename, extname, sep } from 'path'
 import { createHash } from 'crypto'
 import { getCachedThumbnail } from './dbpfThumbnail.js'
@@ -199,8 +199,25 @@ export async function buildLocalModDto(filePath, modsFolder, metaCache = null) {
   }
 }
 
-// ponytail: in-memory cache so renderer can restore mods after unmount; lost on app restart, which is fine
+// In-memory cache mirrored to disk so launches show the last scan instantly
+// (renderer revalidates in the background). Without the disk copy every launch
+// starts null and blocks on a full rescan — the "reloads every time" complaint.
 let cachedMods = null
+
+let CACHE_PATH = null
+async function cachePath() {
+  if (!CACHE_PATH) {
+    const { app } = await import('electron')
+    CACHE_PATH = join(app.getPath('userData'), 'local-mods-cache.json')
+  }
+  return CACHE_PATH
+}
+async function saveModsCache(mods) {
+  try { await writeFile(await cachePath(), JSON.stringify(mods), 'utf-8') } catch { /* best-effort */ }
+}
+async function loadModsCache() {
+  try { return JSON.parse(await readFile(await cachePath(), 'utf-8')) } catch { return [] }
+}
 
 /** Worker-pool map with a concurrency cap (same pattern as discover.js). */
 async function mapPool(items, limit, fn) {
@@ -259,17 +276,21 @@ export async function scanMods(modsFolder) {
   }
 
   cachedMods = mods
+  await saveModsCache(mods)
   return { mods, errors, durationMs: Date.now() - t0 }
 }
 
-/** Return cached mods (or [] if none scanned yet). */
-export function getCachedLocalMods() {
-  return cachedMods ?? []
+/** Return cached mods — from memory, else the persisted disk copy (or [] if never scanned). */
+export async function getCachedLocalMods() {
+  if (cachedMods) return cachedMods
+  cachedMods = await loadModsCache()
+  return cachedMods
 }
 
 /** Drop the cache — next Local Mods mount will re-scan (e.g. after a download). */
 export function clearCachedLocalMods() {
   cachedMods = null
+  cachePath().then(unlink).catch(() => {}) // best-effort; scan overwrites anyway
 }
 
 /** Update a single mod in the cache after a toggle (match by old filePath). */

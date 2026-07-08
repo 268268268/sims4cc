@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { SquaresFour, CaretDown } from '@phosphor-icons/react'
+import { SquaresFour, CaretDown, MagnifyingGlass } from '@phosphor-icons/react'
 
 /** Dropdown to pick a CurseForge category (or "All"), with a type-to-filter box. */
 export default function CategoryFilter({ categories, selectedId, onSelect }) {
@@ -43,13 +43,16 @@ export default function CategoryFilter({ categories, selectedId, onSelect }) {
         <div className="absolute left-0 mt-2 w-64 z-30 glass rounded-xl shadow-2xl shadow-black/60 overflow-hidden fade-in-up">
           {categories.length > 8 && (
             <div className="p-2 border-b border-white/5">
-              <input
-                autoFocus
-                value={q}
-                onChange={e => setQ(e.target.value)}
-                placeholder="Filter categories…"
-                className="input w-full px-2.5 py-1.5 text-xs"
-              />
+              <div className="relative">
+                <MagnifyingGlass size={13} weight="bold" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <input
+                  autoFocus
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  placeholder="Filter categories…"
+                  className="input w-full pl-7 pr-2.5 py-1.5 text-xs"
+                />
+              </div>
             </div>
           )}
           <div className="max-h-72 overflow-y-auto p-1">

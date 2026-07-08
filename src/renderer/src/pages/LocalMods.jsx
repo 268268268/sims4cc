@@ -243,21 +243,27 @@ export default function LocalMods({ modsFolder }) {
     return null
   }, [catalog.items, creatorMap])
 
-  const scan = useCallback(async () => {
-    setState('loading')
+  // silent=true: background revalidate — keep showing the cached list, swap in
+  // fresh results on success, and stay quiet on failure (no spinner, no error flip)
+  const scan = useCallback(async (silent = false) => {
+    if (!silent) setState('loading')
     setErrorMsg(null)
     try {
       const res = await window.api.scanLocalMods()
       if (!res.ok) {
-        setErrorMsg(res.errors?.[0]?.message ?? 'Scan failed.')
-        setState('error')
+        if (!silent) {
+          setErrorMsg(res.errors?.[0]?.message ?? 'Scan failed.')
+          setState('error')
+        }
       } else {
         setResult(res)
         setState('done')
       }
     } catch (err) {
-      setErrorMsg(err.message)
-      setState('error')
+      if (!silent) {
+        setErrorMsg(err.message)
+        setState('error')
+      }
     }
   }, [])
 
@@ -269,6 +275,7 @@ export default function LocalMods({ modsFolder }) {
       if (Array.isArray(mods) && mods.length > 0) {
         setResult({ mods, count: mods.length, errors: [], scannedAt: null })
         setState('done')
+        scan(true) // revalidate in the background — launch feels instant
       } else {
         scan()
       }

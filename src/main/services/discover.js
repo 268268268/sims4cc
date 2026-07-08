@@ -1,3 +1,5 @@
+import { readFile, writeFile } from 'fs/promises'
+import { join } from 'path'
 import { listSources, addSource, addManySources, removeSource } from './sourcesStore.js'
 import { SUGGESTED_SOURCES } from './suggestedSources.js'
 import { fetchTumblr } from './sources/tumblr.js'
@@ -24,6 +26,24 @@ const BUILTINS = [{ id: 'builtin-mts', type: 'modthesims', input: null, label: '
 // Session cache: one entry per source id, 10-minute TTL — feed etiquette and speed.
 const CACHE_TTL_MS = 10 * 60 * 1000
 const cache = new Map() // sourceId -> { at, label, items } | { at, error }
+
+// The in-memory cache is lost on restart, so every launch re-scrapes every source
+// before showing anything. Mirror the last aggregated feed to disk so the renderer
+// can paint it instantly and revalidate in the background.
+let SNAP_PATH = null
+async function snapPath() {
+  if (!SNAP_PATH) {
+    const { app } = await import('electron')
+    SNAP_PATH = join(app.getPath('userData'), 'discover-cache.json')
+  }
+  return SNAP_PATH
+}
+async function saveSnapshot(res) {
+  try { await writeFile(await snapPath(), JSON.stringify(res), 'utf-8') } catch { /* best-effort */ }
+}
+export async function getDiscoverSnapshot() {
+  try { return JSON.parse(await readFile(await snapPath(), 'utf-8')) } catch { return null }
+}
 
 async function fetchSource(source, force, cursor = null) {
   if (!cursor) {
@@ -164,7 +184,9 @@ export async function fetchDiscover({ force = false } = {}) {
   // newest first; undated items sink to the end but stay grouped by source order
   items.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   const hasMore = sources.some(s => cache.get(s.id)?.nextCursor)
-  return { ok: true, items, sources: sourceMeta, fetchedAt: new Date().toISOString(), hasMore }
+  const result = { ok: true, items, sources: sourceMeta, fetchedAt: new Date().toISOString(), hasMore }
+  saveSnapshot(result) // fire-and-forget; next launch paints this instantly
+  return result
 }
 
 /**

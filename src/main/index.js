@@ -13,7 +13,7 @@ import { inspectLocalMod } from './services/localModInspector.js'
 import { deleteLocalMod } from './services/localModDelete.js'
 import { importFiles } from './services/modImporter.js'
 import { checkUpdates, updateInstalledMod } from './services/updateService.js'
-import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
+import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
 
@@ -340,6 +340,7 @@ ipcMain.handle('discover:unfollow', async (_e, id) => {
     return { ok: false, error: err.message }
   }
 })
+ipcMain.handle('discover:getCached', () => getDiscoverSnapshot())
 ipcMain.handle('discover:fetch', async (_e, opts) => {
   try {
     return await fetchDiscover(opts ?? {})

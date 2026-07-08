@@ -4,14 +4,12 @@ import Plumbob from './components/Plumbob'
 import DropZone from './components/DropZone'
 import Welcome from './pages/Welcome'
 import LocalMods from './pages/LocalMods'
-import Creators from './pages/Creators'
 import CurseForge from './pages/CurseForgeBrowser'
 import Discover from './pages/Discover'
 import Settings from './pages/Settings'
 
 const PAGES = {
   'local-mods': LocalMods,
-  'creators': Creators,
   'curseforge': CurseForge,
   'discover': Discover,
   'settings': Settings
@@ -20,6 +18,7 @@ const PAGES = {
 export default function App() {
   const [modsFolder, setModsFolder] = useState(undefined) // undefined = loading
   const [activePage, setActivePage] = useState('local-mods')
+  const [discoverSource, setDiscoverSource] = useState('patreon') // Discover source sub-nav selection
 
   useEffect(() => {
     window.api.getConfig().then(cfg => setModsFolder(cfg.modsFolder ?? null))
@@ -46,10 +45,16 @@ export default function App() {
 
   return (
     <>
-      <Layout activePage={activePage} onNavigate={setActivePage}>
+      <Layout
+        activePage={activePage}
+        onNavigate={setActivePage}
+        discoverSource={discoverSource}
+        onDiscoverSource={setDiscoverSource}
+      >
         <PageComponent
           modsFolder={modsFolder}
           onFolderChanged={setModsFolder}
+          source={discoverSource}
         />
       </Layout>
       <DropZone />

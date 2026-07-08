@@ -259,13 +259,12 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
   )
 }
 
-export default function Discover() {
+export default function Discover({ source = 'patreon' }) {
   const [types, setTypes] = useState([])
   const [data, setData] = useState(null) // { items, sources, fetchedAt }
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
-  const [sourceFilter, setSourceFilter] = useState('all')
-  const [onlyFree, setOnlyFree] = useState(false)
+  const [postFilter, setPostFilter] = useState('all') // all | free | paid — source picked in the sidebar
   const [showManage, setShowManage] = useState(false)
   const [selected, setSelected] = useState(null) // detail modal target
   const [suggested, setSuggested] = useState([])
@@ -312,7 +311,11 @@ export default function Discover() {
     window.api.getSourceTypes?.().then(t => setTypes(t ?? []))
     refreshSuggested()
     refreshDownloaded()
-    load(false)
+    // paint the last feed from disk instantly, then revalidate in the background
+    ;(window.api.getCachedDiscover?.() ?? Promise.resolve(null)).then(cached => {
+      if (cached?.items?.length) { setData(cached); setLoading(false) }
+      load(false)
+    })
   }, [load, refreshSuggested, refreshDownloaded])
 
   const removeSource = async (id) => {
@@ -333,10 +336,21 @@ export default function Discover() {
     }
   }, [load, refreshSuggested])
 
+  // items narrowed to the sidebar-selected source type (before the All/Free/Paid split)
+  const sourceItems = useMemo(() => {
+    const items = data?.items ?? []
+    return source === 'all' ? items : items.filter(i => i.sourceType === source)
+  }, [data, source])
+
+  const freeCount = useMemo(() => sourceItems.filter(i => (i.downloads?.length ?? 0) > 0).length, [sourceItems])
+  const paidCount = useMemo(() => sourceItems.filter(i => i.locked).length, [sourceItems])
+
   const visible = useMemo(() => {
-    let items = data?.items ?? []
-    if (sourceFilter !== 'all') items = items.filter(i => i.sourceId === sourceFilter)
-    if (onlyFree) items = items.filter(i => (i.downloads?.length ?? 0) > 0)
+    let items = sourceItems
+    // free = installable files attached; paid = patron-locked; all = either (drops empty news posts)
+    if (postFilter === 'free') items = items.filter(i => (i.downloads?.length ?? 0) > 0)
+    else if (postFilter === 'paid') items = items.filter(i => i.locked)
+    else items = items.filter(i => i.locked || (i.downloads?.length ?? 0) > 0)
     const q = query.trim().toLowerCase()
     if (q) {
       items = items.filter(i =>
@@ -346,7 +360,7 @@ export default function Discover() {
       )
     }
     return items
-  }, [data, query, sourceFilter, onlyFree])
+  }, [sourceItems, query, postFilter])
 
   // Infinite feed. Variant 1: only render `shown` cards, widen the window as the
   // sentinel scrolls in. Variant 2: once every loaded item is on screen, pull the
@@ -356,7 +370,7 @@ export default function Discover() {
   const [loadingMore, setLoadingMore] = useState(false)
   const sentinelRef = useRef(null)
 
-  useEffect(() => { setShown(PAGE) }, [query, sourceFilter, onlyFree]) // reset window when the filtered set changes
+  useEffect(() => { setShown(PAGE) }, [query, source, postFilter]) // reset window when the filtered set changes
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return
@@ -389,7 +403,6 @@ export default function Discover() {
   }, [shown, visible.length, data?.hasMore, loadMore])
 
   const erroredSources = (data?.sources ?? []).filter(s => s.error)
-  const freeCount = (data?.items ?? []).filter(i => (i.downloads?.length ?? 0) > 0).length
 
   return (
     <div className="flex flex-col h-full">
@@ -460,37 +473,18 @@ export default function Discover() {
               className="input w-64 pl-9 pr-3 py-2"
             />
           </div>
-          <button
-            onClick={() => setOnlyFree(f => !f)}
-            className={`chip ${onlyFree ? 'chip-active' : ''}`}
-            title="Only posts with free, directly-installable files"
-          >
-            <Gift size={13} weight="fill" /> Free & installable
-            {freeCount > 0 && <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>}
-          </button>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button onClick={() => setSourceFilter('all')} className={`chip ${sourceFilter === 'all' ? 'chip-active' : ''}`}>
+            <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title="Free + patron-only posts (hides news posts with nothing attached)">
               All
             </button>
-            {(() => {
-              const opts = (data?.sources ?? []).filter(s => s.count > 0 || s.error)
-              if (!opts.length) return null
-              return (
-                <select
-                  value={sourceFilter === 'all' ? '' : sourceFilter}
-                  onChange={e => setSourceFilter(e.target.value || 'all')}
-                  className="input px-2.5 py-2 text-sm bg-[#12141f] max-w-[14rem]"
-                  title="Filter by source"
-                >
-                  <option value="">By source ({opts.length})</option>
-                  {opts.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}{s.count ? ` (${s.count})` : ''}{s.error ? ' (!)' : ''}
-                    </option>
-                  ))}
-                </select>
-              )
-            })()}
+            <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title="Posts with free, directly-installable files">
+              <Gift size={13} weight="fill" /> Free
+              {freeCount > 0 && <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>}
+            </button>
+            <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title="Patron-only posts — open on Patreon">
+              <LockSimple size={13} weight="fill" /> Paid
+              {paidCount > 0 && <span className="badge bg-amber-600/40 text-amber-200 ml-1">{paidCount}</span>}
+            </button>
           </div>
         </div>
       </div>
@@ -523,8 +517,8 @@ export default function Discover() {
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <Globe size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm flex items-center gap-1 flex-wrap justify-center">
-              {query || sourceFilter !== 'all'
-                ? 'Nothing matches your filter.'
+              {query || postFilter !== 'all' || source !== 'all'
+                ? 'Nothing matches this source or filter.'
                 : <>Follow a creator via <GearSix size={13} weight="fill" className="inline" /> Sources to fill this feed.</>}
             </p>
           </div>

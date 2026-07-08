@@ -36,10 +36,15 @@ function CacheBanner() {
   )
 }
 
-export default function Layout({ activePage, onNavigate, children }) {
+export default function Layout({ activePage, onNavigate, discoverSource, onDiscoverSource, children }) {
   return (
     <div className="flex h-screen app-bg text-white overflow-hidden">
-      <Sidebar activePage={activePage} onNavigate={onNavigate} />
+      <Sidebar
+        activePage={activePage}
+        onNavigate={onNavigate}
+        discoverSource={discoverSource}
+        onDiscoverSource={onDiscoverSource}
+      />
       <main className="flex-1 flex flex-col overflow-hidden">
         <CacheBanner />
         <div className="flex-1 overflow-y-auto">

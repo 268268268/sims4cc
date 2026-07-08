@@ -1,16 +1,28 @@
 import { useState } from 'react'
-import { Package, PaintBrush, Fire, Globe, GearSix, CaretDoubleLeft, CaretDoubleRight } from '@phosphor-icons/react'
+import {
+  Package, Fire, Globe, GearSix, CaretDoubleLeft, CaretDoubleRight,
+  HeartStraight, Bank, NotePencil, PushPin
+} from '@phosphor-icons/react'
 import Plumbob from './Plumbob'
 
 const NAV_ITEMS = [
   { id: 'local-mods', label: 'Local Mods', Icon: Package },
-  { id: 'creators', label: 'Creators', Icon: PaintBrush },
   { id: 'curseforge', label: 'CurseForge', Icon: Fire },
   { id: 'discover', label: 'Discover', Icon: Globe },
   { id: 'settings', label: 'Settings', Icon: GearSix }
 ]
 
-export default function Sidebar({ activePage, onNavigate }) {
+// Discover source sub-nav. Patreon is the default (the source that actually works);
+// the rest are supported but usually empty until the user follows something there.
+const DISCOVER_SOURCES = [
+  { id: 'all', label: 'All sources', Icon: Globe },
+  { id: 'patreon', label: 'Patreon', Icon: HeartStraight },
+  { id: 'modthesims', label: 'ModTheSims', Icon: Bank },
+  { id: 'tumblr', label: 'Tumblr', Icon: NotePencil },
+  { id: 'pinterest', label: 'Pinterest', Icon: PushPin }
+]
+
+export default function Sidebar({ activePage, onNavigate, discoverSource, onDiscoverSource }) {
   // ponytail: local state + localStorage — collapse only affects this component, no need to lift to App
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === '1')
   const toggle = () => setCollapsed(c => {
@@ -20,15 +32,15 @@ export default function Sidebar({ activePage, onNavigate }) {
 
   return (
     <aside
-      className={`${collapsed ? 'w-16' : 'w-60'} shrink-0 bg-white/[0.03] backdrop-blur-2xl backdrop-saturate-150
+      className={`${collapsed ? 'w-16' : 'w-60'} shrink-0 overflow-hidden bg-white/[0.03] backdrop-blur-2xl backdrop-saturate-150
         border-r border-white/10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] flex flex-col
-        transition-[width] duration-200`}
+        transition-[width] duration-300 ease-in-out`}
     >
       <div className={`h-[76px] flex items-center border-b border-white/5 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
         {collapsed ? (
           <Plumbob size={30} />
         ) : (
-          <h1 className="text-lg font-bold leading-tight tracking-tight">
+          <h1 className="text-lg font-bold leading-tight tracking-tight whitespace-nowrap">
             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Sims 4</span>
             <br />
             <span className="text-white">Mod Manager</span>
@@ -36,30 +48,47 @@ export default function Sidebar({ activePage, onNavigate }) {
         )}
       </div>
 
-      <nav className="flex-1 py-4 px-3 flex flex-col gap-1">
+      <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
         {NAV_ITEMS.map(({ id, label, Icon }) => {
           const active = activePage === id
           return (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              title={collapsed ? label : undefined}
-              className={`w-full flex items-center gap-3 py-2.5 text-sm font-medium rounded-lg
-                ${collapsed ? 'justify-center px-0' : 'px-3.5 text-left'}
-                transition-colors duration-150
-                ${active
-                  ? 'bg-gradient-to-r from-emerald-600/90 to-teal-600/70 text-white shadow-md shadow-emerald-950/40'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                }`}
-            >
-              <Icon
-                size={20}
-                weight={active ? 'fill' : 'regular'}
-                className={`shrink-0 transition-transform duration-150 ${active && !collapsed ? 'scale-110' : ''}`}
-              />
-              {!collapsed && label}
-              {!collapsed && active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80" />}
-            </button>
+            <div key={id}>
+              <button
+                onClick={() => onNavigate(id)}
+                title={collapsed ? label : undefined}
+                className={`w-full flex items-center gap-3 py-2.5 text-sm font-medium rounded-lg whitespace-nowrap
+                  ${collapsed ? 'justify-center px-0' : 'px-3.5 text-left'}
+                  transition-colors duration-150
+                  ${active
+                    ? 'bg-gradient-to-r from-emerald-600/90 to-teal-600/70 text-white shadow-md shadow-emerald-950/40'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+              >
+                <Icon size={20} weight={active ? 'fill' : 'regular'} className="shrink-0" />
+                {!collapsed && label}
+                {!collapsed && active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80" />}
+              </button>
+
+              {/* Source sub-nav — only under an open Discover, expanded sidebar */}
+              {id === 'discover' && active && !collapsed && (
+                <div className="mt-1 ml-4 pl-3 border-l border-white/10 flex flex-col gap-0.5">
+                  {DISCOVER_SOURCES.map(({ id: sid, label: slabel, Icon: SIcon }) => {
+                    const on = (discoverSource ?? 'patreon') === sid
+                    return (
+                      <button
+                        key={sid}
+                        onClick={() => onDiscoverSource?.(sid)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs whitespace-nowrap text-left
+                          transition-colors ${on ? 'bg-emerald-500/15 text-emerald-200' : 'text-gray-500 hover:text-gray-200 hover:bg-white/5'}`}
+                      >
+                        <SIcon size={14} weight={on ? 'fill' : 'regular'} className="shrink-0" />
+                        {slabel}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )
         })}
       </nav>

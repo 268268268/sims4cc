@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('api', {
   followSource: (payload) => ipcRenderer.invoke('discover:follow', payload),
   followSourcesBatch: (payload) => ipcRenderer.invoke('discover:followBatch', payload),
   unfollowSource: (id) => ipcRenderer.invoke('discover:unfollow', id),
+  getCachedDiscover: () => ipcRenderer.invoke('discover:getCached'),
   fetchDiscover: (opts) => ipcRenderer.invoke('discover:fetch', opts),
   fetchMoreDiscover: () => ipcRenderer.invoke('discover:fetchMore'),
   getDownloadedDiscover: () => ipcRenderer.invoke('discover:getDownloaded'),
