@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { Package, FileZip, CircleNotch, UploadSimple, Fire, Trash, ArrowsClockwise, MagnifyingGlass, Warning, X, FolderDashed } from '@phosphor-icons/react'
+import { Package, FileZip, CircleNotch, UploadSimple, Trash, ArrowsClockwise, MagnifyingGlass, Warning, X, FolderDashed } from '@phosphor-icons/react'
+import SourceIcon from '../components/SourceIcon'
 import LocalModDetail from '../components/LocalModDetail'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -148,7 +149,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
               className="badge bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 transition-colors"
               title="Installed from CurseForge — view details"
             >
-              <Fire size={11} weight="fill" /> CF
+              <SourceIcon type="curseforge" size={11} /> CF
             </button>
           )}
         </div>

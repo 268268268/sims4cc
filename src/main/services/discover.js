@@ -140,10 +140,15 @@ export async function followBatch({ type, text }) {
   if (!ADAPTERS[type] || type === 'modthesims') return { ok: false, error: 'Unknown source type.' }
   const inputs = [...new Set(String(text ?? '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean))]
   if (!inputs.length) return { ok: false, error: 'Enter at least one creator name or URL.' }
+  // Skip authors already followed — don't re-probe (network) or duplicate them.
+  const existing = new Set((await listSources()).map(s => `${s.type}|${String(s.input).toLowerCase()}`))
+  const key = (i) => `${type}|${i.toLowerCase()}`
+  const fresh = inputs.filter(i => !existing.has(key(i)))
+  const skipped = inputs.filter(i => existing.has(key(i)))
   // Probe all in parallel (this IS the validation), then persist the winners in a
   // SINGLE write via addManySources — concurrent addSource() calls would race on
   // sources.json (read-modify-write) and drop entries.
-  const probed = await mapPool(inputs, 5, async (input) => {
+  const probed = await mapPool(fresh, 5, async (input) => {
     const probeId = `probe-${type}-${Date.now()}-${probeSeq++}`
     const probe = await fetchSource({ id: probeId, type, input }, true)
     cache.delete(probeId)
@@ -152,7 +157,8 @@ export async function followBatch({ type, text }) {
   const res = await addManySources(
     probed.filter(p => p.ok).map(p => ({ type, input: p.input, label: p.label }))
   )
-  return { ok: res.added > 0, added: res.added, results: probed }
+  const results = [...probed, ...skipped.map(input => ({ input, ok: true, skipped: true, label: input }))]
+  return { ok: res.added > 0 || skipped.length > 0, added: res.added, skipped: skipped.length, results }
 }
 
 export async function fetchDiscover({ force = false } = {}) {

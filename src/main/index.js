@@ -58,7 +58,10 @@ function createWindow() {
     backgroundColor: '#1a1a2e',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // No console for end users — disables DevTools (F12, right-click) in the
+      // shipped app, so failed-image 404s and other noise stay hidden. Kept in dev.
+      devTools: !app.isPackaged
     }
   })
 
@@ -172,10 +175,7 @@ ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
 
 // IPC: fetch & cache remote creator catalog
   ipcMain.handle('catalog:get', async () => {
-    console.log('Main: Fetching catalog...')
-    const data = await fetchAndCacheCatalog()
-    console.log('Main: Returning catalog:', data)
-    return data
+    return await fetchAndCacheCatalog()
 })
 
 // IPC: search CurseForge mods for The Sims 4

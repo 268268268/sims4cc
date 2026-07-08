@@ -137,7 +137,7 @@ async function buildArchiveDto(filePath, modsFolder) {
  * Never throws — errors are captured in the DTO.
  * Exported so toggle action can reuse it after rename.
  */
-export async function buildLocalModDto(filePath, modsFolder, metaCache = null) {
+export async function buildLocalModDto(filePath, modsFolder, metaCache = null, prevByPath = null) {
   const fileName = basename(filePath)
   const relPath = relative(modsFolder, filePath)
   const id = makeId(relPath)
@@ -160,6 +160,15 @@ export async function buildLocalModDto(filePath, modsFolder, metaCache = null) {
   } catch (err) {
     error = `stat failed: ${err.message}`
     parseStatus = 'error'
+  }
+
+  // Unchanged since the last scan? Reuse the whole DTO. This skips the DBPF parse
+  // AND the ~14 sidecar access() probes per file — the two costs that make a full
+  // rescan of thousands of packages take tens of seconds. Toggling renames the file
+  // (path changes), so a stale enabled state can never be served from here.
+  if (prevByPath && !error) {
+    const prev = prevByPath.get(filePath)
+    if (prev && !prev.error && prev.modifiedAt === modifiedAt && prev.size === size) return prev
   }
 
   // DBPF parse — real display name from STBL + coarse content kinds
@@ -247,6 +256,9 @@ export async function scanMods(modsFolder) {
   const mods = []
   const errors = []
   const metaCache = await loadMetaCache()
+  // previous scan's DTOs, keyed by path — lets unchanged files short-circuit the rebuild
+  const prevList = cachedMods ?? await loadModsCache()
+  const prevByPath = new Map((Array.isArray(prevList) ? prevList : []).map(m => [m.filePath, m]))
 
   // ponytail: bounded concurrency — most wall-clock is I/O waits (each package does
   // ~4 opens + ~14 access probes), so overlapping them is the big win. 8 > CPU count
@@ -258,7 +270,7 @@ export async function scanMods(modsFolder) {
       errors.push({ file: filePath, message: err.message })
     }
   }
-  await mapPool(modFiles, 8, (f) => build(f, (p) => buildLocalModDto(p, modsFolder, metaCache)))
+  await mapPool(modFiles, 8, (f) => build(f, (p) => buildLocalModDto(p, modsFolder, metaCache, prevByPath)))
   await mapPool(archiveFiles, 8, (f) => build(f, (p) => buildArchiveDto(p, modsFolder)))
   await saveMetaCache(metaCache)
 

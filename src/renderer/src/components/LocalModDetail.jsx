@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Package, Scroll, Image as ImageIcon, House, FileText, Paperclip, Folder, FolderOpen, Fire, Trash } from '@phosphor-icons/react'
+import { Package, Scroll, Image as ImageIcon, House, FileText, Paperclip, Folder, FolderOpen, Trash } from '@phosphor-icons/react'
+import SourceIcon from './SourceIcon'
 import Modal from './Modal'
 import { formatBytes, formatDate } from '../lib/format'
 
@@ -148,7 +149,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
               onClick={() => { onClose(); onOpenCf?.(cfMatch) }}
               className="btn-ghost px-4 py-2 text-sm"
             >
-              <Fire size={16} weight="fill" /> View on CurseForge
+              <SourceIcon type="curseforge" size={16} /> View on CurseForge
             </button>
           )}
           {onDelete && (

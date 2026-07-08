@@ -1,20 +1,21 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { HeartStraight, PushPin, NotePencil, Bank, Globe, CircleNotch, Check, Warning, Plus, CaretRight, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple } from '@phosphor-icons/react'
+import { Globe, CircleNotch, Check, Warning, Plus, CaretRight, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple } from '@phosphor-icons/react'
 import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
+import SourceIcon from '../components/SourceIcon'
 
+// badge tint per source type — the glyph itself comes from SourceIcon (real logos)
 const TYPE_META = {
-  patreon: { Icon: HeartStraight, badge: 'bg-orange-600/30 text-orange-200' },
-  pinterest: { Icon: PushPin, badge: 'bg-red-600/30 text-red-200' },
-  tumblr: { Icon: NotePencil, badge: 'bg-sky-600/30 text-sky-200' },
-  modthesims: { Icon: Bank, badge: 'bg-emerald-600/30 text-emerald-200' }
+  patreon: { badge: 'bg-orange-600/30 text-orange-200' },
+  pinterest: { badge: 'bg-red-600/30 text-red-200' },
+  tumblr: { badge: 'bg-sky-600/30 text-sky-200' },
+  modthesims: { badge: 'bg-emerald-600/30 text-emerald-200' }
 }
 
-/** Inline source-type icon (falls back to a globe for unknown types). */
-function TypeIcon({ type, size = 13, weight = 'fill', className = '' }) {
-  const I = TYPE_META[type]?.Icon ?? Globe
-  return <I size={size} weight={weight} className={className} />
+/** Inline source-type icon — real brand logo where one exists. */
+function TypeIcon({ type, size = 13, className = '' }) {
+  return <SourceIcon type={type} size={size} className={className} />
 }
 
 const PLACEHOLDER =
@@ -90,6 +91,7 @@ function AddSourceForm({ types, onAdded }) {
       {report && (
         <p className="text-xs flex items-center gap-1 flex-wrap">
           <span className="text-emerald-400 inline-flex items-center gap-1"><Check size={12} weight="bold" /> Added {report.added}</span>
+          {report.skipped > 0 && <span className="text-gray-400 ml-2">· {report.skipped} already following</span>}
           {failed.length > 0 && (
             <span className="text-red-400 ml-2 inline-flex items-center gap-1">
               <Warning size={12} weight="fill" /> {failed.length} failed: {failed.map(f => `${f.input} (${f.error ?? 'error'})`).join(', ')}
