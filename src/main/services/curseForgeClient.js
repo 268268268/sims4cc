@@ -148,6 +148,40 @@ export async function getModsByIds(modIds, { force = false } = {}) {
 }
 
 /**
+ * Match local file fingerprints against CurseForge (POST /v1/fingerprints).
+ * Chunked at 1000. Returns the raw exactMatches (each has .file with modId/id/
+ * fileFingerprint, plus .latestFiles for update detection).
+ * @returns {Promise<{ matches: Array, error?: string }>}
+ */
+export async function matchFingerprints(fingerprints) {
+  const fps = [...new Set((fingerprints ?? []).filter(Boolean))]
+  if (!fps.length) return { matches: [] }
+
+  const apiKey = await getApiKey()
+  if (!apiKey) return { matches: [], error: 'CurseForge API key is not set.' }
+
+  const matches = []
+  let error
+  for (let i = 0; i < fps.length; i += 1000) {
+    const chunk = fps.slice(i, i + 1000)
+    try {
+      const res = await fetch(`${API_BASE}/fingerprints`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({ fingerprints: chunk }),
+        signal: AbortSignal.timeout(20000)
+      })
+      if (!res.ok) { error = `CurseForge fingerprint error: ${res.status} ${res.statusText}`; continue }
+      const json = await res.json()
+      for (const m of json.data?.exactMatches ?? []) matches.push(m)
+    } catch (err) {
+      error = err.message
+    }
+  }
+  return { matches, ...(error ? { error } : {}) }
+}
+
+/**
  * Full mod description (HTML), sanitized in main with cheerio. Session-cached.
  * @returns {Promise<{ html: string, error?: string }>}
  */

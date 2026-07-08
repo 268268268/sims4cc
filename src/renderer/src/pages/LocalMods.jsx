@@ -147,9 +147,18 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
             <button
               onClick={(e) => { e.stopPropagation(); onOpenCf(cfMatch) }}
               className="badge bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 transition-colors"
-              title="Installed from CurseForge — view details"
+              title="From CurseForge — view details"
             >
               <SourceIcon type="curseforge" size={11} /> CF
+            </button>
+          )}
+          {cfMatch?.hasUpdate && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenCf(cfMatch) }}
+              className="badge bg-amber-600/30 text-amber-200 hover:bg-amber-600/50 transition-colors"
+              title="A newer file is available on CurseForge — click to update"
+            >
+              <ArrowsClockwise size={11} weight="bold" /> update
             </button>
           )}
         </div>
@@ -211,6 +220,7 @@ export default function LocalMods({ modsFolder }) {
   const [selectedMod, setSelectedMod] = useState(null) // detail modal target
   const [confirmTarget, setConfirmTarget] = useState(null) // mod pending delete confirmation
   const [cfRecords, setCfRecords] = useState([]) // [{pathLower, modId, name}] from downloads.json
+  const [cfFinger, setCfFinger] = useState({}) // filePathLower -> { modId, name, hasUpdate } from CF fingerprint match
   const [cfDetailMod, setCfDetailMod] = useState(null) // full CF mod for the modal
   const [cfDetailLoading, setCfDetailLoading] = useState(false)
 
@@ -303,12 +313,27 @@ export default function LocalMods({ modsFolder }) {
     return () => window.removeEventListener('local-mods-changed', onChanged)
   }, [scan])
 
-  // local mod → CurseForge record (folder installs match by path prefix)
+  // Identify which local files are CurseForge mods by fingerprint (covers mods
+  // installed outside the app) and whether an update exists.
+  useEffect(() => {
+    if (state !== 'done' || !result?.mods?.length) return
+    let cancelled = false
+    window.api.matchLocalCurseForge?.().then(map => {
+      if (!cancelled && map) setCfFinger(map)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [state, result])
+
+  // local mod → CurseForge match. Fingerprint is authoritative (has update info);
+  // fall back to the downloads.json path record for app-installed mods.
   const cfMatchFor = useCallback((mod) => {
     const p = mod.filePath?.toLowerCase()
     if (!p) return null
-    return cfRecords.find(r => p === r.pathLower || p.startsWith(r.pathLower + '\\')) ?? null
-  }, [cfRecords])
+    const fp = cfFinger[p]
+    if (fp) return { modId: fp.modId, name: fp.name, hasUpdate: fp.hasUpdate }
+    const rec = cfRecords.find(r => p === r.pathLower || p.startsWith(r.pathLower + '\\'))
+    return rec ? { modId: rec.modId, name: rec.name, hasUpdate: false } : null
+  }, [cfFinger, cfRecords])
 
   // open the CurseForge detail modal for a matched local mod
   const openCfDetail = useCallback(async (match) => {

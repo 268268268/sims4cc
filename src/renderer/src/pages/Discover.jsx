@@ -349,10 +349,12 @@ export default function Discover({ source = 'patreon' }) {
 
   const visible = useMemo(() => {
     let items = sourceItems
-    // free = installable files attached; paid = patron-locked; all = either (drops empty news posts)
+    // free = installable files attached; paid = patron-locked. "All" drops empty
+    // Patreon news posts, but keeps every post from link-showcase sources like
+    // Tumblr/ModTheSims (those never attach files — each post links out to the CC).
     if (postFilter === 'free') items = items.filter(i => (i.downloads?.length ?? 0) > 0)
     else if (postFilter === 'paid') items = items.filter(i => i.locked)
-    else items = items.filter(i => i.locked || (i.downloads?.length ?? 0) > 0)
+    else items = items.filter(i => i.sourceType !== 'patreon' || i.locked || (i.downloads?.length ?? 0) > 0)
     const q = query.trim().toLowerCase()
     if (q) {
       items = items.filter(i =>
@@ -373,6 +375,7 @@ export default function Discover({ source = 'patreon' }) {
   const sentinelRef = useRef(null)
 
   useEffect(() => { setShown(PAGE) }, [query, source, postFilter]) // reset window when the filtered set changes
+  useEffect(() => { setPostFilter('all') }, [source]) // Free/Paid don't apply to every source — reset on switch
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return
@@ -479,14 +482,18 @@ export default function Discover({ source = 'patreon' }) {
             <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title="Free + patron-only posts (hides news posts with nothing attached)">
               All
             </button>
-            <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title="Posts with free, directly-installable files">
-              <Gift size={13} weight="fill" /> Free
-              {freeCount > 0 && <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>}
-            </button>
-            <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title="Patron-only posts — open on Patreon">
-              <LockSimple size={13} weight="fill" /> Paid
-              {paidCount > 0 && <span className="badge bg-amber-600/40 text-amber-200 ml-1">{paidCount}</span>}
-            </button>
+            {freeCount > 0 && (
+              <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title="Posts with free, directly-installable files">
+                <Gift size={13} weight="fill" /> Free
+                <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>
+              </button>
+            )}
+            {paidCount > 0 && (
+              <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title="Patron-only posts — open on Patreon">
+                <LockSimple size={13} weight="fill" /> Paid
+                <span className="badge bg-amber-600/40 text-amber-200 ml-1">{paidCount}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

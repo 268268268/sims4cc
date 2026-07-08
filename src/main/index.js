@@ -5,7 +5,8 @@ import { join, dirname, resolve, sep } from 'path'
 import { unlink, access, rm, mkdir } from 'fs/promises'
 import { pathToFileURL } from 'url'
 import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
-import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription } from './services/curseForgeClient.js'
+import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription, matchFingerprints, pickLatestFile } from './services/curseForgeClient.js'
+import { fingerprintFile, loadFpCache, saveFpCache } from './services/curseForgeFingerprint.js'
 import { extractModArchive } from './services/archiveExtractor.js'
 import { recordDownload, getDownloaded, recordDiscoverDownload, getDiscoverDownloaded } from './services/downloadStore.js'
 import { getThumbCacheDir } from './services/dbpfThumbnail.js'
@@ -250,6 +251,49 @@ ipcMain.handle('curseforge:update', async (e, mod) => {
 })
 
 // IPC: batch-fetch CurseForge mods by id (Installed view, local "from CF" detail)
+// IPC: identify which local mods come from CurseForge (by file fingerprint) and
+// whether a newer file exists. Returns { [filePathLower]: { modId, name, hasUpdate } }.
+ipcMain.handle('curseforge:matchLocal', async () => {
+  const mods = (await getCachedLocalMods()).filter(m => m.type === 'package' && m.filePath)
+  if (!mods.length) return {}
+
+  const cache = await loadFpCache()
+  const fpByPath = new Map() // fingerprint -> filePath
+  let idx = 0
+  await Promise.all(Array.from({ length: Math.min(8, mods.length) }, async () => {
+    while (idx < mods.length) {
+      const m = mods[idx++]
+      try {
+        const fp = await fingerprintFile(m.filePath, m.modifiedAt, cache)
+        fpByPath.set(fp, m.filePath)
+      } catch { /* unreadable file — skip */ }
+    }
+  }))
+  await saveFpCache(cache)
+
+  const { matches } = await matchFingerprints([...fpByPath.keys()])
+  const result = {}
+  const modIds = []
+  for (const mt of matches) {
+    const file = mt.file
+    const filePath = file && fpByPath.get(file.fileFingerprint)
+    if (!filePath) continue
+    const latest = pickLatestFile({ latestFiles: mt.latestFiles })
+    result[filePath.toLowerCase()] = {
+      modId: file.modId,
+      installedFileId: file.id,
+      hasUpdate: !!(latest && latest.id !== file.id),
+      name: null
+    }
+    modIds.push(file.modId)
+  }
+  // fill in display names in one batch
+  const { data } = await getModsByIds(modIds)
+  const nameById = new Map((data ?? []).map(m => [m.id, m.name]))
+  for (const k of Object.keys(result)) result[k].name = nameById.get(result[k].modId) ?? null
+  return result
+})
+
 ipcMain.handle('curseforge:getModsByIds', async (_e, ids) => {
   try {
     return await getModsByIds(ids)

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   // local mods
   scanLocalMods: () => ipcRenderer.invoke('localMods:scan'),
   getCachedLocalMods: () => ipcRenderer.invoke('localMods:getCached'),
+  matchLocalCurseForge: () => ipcRenderer.invoke('curseforge:matchLocal'),
   getImageUrl: (absPath) => ipcRenderer.invoke('localMods:imageUrl', absPath),
   toggleLocalModEnabled: (filePath, enabled) => ipcRenderer.invoke('localMods:toggleEnabled', filePath, enabled),
   extractLocalArchive: (filePath) => ipcRenderer.invoke('localMods:extractArchive', filePath),
