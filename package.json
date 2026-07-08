@@ -2,12 +2,14 @@
   "name": "sims4-mod-manager",
   "version": "1.0.0",
   "description": "Sims 4 Mod Manager & Downloader",
+  "author": "PoZi268",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "start": "electron-vite dev"
+    "start": "electron-vite dev",
+    "dist": "electron-vite build && electron-builder --win"
   },
   "dependencies": {
     "adm-zip": "^0.5.18",
@@ -21,6 +23,7 @@
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "electron": "^31.0.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

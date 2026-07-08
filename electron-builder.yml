@@ -1,0 +1,26 @@
+appId: com.pozi268.sims4modmanager
+productName: Sims 4 Mod Manager
+directories:
+  buildResources: build
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!electron-builder.yml'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
+  - '!{.eslintrc.*,.prettierrc.*,README.md,CHANGELOG.md}'
+win:
+  # two artifacts: an installer (setup.exe) and a single portable .exe
+  target:
+    - nsis
+    - portable
+  artifactName: ${name}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  createDesktopShortcut: always
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
