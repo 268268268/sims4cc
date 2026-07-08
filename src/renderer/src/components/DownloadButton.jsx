@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { Package, CircleNotch, Check, Warning, ArrowUp, ArrowsClockwise, DownloadSimple } from '@phosphor-icons/react'
 import { formatBytes } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
+
+const ICON = { size: 15, weight: 'bold' }
 
 /**
  * Self-contained CurseForge download/update button + state machine with a live
@@ -51,19 +54,19 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
   const label =
     dlState === 'downloading'
       ? installing
-        ? '📦 Installing…'
+        ? <><Package {...ICON} /> Installing…</>
         : pct != null
-          ? `⏳ ${pct}% · ${formatBytes(progress.received)}${progress.total ? ` / ${formatBytes(progress.total)}` : ''}`
-          : '⏳ Downloading…'
+          ? <><CircleNotch {...ICON} className="animate-spin" /> {`${pct}% · ${formatBytes(progress.received)}${progress.total ? ` / ${formatBytes(progress.total)}` : ''}`}</>
+          : <><CircleNotch {...ICON} className="animate-spin" /> Downloading…</>
       : dlState === 'done'
-        ? mode === 'update' ? '✓ Updated!' : '✓ Downloaded!'
+        ? <><Check {...ICON} /> {mode === 'update' ? 'Updated!' : 'Downloaded!'}</>
         : dlState === 'error'
-          ? '⚠ Failed — retry'
+          ? <><Warning {...ICON} /> Failed — retry</>
           : mode === 'update'
-            ? '⬆ Update'
+            ? <><ArrowUp {...ICON} /> Update</>
             : installed
-              ? '↻ Re-download'
-              : '⬇ Download'
+              ? <><ArrowsClockwise {...ICON} /> Re-download</>
+              : <><DownloadSimple {...ICON} /> Download</>
 
   const stateClass =
     dlState === 'downloading'
@@ -87,7 +90,7 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
       {label}
       {dlState === 'downloading' && pct != null && !installing && (
         <span
-          className="absolute inset-x-0 bottom-0 h-0.5 bg-violet-400 transition-[width] duration-200"
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-400 transition-[width] duration-200"
           style={{ width: `${pct}%` }}
         />
       )}

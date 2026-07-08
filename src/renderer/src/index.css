@@ -8,20 +8,22 @@ html, body, #root {
 
 body {
   -webkit-font-smoothing: antialiased;
-  background: #0b0d14;
+  font-family: 'Outfit Variable', 'Outfit', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: #070b09;
   color: #e5e7eb;
 }
 
-/* violet glow in the top corners — gives the flat dark bg some depth */
+/* plumbob-green glow in the corners — gives the glass panels something to sit over */
 .app-bg {
   background:
-    radial-gradient(1200px 500px at -10% -20%, rgb(139 92 246 / 0.14), transparent 60%),
-    radial-gradient(900px 400px at 110% 0%, rgb(217 70 239 / 0.08), transparent 55%),
-    #0b0d14;
+    radial-gradient(1200px 520px at -8% -18%, rgb(16 185 129 / 0.24), transparent 60%),
+    radial-gradient(950px 440px at 112% 4%, rgb(20 184 166 / 0.17), transparent 55%),
+    radial-gradient(800px 600px at 50% 120%, rgb(5 150 105 / 0.14), transparent 60%),
+    #070b09;
 }
 
 ::selection {
-  background: rgb(139 92 246 / 0.45);
+  background: rgb(16 185 129 / 0.40);
 }
 
 *::-webkit-scrollbar {
@@ -29,13 +31,13 @@ body {
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgb(139 92 246 / 0.25);
+  background: rgb(16 185 129 / 0.28);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgb(139 92 246 / 0.45);
+  background: rgb(16 185 129 / 0.50);
   background-clip: content-box;
   border: 2px solid transparent;
 }
@@ -46,49 +48,58 @@ body {
 /* ---------- components ---------- */
 
 @layer components {
+  /* liquid glass: translucent, blurred + saturated, with a bright specular top edge */
   .card {
-    @apply bg-[#12141f] border border-white/5 rounded-xl overflow-hidden
-      shadow-lg shadow-black/20 transition-all duration-200;
+    @apply bg-white/[0.055] backdrop-blur-2xl backdrop-saturate-150 border border-white/10 rounded-xl overflow-hidden
+      shadow-[0_10px_34px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.16)]
+      transition-all duration-200;
   }
   .card-hover {
-    @apply hover:border-violet-500/40 hover:shadow-violet-900/20 hover:-translate-y-0.5;
+    @apply hover:border-emerald-300/45 hover:bg-white/[0.08] hover:-translate-y-0.5
+      hover:shadow-[0_16px_44px_-10px_rgba(5,150,105,0.35),inset_0_1px_0_rgba(255,255,255,0.22)];
+  }
+
+  /* frosted glass surface for larger panels (modals, dropdowns, drop overlay) */
+  .glass {
+    @apply bg-[#0b1310]/55 backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.14]
+      shadow-[inset_0_1px_0_rgba(255,255,255,0.14)];
   }
 
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg
       transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60
-      text-white bg-gradient-to-r from-violet-600 to-fuchsia-600
-      hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.98]
-      shadow-md shadow-violet-900/30;
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60
+      text-white bg-gradient-to-r from-emerald-600 to-teal-600
+      hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98]
+      shadow-md shadow-emerald-900/40;
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg
       transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60
-      text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10;
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60
+      text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur;
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg
       transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60
       text-white bg-red-700/90 hover:bg-red-600;
   }
   .btn-success {
     @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg
       transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60
       text-white bg-emerald-700 hover:bg-emerald-600;
   }
 
   .input {
-    @apply bg-[#12141f] border border-white/10 rounded-lg text-sm text-white
+    @apply bg-black/20 backdrop-blur border border-white/10 rounded-lg text-sm text-white
       placeholder-gray-600 transition-colors
-      focus:outline-none focus:border-violet-500/70 focus:ring-2 focus:ring-violet-500/20;
+      focus:outline-none focus:border-emerald-400/70 focus:ring-2 focus:ring-emerald-500/20;
   }
 
   .badge {
-    @apply inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-md;
+    @apply inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md;
   }
 
   .chip {
@@ -97,7 +108,7 @@ body {
       border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10;
   }
   .chip-active {
-    @apply border-violet-500/60 bg-violet-600/20 text-violet-200;
+    @apply border-emerald-400/60 bg-emerald-500/20 text-emerald-200;
   }
 
   .page-title {
@@ -118,8 +129,8 @@ body {
 /* ---------- sanitized CurseForge description ---------- */
 
 .cf-description p { margin: 0.5rem 0; }
-.cf-description a { color: #a78bfa; text-decoration: underline; }
-.cf-description a:hover { color: #c4b5fd; }
+.cf-description a { color: #34d399; text-decoration: underline; }
+.cf-description a:hover { color: #6ee7b7; }
 .cf-description h1, .cf-description h2, .cf-description h3,
 .cf-description h4, .cf-description h5, .cf-description h6 {
   color: #fff; font-weight: 700; margin: 0.9rem 0 0.4rem;
@@ -132,7 +143,7 @@ body {
 .cf-description ol { list-style: decimal; }
 .cf-description img { max-width: 100%; border-radius: 0.5rem; margin: 0.5rem 0; }
 .cf-description blockquote {
-  border-left: 3px solid rgb(139 92 246 / 0.5);
+  border-left: 3px solid rgb(16 185 129 / 0.5);
   padding-left: 0.75rem; margin: 0.5rem 0; color: #9ca3af;
 }
 .cf-description code, .cf-description pre {
@@ -159,7 +170,7 @@ body {
   to   { background-position: -200% 0; }
 }
 .skeleton {
-  background: linear-gradient(110deg, #161927 30%, #1e2233 45%, #161927 60%);
+  background: linear-gradient(110deg, #10181300 30%, #12241b 45%, #10181300 60%), rgb(255 255 255 / 0.03);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }

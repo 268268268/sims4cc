@@ -12,6 +12,8 @@
     "dist": "electron-vite build && electron-builder --win"
   },
   "dependencies": {
+    "@fontsource-variable/outfit": "^5.2.8",
+    "@phosphor-icons/react": "^2.1.10",
     "adm-zip": "^0.5.18",
     "axios": "^1.7.2",
     "cheerio": "^1.0.0",

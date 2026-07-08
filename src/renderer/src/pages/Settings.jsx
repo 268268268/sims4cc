@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle } from '@phosphor-icons/react'
 
 function ApiKeySection() {
   const [key, setKey] = useState('')
@@ -30,11 +31,11 @@ function ApiKeySection() {
           Needed to browse and download mods. Get a free key at{' '}
           <button
             onClick={() => window.api.openExternal('https://console.curseforge.com/')}
-            className="text-violet-300 underline hover:text-violet-200"
+            className="text-emerald-300 underline hover:text-emerald-200"
           >
             console.curseforge.com
           </button>
-          . A key in a <code className="text-violet-300 bg-white/5 px-1 rounded">.env</code> file takes precedence over this one.
+          . A key in a <code className="text-emerald-300 bg-white/5 px-1 rounded">.env</code> file takes precedence over this one.
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -45,10 +46,10 @@ function ApiKeySection() {
             className="input flex-1 px-3 py-2 font-mono text-xs"
           />
           <button onClick={() => setShow(s => !s)} className="btn-ghost px-3 py-2 text-sm" title={show ? 'Hide' : 'Show'}>
-            {show ? '🙈' : '👁'}
+            {show ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
           </button>
           <button onClick={onSave} disabled={status === 'saving'} className="btn-primary px-4 py-2 text-sm">
-            {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save'}
+            {status === 'saving' ? 'Saving…' : status === 'saved' ? <><Check size={15} weight="bold" /> Saved</> : 'Save'}
           </button>
         </div>
       </div>
@@ -56,7 +57,7 @@ function ApiKeySection() {
   )
 }
 
-const PROVIDER_ICON = { patreon: '🧡', pinterest: '📌' }
+const PROVIDER_ICON = { patreon: HeartStraight, pinterest: PushPin }
 
 function ConnectedAccountsSection() {
   const [status, setStatus] = useState({})
@@ -96,12 +97,14 @@ function ConnectedAccountsSection() {
           <strong className="text-gray-300"> this app never sees your password</strong>.
         </p>
         <div className="flex flex-col gap-2">
-          {Object.entries(status).map(([provider, s]) => (
+          {Object.entries(status).map(([provider, s]) => {
+            const PI = PROVIDER_ICON[provider] ?? Globe
+            return (
             <div key={provider} className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2.5">
-              <span className="text-lg">{PROVIDER_ICON[provider] ?? '🌐'}</span>
+              <PI size={20} weight="fill" className="text-emerald-400 shrink-0" />
               <span className="text-white text-sm font-medium">{s.label}</span>
               {s.connected
-                ? <span className="badge bg-emerald-800/50 text-emerald-300">✓ connected</span>
+                ? <span className="badge bg-emerald-800/50 text-emerald-300"><Check size={11} weight="bold" /> connected</span>
                 : <span className="badge bg-white/10 text-gray-400">not connected</span>}
               <div className="ml-auto">
                 {s.connected ? (
@@ -115,7 +118,7 @@ function ConnectedAccountsSection() {
                 )}
               </div>
             </div>
-          ))}
+          )})}
           {Object.keys(status).length === 0 && (
             <p className="text-gray-600 text-xs">Loading…</p>
           )}
@@ -142,15 +145,18 @@ function ThumbCacheSection() {
       </h3>
       <div className="card p-5">
         <p className="text-gray-400 text-sm mb-3 leading-relaxed">
-          Mod previews extracted from <code className="text-violet-300 bg-white/5 px-1 rounded">.package</code> files
+          Mod previews extracted from <code className="text-emerald-300 bg-white/5 px-1 rounded">.package</code> files
           are cached on disk. Clear it if thumbnails look stale — they regenerate on the next scan.
         </p>
         <div className="flex items-center gap-2">
           <button onClick={() => window.api.openThumbCache()} className="btn-ghost px-4 py-2 text-sm">
-            📂 Open cache folder
+            <FolderOpen size={16} weight="fill" /> Open cache folder
           </button>
           <button onClick={onClear} disabled={status === 'clearing'} className="btn-ghost px-4 py-2 text-sm">
-            {status === 'clearing' ? 'Clearing…' : status === 'cleared' ? '✓ Cleared' : status === 'error' ? '⚠ Failed' : '🧹 Clear cache'}
+            {status === 'clearing' ? 'Clearing…'
+              : status === 'cleared' ? <><Check size={15} weight="bold" /> Cleared</>
+              : status === 'error' ? <><Warning size={15} weight="bold" /> Failed</>
+              : <><Broom size={15} weight="fill" /> Clear cache</>}
           </button>
         </div>
       </div>
@@ -215,7 +221,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
               disabled={folderLoading}
               className="btn-ghost py-2 px-4 text-sm"
             >
-              {folderLoading ? 'Opening…' : '📁 Change Mods Folder'}
+              {folderLoading ? 'Opening…' : <><Folder size={16} weight="fill" /> Change Mods Folder</>}
             </button>
           </div>
         </section>
@@ -231,7 +237,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
           </h3>
           <div className="card p-5">
             <p className="text-gray-400 text-sm mb-4 leading-relaxed">
-              Deletes <code className="text-violet-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">localthumbcache.package</code> from
+              Deletes <code className="text-emerald-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">localthumbcache.package</code> from
               your Sims 4 folder. The game will regenerate it on next launch.
               Do this after installing or removing mods to fix thumbnail glitches.
             </p>
@@ -240,7 +246,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
               disabled={cacheStatus === 'loading' || !modsFolder}
               className="btn-danger py-2 px-5 text-sm font-semibold"
             >
-              {cacheStatus === 'loading' ? '🗑️ Deleting…' : '🗑️ Clear Game Cache'}
+              <Trash size={15} weight="bold" /> {cacheStatus === 'loading' ? 'Deleting…' : 'Clear Game Cache'}
             </button>
 
             {!modsFolder && (
@@ -250,12 +256,12 @@ export default function Settings({ modsFolder, onFolderChanged }) {
             )}
 
             {cacheStatus && cacheStatus !== 'loading' && (
-              <div className={`mt-4 text-sm px-4 py-2 rounded-xl border ${
+              <div className={`mt-4 text-sm px-4 py-2 rounded-xl border flex items-center gap-2 ${
                 cacheStatus.success
                   ? 'text-emerald-300 bg-emerald-950/50 border-emerald-800/60'
                   : 'text-red-300 bg-red-950/60 border-red-800/60'
               }`}>
-                {cacheStatus.success ? '✅' : '❌'} {cacheStatus.msg}
+                {cacheStatus.success ? <CheckCircle size={16} weight="fill" /> : <XCircle size={16} weight="fill" />} {cacheStatus.msg}
               </div>
             )}
           </div>

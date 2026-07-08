@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { SquaresFour, CaretDown } from '@phosphor-icons/react'
 
 /** Dropdown to pick a CurseForge category (or "All"), with a type-to-filter box. */
 export default function CategoryFilter({ categories, selectedId, onSelect }) {
@@ -31,13 +32,15 @@ export default function CategoryFilter({ categories, selectedId, onSelect }) {
         className={`chip ${selectedId ? 'chip-active' : ''}`}
         title="Filter by category"
       >
-        {selected?.iconUrl && <img src={selected.iconUrl} alt="" className="w-3.5 h-3.5 rounded-sm" />}
-        <span className="max-w-[10rem] truncate">{selected ? selected.name : '🗂 All categories'}</span>
-        <span className="text-[10px] opacity-70">▾</span>
+        {selected?.iconUrl
+          ? <img src={selected.iconUrl} alt="" className="w-3.5 h-3.5 rounded-sm" />
+          : <SquaresFour size={14} weight="regular" />}
+        <span className="max-w-[10rem] truncate">{selected ? selected.name : 'All categories'}</span>
+        <CaretDown size={11} weight="bold" className="opacity-70" />
       </button>
 
       {open && (
-        <div className="absolute left-0 mt-2 w-64 z-30 bg-[#12141f] border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden fade-in-up">
+        <div className="absolute left-0 mt-2 w-64 z-30 glass rounded-xl shadow-2xl shadow-black/60 overflow-hidden fade-in-up">
           {categories.length > 8 && (
             <div className="p-2 border-b border-white/5">
               <input
@@ -52,15 +55,15 @@ export default function CategoryFilter({ categories, selectedId, onSelect }) {
           <div className="max-h-72 overflow-y-auto p-1">
             <button
               onClick={() => pick(null)}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm transition-colors ${!selectedId ? 'bg-violet-600/20 text-violet-200' : 'text-gray-300 hover:bg-white/5'}`}
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm transition-colors ${!selectedId ? 'bg-emerald-600/20 text-emerald-200' : 'text-gray-300 hover:bg-white/5'}`}
             >
-              🗂 All categories
+              <SquaresFour size={16} weight="regular" className="shrink-0" /> All categories
             </button>
             {shown.map(c => (
               <button
                 key={c.id}
                 onClick={() => pick(c.id)}
-                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm transition-colors ${c.id === selectedId ? 'bg-violet-600/20 text-violet-200' : 'text-gray-300 hover:bg-white/5'}`}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sm transition-colors ${c.id === selectedId ? 'bg-emerald-600/20 text-emerald-200' : 'text-gray-300 hover:bg-white/5'}`}
               >
                 {c.iconUrl
                   ? <img src={c.iconUrl} alt="" className="w-4 h-4 rounded-sm shrink-0" />

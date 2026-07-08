@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { DownloadSimple, CircleNotch, CheckCircle, WarningCircle, Check, X } from '@phosphor-icons/react'
 import { markChanged } from '../lib/sessionActivity'
 
 /**
@@ -66,8 +67,12 @@ export default function DropZone() {
     <>
       {(depth > 0 || busy) && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
-          <div className="border-2 border-dashed border-violet-500/70 rounded-2xl px-14 py-10 bg-[#12141f]/80 text-center">
-            <div className="text-5xl mb-3">{busy ? '⏳' : '📥'}</div>
+          <div className="border-2 border-dashed border-emerald-500/70 rounded-2xl px-14 py-10 glass text-center">
+            <div className="flex justify-center mb-3 text-emerald-400">
+              {busy
+                ? <CircleNotch size={52} weight="bold" className="animate-spin" />
+                : <DownloadSimple size={52} weight="regular" />}
+            </div>
             <p className="text-white font-semibold text-lg">
               {busy ? 'Installing…' : 'Drop mods to install'}
             </p>
@@ -79,16 +84,21 @@ export default function DropZone() {
       {report && (
         <div className="fixed bottom-4 right-4 z-40 w-96 max-h-72 overflow-y-auto card p-4 fade-in-up">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-white font-semibold text-sm">
-              {report.ok ? '✅ Install finished' : '⚠️ Install failed'}
+            <p className="text-white font-semibold text-sm flex items-center gap-1.5">
+              {report.ok
+                ? <CheckCircle size={18} weight="fill" className="text-emerald-400" />
+                : <WarningCircle size={18} weight="fill" className="text-amber-400" />}
+              {report.ok ? 'Install finished' : 'Install failed'}
             </p>
-            <button onClick={() => setReport(null)} className="text-gray-500 hover:text-white text-xs">✕</button>
+            <button onClick={() => setReport(null)} className="text-gray-500 hover:text-white"><X size={14} weight="bold" /></button>
           </div>
           {report.error && <p className="text-red-400 text-xs mb-1">{report.error}</p>}
           <div className="flex flex-col gap-1">
             {(report.results ?? []).map((r, i) => (
               <div key={i} className="text-xs flex items-start gap-1.5">
-                <span>{r.ok ? '✓' : '✗'}</span>
+                <span className="mt-0.5 shrink-0">{r.ok
+                  ? <Check size={13} weight="bold" className="text-emerald-400" />
+                  : <X size={13} weight="bold" className="text-red-400" />}</span>
                 <span className={`${r.ok ? 'text-gray-300' : 'text-red-400'} break-all`}>
                   {r.source.split(/[\\/]/).pop()}
                   {r.trayFiles?.length > 0 && <span className="text-amber-300"> · {r.trayFiles.length} → Tray</span>}

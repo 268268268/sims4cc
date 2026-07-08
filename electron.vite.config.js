@@ -16,6 +16,11 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
+    // ponytail: pre-bundle Phosphor's ~1250-icon barrel into one file, or Vite dev
+    // serves every icon as a separate module request → multi-second cold start
+    optimizeDeps: {
+      include: ['@phosphor-icons/react']
+    },
     plugins: [react(), tailwindcss()]
   }
 })

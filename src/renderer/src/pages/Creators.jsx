@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
+import { HeartStraight, NotePencil, TwitterLogo, Globe, DiscordLogo, YoutubeLogo, LinkSimple, CircleNotch, PaintBrush } from '@phosphor-icons/react'
 
 const LINK_LABELS = {
-  patreon: { label: 'Patreon', icon: '💰', color: 'bg-orange-600/80 hover:bg-orange-500' },
-  tumblr: { label: 'Tumblr', icon: '📝', color: 'bg-blue-600/80 hover:bg-blue-500' },
-  twitter: { label: 'Twitter', icon: '🐦', color: 'bg-sky-600/80 hover:bg-sky-500' },
-  website: { label: 'Website', icon: '🌐', color: 'bg-gray-600/80 hover:bg-gray-500' },
-  discord: { label: 'Discord', icon: '💬', color: 'bg-indigo-600/80 hover:bg-indigo-500' },
-  youtube: { label: 'YouTube', icon: '▶️', color: 'bg-red-600/80 hover:bg-red-500' }
+  patreon: { label: 'Patreon', Icon: HeartStraight, color: 'bg-orange-600/80 hover:bg-orange-500' },
+  tumblr: { label: 'Tumblr', Icon: NotePencil, color: 'bg-blue-600/80 hover:bg-blue-500' },
+  twitter: { label: 'Twitter', Icon: TwitterLogo, color: 'bg-sky-600/80 hover:bg-sky-500' },
+  website: { label: 'Website', Icon: Globe, color: 'bg-gray-600/80 hover:bg-gray-500' },
+  discord: { label: 'Discord', Icon: DiscordLogo, color: 'bg-indigo-600/80 hover:bg-indigo-500' },
+  youtube: { label: 'YouTube', Icon: YoutubeLogo, color: 'bg-red-600/80 hover:bg-red-500' }
 }
 
 function CreatorCard({ creator }) {
@@ -21,7 +22,7 @@ function CreatorCard({ creator }) {
   return (
     <div className="card card-hover fade-in-up p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-md shadow-violet-950/50">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-md shadow-emerald-950/50">
           {creator.name?.charAt(0)?.toUpperCase() ?? '?'}
         </div>
         <div className="min-w-0">
@@ -47,7 +48,8 @@ function CreatorCard({ creator }) {
       {links.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {links.map(([key, url]) => {
-            const meta = LINK_LABELS[key] ?? { label: key, icon: '🔗', color: 'bg-gray-600/80 hover:bg-gray-500' }
+            const meta = LINK_LABELS[key] ?? { label: key, Icon: LinkSimple, color: 'bg-gray-600/80 hover:bg-gray-500' }
+            const LinkIcon = meta.Icon
             return (
               <button
                 key={key}
@@ -55,7 +57,7 @@ function CreatorCard({ creator }) {
                 className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg text-white transition-colors ${meta.color}`}
                 title={url}
               >
-                <span>{meta.icon}</span>
+                <LinkIcon size={14} weight="fill" />
                 {meta.label}
               </button>
             )
@@ -100,12 +102,12 @@ export default function Creators() {
       <div className="flex-1 overflow-y-auto px-8 py-6">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-3">
-            <span className="animate-spin inline-block w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full" />
+            <CircleNotch size={40} weight="bold" className="animate-spin text-emerald-400" />
             <p className="text-sm">Loading creators…</p>
           </div>
         ) : (catalog?.creators ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <span className="text-5xl">🎨</span>
+            <PaintBrush size={52} weight="thin" className="text-gray-700" />
             <p className="text-sm">No creators found in the catalog.</p>
           </div>
         ) : (

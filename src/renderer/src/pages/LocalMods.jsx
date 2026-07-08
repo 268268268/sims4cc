@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { Package, FileZip, CircleNotch, UploadSimple, Fire, Trash, ArrowsClockwise, MagnifyingGlass, Warning, X, FolderDashed } from '@phosphor-icons/react'
 import LocalModDetail from '../components/LocalModDetail'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -7,7 +8,7 @@ import { markChanged } from '../lib/sessionActivity'
 
 const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', archive: '.zip', unknown: '?' }
 const TYPE_COLOR = {
-  package: 'bg-violet-600/30 text-violet-200',
+  package: 'bg-emerald-600/30 text-emerald-200',
   ts4script: 'bg-sky-600/30 text-sky-200',
   archive: 'bg-amber-600/30 text-amber-200',
   unknown: 'bg-gray-700 text-gray-300'
@@ -65,8 +66,8 @@ function ModThumbnail({ absPath, imageUrl }) {
   }
 
   return (
-    <div className="w-full h-32 bg-gradient-to-br from-[#181b2a] to-[#12141f] flex items-center justify-center text-4xl select-none">
-      📦
+    <div className="w-full h-32 bg-gradient-to-br from-emerald-950/30 to-black/20 flex items-center justify-center select-none">
+      <Package size={40} weight="thin" className="text-emerald-300/40" />
     </div>
   )
 }
@@ -78,8 +79,8 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
       className="card card-hover flex flex-col fade-in-up border-amber-500/20 cursor-pointer"
       title="Click for details"
     >
-      <div className="w-full h-32 bg-gradient-to-br from-amber-950/40 to-[#12141f] flex items-center justify-center text-4xl select-none">
-        🗜️
+      <div className="w-full h-32 bg-gradient-to-br from-amber-950/40 to-black/20 flex items-center justify-center select-none">
+        <FileZip size={40} weight="thin" className="text-amber-300/60" />
       </div>
       <div className="p-3 flex flex-col gap-1.5 flex-1">
         <p className="text-white font-semibold text-sm leading-tight truncate" title={mod.name}>
@@ -98,7 +99,9 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
           disabled={pending}
           className="btn-primary mt-2 px-3 py-1.5 text-xs"
         >
-          {pending ? '⏳ Extracting…' : '📤 Extract to Mods'}
+          {pending
+            ? <><CircleNotch size={14} weight="bold" className="animate-spin" /> Extracting…</>
+            : <><UploadSimple size={14} weight="bold" /> Extract to Mods</>}
         </button>
       </div>
     </div>
@@ -124,7 +127,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
         </p>
 
         {(creatorName || mod.author) && (
-          <p className="text-violet-400 text-xs truncate" title={creatorName || mod.author}>
+          <p className="text-emerald-400 text-xs truncate" title={creatorName || mod.author}>
             {creatorName || mod.author}
           </p>
         )}
@@ -145,7 +148,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
               className="badge bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 transition-colors"
               title="Installed from CurseForge — view details"
             >
-              🔥 CF
+              <Fire size={11} weight="fill" /> CF
             </button>
           )}
         </div>
@@ -184,7 +187,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
             className="btn-ghost px-2.5 py-1.5 text-xs"
             title="Move to Recycle Bin"
           >
-            🗑
+            <Trash size={14} weight="regular" />
           </button>
         </div>
       </div>
@@ -447,7 +450,7 @@ export default function LocalMods({ modsFolder }) {
                 Scanning…
               </>
             ) : (
-              <>🔄 Rescan</>
+              <><ArrowsClockwise size={16} weight="bold" /> Rescan</>
             )}
           </button>
         </div>
@@ -455,7 +458,7 @@ export default function LocalMods({ modsFolder }) {
         {/* Toolbar: search / filter / sort */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
+            <MagnifyingGlass size={16} weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             <input
               type="text"
               value={query}
@@ -500,7 +503,7 @@ export default function LocalMods({ modsFolder }) {
 
         {/* Error */}
         {state === 'error' && (
-          <div className="mb-4 banner-error">⚠️ {errorMsg}</div>
+          <div className="mb-4 banner-error flex items-center gap-2"><Warning size={16} weight="fill" /> {errorMsg}</div>
         )}
 
         {/* Scan errors (partial) */}
@@ -513,8 +516,8 @@ export default function LocalMods({ modsFolder }) {
         {/* Toggle / extract error */}
         {actionError && (
           <div className="mb-4 banner-error flex items-center justify-between">
-            <span>⚠️ {actionError}</span>
-            <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-200 text-xs">✕</button>
+            <span className="flex items-center gap-2"><Warning size={16} weight="fill" /> {actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-200"><X size={14} weight="bold" /></button>
           </div>
         )}
 
@@ -540,7 +543,7 @@ export default function LocalMods({ modsFolder }) {
         {/* Empty scan */}
         {state === 'done' && result?.count === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <span className="text-5xl">🗂️</span>
+            <FolderDashed size={52} weight="thin" className="text-gray-700" />
             <p className="text-sm">No mods found in this folder.</p>
             <p className="text-xs text-gray-700">Download something from the CurseForge tab to get started.</p>
           </div>
@@ -549,7 +552,7 @@ export default function LocalMods({ modsFolder }) {
         {/* Empty filter result */}
         {state === 'done' && result?.count > 0 && visibleMods.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <span className="text-5xl">🔍</span>
+            <MagnifyingGlass size={52} weight="thin" className="text-gray-700" />
             <p className="text-sm">Nothing matches your search or filter.</p>
           </div>
         )}
@@ -615,7 +618,7 @@ export default function LocalMods({ modsFolder }) {
         <ConfirmDialog
           title={`Delete "${confirmTarget.name}"?`}
           message="The file will be moved to the Recycle Bin (recoverable). Folders left empty are removed too."
-          confirmLabel="🗑 Delete"
+          confirmLabel={<><Trash size={15} weight="bold" /> Delete</>}
           onConfirm={() => handleDelete(confirmTarget)}
           onCancel={() => setConfirmTarget(null)}
         />

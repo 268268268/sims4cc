@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { DownloadSimple, ThumbsUp, HardDrives, Clock, ArrowUp, Check, MagnifyingGlass, ArrowsClockwise, Warning, Tray, CircleNotch, X } from '@phosphor-icons/react'
 import DownloadButton from '../components/DownloadButton'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import CategoryFilter from '../components/CategoryFilter'
@@ -22,7 +23,7 @@ const MAX_RESULT_WINDOW = 10000
 const PLACEHOLDER_THUMB =
   'data:image/svg+xml,' +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#0c1a12"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#1f6a4d">&#9670;</text></svg>'
   )
 
 function getThumbnail(mod) {
@@ -71,11 +72,11 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
         />
         {hasUpdate ? (
           <span className="absolute top-2 right-2 badge bg-amber-500/90 text-black font-semibold shadow-md backdrop-blur-sm">
-            ⬆ Update available
+            <ArrowUp size={11} weight="bold" /> Update available
           </span>
         ) : installed && (
           <span className="absolute top-2 right-2 badge bg-emerald-600/90 text-white shadow-md shadow-emerald-950/40 backdrop-blur-sm">
-            ✓ Installed
+            <Check size={11} weight="bold" /> Installed
           </span>
         )}
         {release && (
@@ -88,7 +89,7 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
         <p className="text-white font-semibold text-sm leading-tight line-clamp-2" title={mod.name}>
           {mod.name}
         </p>
-        <p className="text-violet-400 text-xs truncate" title={getAuthor(mod)}>
+        <p className="text-emerald-400 text-xs truncate" title={getAuthor(mod)}>
           {getAuthor(mod)}
         </p>
         {mod.summary && (
@@ -97,10 +98,10 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
           </p>
         )}
         <div className="flex items-center gap-2.5 mt-1 text-gray-500 text-[11px] flex-wrap">
-          {downloads && <span title={`${mod.downloadCount?.toLocaleString()} downloads`}>⬇ {downloads}</span>}
-          {thumbs && <span title={`${mod.thumbsUpCount?.toLocaleString()} thumbs up`}>👍 {thumbs}</span>}
-          {size && <span title="File size">💾 {size}</span>}
-          {updated && <span title="Last updated">🕒 {updated}</span>}
+          {downloads && <span className="inline-flex items-center gap-1" title={`${mod.downloadCount?.toLocaleString()} downloads`}><DownloadSimple size={12} weight="bold" /> {downloads}</span>}
+          {thumbs && <span className="inline-flex items-center gap-1" title={`${mod.thumbsUpCount?.toLocaleString()} thumbs up`}><ThumbsUp size={12} weight="fill" /> {thumbs}</span>}
+          {size && <span className="inline-flex items-center gap-1" title="File size"><HardDrives size={12} weight="regular" /> {size}</span>}
+          {updated && <span className="inline-flex items-center gap-1" title="Last updated"><Clock size={12} weight="regular" /> {updated}</span>}
         </div>
         <DownloadButton
           mod={mod}
@@ -125,7 +126,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
   if (!updateInfo) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-        <span className="text-5xl">📥</span>
+        <Tray size={52} weight="thin" className="text-gray-700" />
         <p className="text-sm">Nothing downloaded through the app yet.</p>
       </div>
     )
@@ -140,12 +141,14 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
   if (!mods.length && !missing.length) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-        <span className="text-5xl">{filter === 'updates' ? '✅' : '📥'}</span>
+        {filter === 'updates'
+          ? <Check size={52} weight="bold" className="text-emerald-500/70" />
+          : <Tray size={52} weight="thin" className="text-gray-700" />}
         <p className="text-sm">
           {filter === 'updates' ? 'Everything is up to date.' : 'Nothing downloaded through the app yet.'}
         </p>
         {filter === 'updates' && (
-          <button onClick={onRecheck} className="btn-ghost px-3 py-1.5 text-xs">🔄 Re-check</button>
+          <button onClick={onRecheck} className="btn-ghost px-3 py-1.5 text-xs"><ArrowsClockwise size={14} weight="bold" /> Re-check</button>
         )}
       </div>
     )
@@ -174,7 +177,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
           <p className="text-gray-600 text-xs mb-2">No longer on CurseForge:</p>
           <div className="flex flex-col gap-1">
             {missing.map(u => (
-              <p key={u.modId} className="text-gray-500 text-xs">✖ {u.name ?? `Mod #${u.modId}`}</p>
+              <p key={u.modId} className="text-gray-500 text-xs flex items-center gap-1.5"><X size={12} weight="bold" className="text-red-400/70" /> {u.name ?? `Mod #${u.modId}`}</p>
             ))}
           </div>
         </div>
@@ -417,7 +420,7 @@ export default function CurseForgeBrowser() {
               )}
               {(updateInfo?.updates?.filter(u => u.updateAvailable).length ?? 0) > 0 && (
                 <span className="badge bg-amber-500/70 text-black ml-1">
-                  ⬆ {updateInfo.updates.filter(u => u.updateAvailable).length}
+                  <ArrowUp size={10} weight="bold" /> {updateInfo.updates.filter(u => u.updateAvailable).length}
                 </span>
               )}
             </button>
@@ -426,7 +429,7 @@ export default function CurseForgeBrowser() {
           {view === 'browse' && (
             <>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
+                <MagnifyingGlass size={16} weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -478,7 +481,7 @@ export default function CurseForgeBrowser() {
                     Checking…
                   </>
                 ) : (
-                  <>🔄 Check for updates{updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ''}</>
+                  <><ArrowsClockwise size={14} weight="bold" /> Check for updates{updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ''}</>
                 )}
               </button>
             </>
@@ -501,8 +504,8 @@ export default function CurseForgeBrowser() {
         )}
 
         {view === 'browse' && isError && (
-          <div className="mb-4 banner-error">
-            ⚠️ Failed to fetch mods from CurseForge. Check your API key and network connection.
+          <div className="mb-4 banner-error flex items-center gap-2">
+            <Warning size={16} weight="fill" className="shrink-0" /> Failed to fetch mods from CurseForge. Check your API key and network connection.
           </div>
         )}
 
@@ -519,7 +522,7 @@ export default function CurseForgeBrowser() {
 
         {view === 'browse' && !isLoading && !isError && mods.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <span className="text-5xl">🔍</span>
+            <MagnifyingGlass size={52} weight="thin" className="text-gray-700" />
             <p className="text-sm">No mods found{displayedFilter ? ` for "${displayedFilter}"` : ''}.</p>
           </div>
         )}
@@ -560,13 +563,13 @@ export default function CurseForgeBrowser() {
             <div id="load-more-trigger" ref={loadMoreRef} className="h-px" />
             {isLoadingMore && (
               <div className="flex items-center justify-center gap-2 py-6 text-gray-500 text-xs">
-                <span className="inline-block w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                <CircleNotch size={16} weight="bold" className="animate-spin text-emerald-400" />
                 Loading more mods…
               </div>
             )}
             {loadMoreFailed && (
               <div className="flex flex-col items-center gap-2 py-6">
-                <p className="text-red-400 text-xs">⚠️ Failed to load more mods.</p>
+                <p className="text-red-400 text-xs flex items-center gap-1.5"><Warning size={14} weight="fill" /> Failed to load more mods.</p>
                 <button
                   onClick={() => fetchPage(activeFilterRef.current, pageIndex + 1, activeCategoryRef.current, activeSortRef.current)}
                   className="btn-danger px-3 py-1.5 text-xs"

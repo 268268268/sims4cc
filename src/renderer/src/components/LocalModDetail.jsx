@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Package, Scroll, Image as ImageIcon, House, FileText, Paperclip, Folder, FolderOpen, Fire, Trash } from '@phosphor-icons/react'
 import Modal from './Modal'
 import { formatBytes, formatDate } from '../lib/format'
 
@@ -7,16 +8,16 @@ const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', archive: '.zi
 const PLACEHOLDER =
   'data:image/svg+xml,' +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="100%" height="100%" fill="#181b2a"/><text x="50%" y="50%" font-size="80" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="100%" height="100%" fill="#0c1a12"/><text x="50%" y="50%" font-size="80" text-anchor="middle" dy=".35em" fill="#1f6a4d">&#9670;</text></svg>'
   )
 
-function fileIcon(ext) {
-  if (ext === '.package') return '📦'
-  if (ext === '.ts4script') return '📜'
-  if (/\.(png|jpe?g|webp|gif)$/.test(ext)) return '🖼'
-  if (/\.(trayitem|householdbinary|sgi|blueprint|room|bpi|hhi)$/.test(ext)) return '🏠'
-  if (/\.(cfg|ini|txt|md)$/.test(ext)) return '📄'
-  return '📎'
+function FileIcon({ ext, ...props }) {
+  if (ext === '.package') return <Package {...props} />
+  if (ext === '.ts4script') return <Scroll {...props} />
+  if (/\.(png|jpe?g|webp|gif)$/.test(ext)) return <ImageIcon {...props} />
+  if (/\.(trayitem|householdbinary|sgi|blueprint|room|bpi|hhi)$/.test(ext)) return <House {...props} />
+  if (/\.(cfg|ini|txt|md)$/.test(ext)) return <FileText {...props} />
+  return <Paperclip {...props} />
 }
 
 export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, onToggle, onDelete, onClose }) {
@@ -52,7 +53,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-white leading-tight break-words">{mod.name}</h2>
             {(creatorName || mod.author) && (
-              <p className="text-violet-400 text-sm mt-0.5">{creatorName || mod.author}</p>
+              <p className="text-emerald-400 text-sm mt-0.5">{creatorName || mod.author}</p>
             )}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className="badge bg-white/10 text-gray-200 font-mono">{TYPE_LABEL[mod.type]}</span>
@@ -62,7 +63,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
                 </span>
               )}
               {mod.kinds?.map(k => (
-                <span key={k} className="badge bg-violet-600/20 text-violet-200">{k}</span>
+                <span key={k} className="badge bg-emerald-600/20 text-emerald-200">{k}</span>
               ))}
               <span className="text-gray-500 text-xs">{formatBytes(mod.size)}</span>
               {mod.modifiedAt && <span className="text-gray-600 text-xs">· {formatDate(mod.modifiedAt)}</span>}
@@ -87,7 +88,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
             </p>
             <div className="flex flex-wrap gap-1.5">
               {info.packageContents.types.map(t => (
-                <span key={t.label} className="badge bg-violet-600/20 text-violet-200">
+                <span key={t.label} className="badge bg-emerald-600/20 text-emerald-200">
                   {t.label} ×{t.count}
                 </span>
               ))}
@@ -109,9 +110,9 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
               {info.files.map(f => (
                 <div
                   key={f.name}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-xs ${f.isSelf ? 'bg-violet-600/10' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs ${f.isSelf ? 'bg-emerald-600/10' : ''}`}
                 >
-                  <span>{fileIcon(f.ext)}</span>
+                  <FileIcon ext={f.ext} size={14} weight="regular" className="text-gray-400 shrink-0" />
                   <span className="text-gray-300 truncate flex-1" title={f.name}>{f.name}</span>
                   <span className="text-gray-600 shrink-0">{formatBytes(f.size)}</span>
                 </div>
@@ -122,8 +123,8 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
           )}
         </div>
 
-        <p className="text-gray-600 text-xs break-all" title={mod.filePath}>
-          📁 {mod.relativePath}
+        <p className="text-gray-600 text-xs break-all flex items-center gap-1.5" title={mod.filePath}>
+          <Folder size={13} weight="fill" className="shrink-0" /> {mod.relativePath}
         </p>
 
         {/* Actions */}
@@ -140,14 +141,14 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
             onClick={() => window.api.showItemInFolder(mod.filePath)}
             className="btn-ghost px-4 py-2 text-sm"
           >
-            📂 Reveal in folder
+            <FolderOpen size={16} weight="fill" /> Reveal in folder
           </button>
           {cfMatch && (
             <button
               onClick={() => { onClose(); onOpenCf?.(cfMatch) }}
               className="btn-ghost px-4 py-2 text-sm"
             >
-              🔥 View on CurseForge
+              <Fire size={16} weight="fill" /> View on CurseForge
             </button>
           )}
           {onDelete && (
@@ -156,7 +157,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
               className="btn-ghost px-4 py-2 text-sm text-red-300 hover:text-red-200"
               title="Move to Recycle Bin"
             >
-              🗑 Delete
+              <Trash size={16} weight="regular" /> Delete
             </button>
           )}
         </div>

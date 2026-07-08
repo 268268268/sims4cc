@@ -1,19 +1,26 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { HeartStraight, PushPin, NotePencil, Bank, Globe, CircleNotch, Check, Warning, Plus, CaretRight, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple } from '@phosphor-icons/react'
 import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
 
 const TYPE_META = {
-  patreon: { icon: '🧡', badge: 'bg-orange-600/30 text-orange-200' },
-  pinterest: { icon: '📌', badge: 'bg-red-600/30 text-red-200' },
-  tumblr: { icon: '📝', badge: 'bg-sky-600/30 text-sky-200' },
-  modthesims: { icon: '🏛', badge: 'bg-emerald-600/30 text-emerald-200' }
+  patreon: { Icon: HeartStraight, badge: 'bg-orange-600/30 text-orange-200' },
+  pinterest: { Icon: PushPin, badge: 'bg-red-600/30 text-red-200' },
+  tumblr: { Icon: NotePencil, badge: 'bg-sky-600/30 text-sky-200' },
+  modthesims: { Icon: Bank, badge: 'bg-emerald-600/30 text-emerald-200' }
+}
+
+/** Inline source-type icon (falls back to a globe for unknown types). */
+function TypeIcon({ type, size = 13, weight = 'fill', className = '' }) {
+  const I = TYPE_META[type]?.Icon ?? Globe
+  return <I size={size} weight={weight} className={className} />
 }
 
 const PLACEHOLDER =
   'data:image/svg+xml,' +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#4b5563">🌐</text></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="100%" height="100%" fill="#0c1a12"/><text x="50%" y="50%" font-size="40" text-anchor="middle" dy=".35em" fill="#1f6a4d">&#9670;</text></svg>'
   )
 
 function AddSourceForm({ types, onAdded }) {
@@ -60,7 +67,7 @@ function AddSourceForm({ types, onAdded }) {
           className="input px-2.5 py-2 text-sm bg-[#12141f]"
         >
           {types.map(t => (
-            <option key={t.type} value={t.type}>{TYPE_META[t.type]?.icon} {t.label}</option>
+            <option key={t.type} value={t.type}>{t.label}</option>
           ))}
         </select>
         <div className="flex flex-col flex-1 min-w-[18rem]">
@@ -75,15 +82,17 @@ function AddSourceForm({ types, onAdded }) {
           {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
         </div>
         <button onClick={onAdd} disabled={state === 'adding'} className="btn-primary px-4 py-2 text-sm whitespace-nowrap">
-          {state === 'adding' ? '⏳ Checking…' : `＋ Follow${count > 1 ? ` (${count})` : ''}`}
+          {state === 'adding'
+            ? <><CircleNotch size={15} weight="bold" className="animate-spin" /> Checking…</>
+            : <><Plus size={15} weight="bold" /> {`Follow${count > 1 ? ` (${count})` : ''}`}</>}
         </button>
       </div>
       {report && (
-        <p className="text-xs">
-          <span className="text-emerald-400">✓ Added {report.added}</span>
+        <p className="text-xs flex items-center gap-1 flex-wrap">
+          <span className="text-emerald-400 inline-flex items-center gap-1"><Check size={12} weight="bold" /> Added {report.added}</span>
           {failed.length > 0 && (
-            <span className="text-red-400 ml-2">
-              ⚠ {failed.length} failed: {failed.map(f => `${f.input} (${f.error ?? 'error'})`).join(', ')}
+            <span className="text-red-400 ml-2 inline-flex items-center gap-1">
+              <Warning size={12} weight="fill" /> {failed.length} failed: {failed.map(f => `${f.input} (${f.error ?? 'error'})`).join(', ')}
             </span>
           )}
         </p>
@@ -134,11 +143,11 @@ function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
   const label =
     state === 'downloading'
       ? progress?.phase === 'installing'
-        ? '📦 Installing…'
-        : `⏳ ${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ''}${pct != null ? `${pct}%` : '…'}`
-      : state === 'done' ? '✓ Installed'
-        : state === 'error' ? '⚠ Failed — retry'
-          : `⬇ Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ''}`
+        ? <><Package size={14} weight="bold" /> Installing…</>
+        : <><CircleNotch size={14} weight="bold" className="animate-spin" /> {`${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ''}${pct != null ? `${pct}%` : '…'}`}</>
+      : state === 'done' ? <><Check size={14} weight="bold" /> Installed</>
+        : state === 'error' ? <><Warning size={14} weight="bold" /> Failed — retry</>
+          : <><DownloadSimple size={14} weight="bold" /> {`Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ''}`}</>
 
   const cls =
     state === 'downloading' ? 'btn-ghost cursor-wait'
@@ -150,7 +159,7 @@ function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
     <button onClick={onClick} disabled={state === 'downloading' || state === 'done'} title={state === 'done' ? 'Already downloaded through the app' : undefined} className={`relative overflow-hidden ${cls} mt-2 px-3 py-1.5 text-xs`}>
       {label}
       {state === 'downloading' && pct != null && progress?.phase !== 'installing' && (
-        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-violet-400 transition-[width] duration-200" style={{ width: `${pct}%` }} />
+        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-400 transition-[width] duration-200" style={{ width: `${pct}%` }} />
       )}
     </button>
   )
@@ -168,12 +177,13 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
           onClick={() => setOpen(o => !o)}
           className="text-gray-400 hover:text-gray-200 text-xs flex items-center gap-1"
         >
-          <span className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
-          ✨ Suggested creators — popular Sims 4 makers ({suggested.length})
+          <CaretRight size={12} weight="bold" className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+          <Sparkle size={13} weight="fill" className="text-emerald-400" />
+          Suggested creators — popular Sims 4 makers ({suggested.length})
         </button>
         {open && notFollowed.length > 0 && (
           <button onClick={() => onFollow(null)} disabled={busy} className="btn-primary px-3 py-1 text-xs">
-            {busy ? 'Adding…' : `＋ Follow all (${notFollowed.length})`}
+            {busy ? 'Adding…' : <><Plus size={14} weight="bold" /> {`Follow all (${notFollowed.length})`}</>}
           </button>
         )}
       </div>
@@ -184,11 +194,11 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
             key={`${s.type}:${s.input}`}
             onClick={() => !s.followed && onFollow([s])}
             disabled={s.followed || busy}
-            className={`chip ${s.followed ? 'chip-active !cursor-default' : 'hover:border-violet-500/60'}`}
+            className={`chip ${s.followed ? 'chip-active !cursor-default' : 'hover:border-emerald-500/60'}`}
             title={s.tag}
           >
-            {TYPE_META[s.type]?.icon} {s.label}
-            {s.followed ? <span className="text-emerald-400 ml-0.5">✓</span> : <span className="text-violet-300 ml-0.5">＋</span>}
+            <TypeIcon type={s.type} /> {s.label}
+            {s.followed ? <Check size={12} weight="bold" className="text-emerald-400 ml-0.5" /> : <Plus size={12} weight="bold" className="text-emerald-300 ml-0.5" />}
           </button>
         ))}
       </div>
@@ -198,7 +208,7 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
 }
 
 function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
-  const meta = TYPE_META[item.sourceType] ?? { icon: '🌐', badge: 'bg-gray-700 text-gray-300' }
+  const meta = TYPE_META[item.sourceType] ?? { badge: 'bg-gray-700 text-gray-300' }
   const canDownload = (item.downloads?.length ?? 0) > 0
   return (
     <div
@@ -215,19 +225,19 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
           onError={(e) => { e.currentTarget.src = PLACEHOLDER }}
         />
         <span className={`absolute top-2 left-2 badge ${meta.badge} backdrop-blur-sm`}>
-          {meta.icon} {item.sourceType}
+          <TypeIcon type={item.sourceType} /> {item.sourceType}
         </span>
         {item.locked ? (
           <span className="absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm" title="Patron-only post — opens on Patreon">
-            🔒 patrons
+            <LockSimple size={11} weight="fill" /> patrons
           </span>
         ) : installed ? (
           <span className="absolute top-2 right-2 badge bg-emerald-500 text-white backdrop-blur-sm" title="Already downloaded through the app">
-            ✓ installed
+            <Check size={11} weight="bold" /> installed
           </span>
         ) : canDownload && (
           <span className="absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm" title="Free files attached — installs directly">
-            🆓 free
+            <Gift size={11} weight="fill" /> free
           </span>
         )}
       </div>
@@ -235,13 +245,13 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
         <p className="text-white font-semibold text-sm leading-tight line-clamp-2" title={item.title}>
           {item.title}
         </p>
-        {item.author && <p className="text-violet-400 text-xs truncate">{item.author}</p>}
+        {item.author && <p className="text-emerald-400 text-xs truncate">{item.author}</p>}
         {item.summary && (
           <p className="text-gray-500 text-xs leading-snug line-clamp-2">{item.summary}</p>
         )}
         <div className="flex items-center gap-2 mt-auto pt-1.5 text-gray-600 text-[11px]">
-          {item.date && <span>🕒 {formatRelative(item.date)}</span>}
-          <span className="ml-auto text-gray-500">↗ open</span>
+          {item.date && <span className="inline-flex items-center gap-1"><Clock size={12} weight="regular" /> {formatRelative(item.date)}</span>}
+          <span className="ml-auto text-gray-500 inline-flex items-center gap-1"><ArrowUpRight size={12} weight="bold" /> open</span>
         </div>
         {canDownload && <DiscoverDownloadButton item={item} installed={installed} onDownloaded={onDownloaded} />}
       </div>
@@ -394,12 +404,12 @@ export default function Discover() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowManage(s => !s)} className="btn-ghost px-3 py-2 text-sm">
-              {showManage ? '✕ Close' : '⚙ Sources'}
+              {showManage ? <><X size={15} weight="bold" /> Close</> : <><GearSix size={15} weight="fill" /> Sources</>}
             </button>
             <button onClick={() => load(true)} disabled={loading} className="btn-primary px-3 py-2 text-sm">
               {loading ? (
-                <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              ) : '🔄 Refresh'}
+                <CircleNotch size={16} weight="bold" className="animate-spin" />
+              ) : <><ArrowsClockwise size={15} weight="bold" /> Refresh</>}
             </button>
           </div>
         </div>
@@ -422,7 +432,7 @@ export default function Discover() {
               <div className="flex flex-wrap gap-2">
                 {(data?.sources ?? []).map(s => (
                   <span key={s.id} className={`chip !cursor-default ${s.error ? '!border-red-700/60' : ''}`}>
-                    {TYPE_META[s.type]?.icon} {s.label}
+                    <TypeIcon type={s.type} /> {s.label}
                     <span className="text-gray-600">({s.count})</span>
                     {!s.builtin && (
                       <button
@@ -430,7 +440,7 @@ export default function Discover() {
                         className="text-gray-500 hover:text-red-400 ml-1"
                         title="Unfollow"
                       >
-                        ✕
+                        <X size={12} weight="bold" />
                       </button>
                     )}
                   </span>
@@ -442,7 +452,7 @@ export default function Discover() {
 
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
+            <MagnifyingGlass size={16} weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
@@ -455,7 +465,7 @@ export default function Discover() {
             className={`chip ${onlyFree ? 'chip-active' : ''}`}
             title="Only posts with free, directly-installable files"
           >
-            🆓 Free & installable
+            <Gift size={13} weight="fill" /> Free & installable
             {freeCount > 0 && <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>}
           </button>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -472,10 +482,10 @@ export default function Discover() {
                   className="input px-2.5 py-2 text-sm bg-[#12141f] max-w-[14rem]"
                   title="Filter by source"
                 >
-                  <option value="">▾ By source ({opts.length})</option>
+                  <option value="">By source ({opts.length})</option>
                   {opts.map(s => (
                     <option key={s.id} value={s.id}>
-                      {TYPE_META[s.type]?.icon} {s.label}{s.count ? ` (${s.count})` : ''}{s.error ? ' ⚠' : ''}
+                      {s.label}{s.count ? ` (${s.count})` : ''}{s.error ? ' (!)' : ''}
                     </option>
                   ))}
                 </select>
@@ -490,7 +500,7 @@ export default function Discover() {
         {erroredSources.length > 0 && (
           <div className="mb-4 banner-warn">
             {erroredSources.map(s => (
-              <p key={s.id}>⚠️ {s.label}: {s.error}</p>
+              <p key={s.id} className="flex items-center gap-1.5"><Warning size={13} weight="fill" className="shrink-0" /> {s.label}: {s.error}</p>
             ))}
           </div>
         )}
@@ -511,11 +521,11 @@ export default function Discover() {
 
         {!loading && visible.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
-            <span className="text-5xl">🌐</span>
-            <p className="text-sm">
+            <Globe size={52} weight="thin" className="text-gray-700" />
+            <p className="text-sm flex items-center gap-1 flex-wrap justify-center">
               {query || sourceFilter !== 'all'
                 ? 'Nothing matches your filter.'
-                : 'Follow a creator via “⚙ Sources” to fill this feed.'}
+                : <>Follow a creator via <GearSix size={13} weight="fill" className="inline" /> Sources to fill this feed.</>}
             </p>
           </div>
         )}
@@ -533,7 +543,7 @@ export default function Discover() {
             </div>
             {/* sentinel: scrolling it into view widens the window / pulls the next page */}
             <div ref={sentinelRef} className="h-10 flex items-center justify-center">
-              {loadingMore && <span className="animate-spin inline-block w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full" />}
+              {loadingMore && <CircleNotch size={20} weight="bold" className="animate-spin text-emerald-400" />}
               {!loadingMore && shown >= visible.length && !data?.hasMore && (
                 <span className="text-gray-600 text-xs">— конец ленты —</span>
               )}

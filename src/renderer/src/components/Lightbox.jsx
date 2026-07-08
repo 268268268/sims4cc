@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { X, CaretLeft, CaretRight, CircleNotch } from '@phosphor-icons/react'
 
 /**
  * Full-screen in-app image viewer for a set of screenshots.
@@ -34,27 +35,27 @@ export default function Lightbox({ images, index = 0, onClose }) {
 
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg flex items-center justify-center transition-colors"
+        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
         title="Close (Esc)"
       >
-        ✕
+        <X size={22} weight="bold" />
       </button>
 
       {count > 1 && (
         <>
           <button
             onClick={(e) => { e.stopPropagation(); go(-1) }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
             title="Previous (←)"
           >
-            ‹
+            <CaretLeft size={24} weight="bold" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); go(1) }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center transition-colors"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
             title="Next (→)"
           >
-            ›
+            <CaretRight size={24} weight="bold" />
           </button>
         </>
       )}
@@ -69,7 +70,7 @@ export default function Lightbox({ images, index = 0, onClose }) {
       />
 
       {!loaded && (
-        <span className="absolute z-0 w-8 h-8 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+        <CircleNotch size={32} weight="bold" className="absolute z-0 text-white/50 animate-spin" />
       )}
 
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { DownloadSimple, ThumbsUp, HardDrives, CalendarBlank, GameController, ArrowUp, Check, Warning, ArrowSquareOut } from '@phosphor-icons/react'
 import Modal from './Modal'
 import Lightbox from './Lightbox'
 import DownloadButton from './DownloadButton'
@@ -8,15 +9,15 @@ import { pickLatestFile, RELEASE_TYPE } from '../lib/cfFile'
 const PLACEHOLDER =
   'data:image/svg+xml,' +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#1f2937"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#4b5563">📦</text></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220"><rect width="100%" height="100%" fill="#0c1a12"/><text x="50%" y="50%" font-size="60" text-anchor="middle" dy=".35em" fill="#1f6a4d">&#9670;</text></svg>'
   )
 
-function Stat({ icon, label, value }) {
+function Stat({ Icon, label, value }) {
   if (!value) return null
   return (
     <div className="flex flex-col">
       <span className="text-gray-500 text-[11px] uppercase tracking-wide">{label}</span>
-      <span className="text-gray-200 text-sm">{icon} {value}</span>
+      <span className="text-gray-200 text-sm inline-flex items-center gap-1.5"><Icon size={15} weight="regular" className="text-emerald-400" /> {value}</span>
     </div>
   )
 }
@@ -51,7 +52,7 @@ function DescriptionTab({ modId }) {
       </div>
     )
   }
-  if (state.error) return <p className="text-red-400 text-sm">⚠️ {state.error}</p>
+  if (state.error) return <p className="text-red-400 text-sm flex items-center gap-1.5"><Warning size={15} weight="fill" /> {state.error}</p>
   if (!state.html) return <p className="text-gray-600 text-sm">No description provided.</p>
 
   return (
@@ -93,20 +94,20 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
               <span className={`badge ${release.cls} shrink-0`} title={release.title}>{release.label}</span>
             )}
             {hasUpdate ? (
-              <span className="badge bg-amber-500/90 text-black font-semibold shrink-0">⬆ Update available</span>
+              <span className="badge bg-amber-500/90 text-black font-semibold shrink-0"><ArrowUp size={11} weight="bold" /> Update available</span>
             ) : installed && (
-              <span className="badge bg-emerald-600/90 text-white shrink-0">✓ Installed</span>
+              <span className="badge bg-emerald-600/90 text-white shrink-0"><Check size={11} weight="bold" /> Installed</span>
             )}
           </div>
-          <p className="text-violet-400 text-sm mt-1">by {author}</p>
+          <p className="text-emerald-400 text-sm mt-1">by {author}</p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <Stat icon="⬇" label="Downloads" value={downloads} />
-          <Stat icon="👍" label="Likes" value={thumbs} />
-          <Stat icon="💾" label="File size" value={size} />
-          <Stat icon="🗓" label="Updated" value={updated} />
-          <Stat icon="🎮" label="Game ver." value={gameVersion} />
+          <Stat Icon={DownloadSimple} label="Downloads" value={downloads} />
+          <Stat Icon={ThumbsUp} label="Likes" value={thumbs} />
+          <Stat Icon={HardDrives} label="File size" value={size} />
+          <Stat Icon={CalendarBlank} label="Updated" value={updated} />
+          <Stat Icon={GameController} label="Game ver." value={gameVersion} />
         </div>
 
         {/* Tabs */}
@@ -149,7 +150,7 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
                       alt={s.title || 'screenshot'}
                       title={s.title || 'View full size'}
                       onClick={() => setLightboxIndex(idx)}
-                      className="h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-violet-500/60 hover:brightness-110 transition-all shrink-0"
+                      className="h-24 rounded-lg border border-white/10 object-cover cursor-pointer hover:border-emerald-500/60 hover:brightness-110 transition-all shrink-0"
                     />
                   ))}
                 </div>
@@ -171,7 +172,7 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
               onClick={() => window.api.openExternal(websiteUrl)}
               className="btn-ghost px-4 py-2 text-sm"
             >
-              🔗 Open on CurseForge
+              <ArrowSquareOut size={16} weight="bold" /> Open on CurseForge
             </button>
           )}
         </div>
