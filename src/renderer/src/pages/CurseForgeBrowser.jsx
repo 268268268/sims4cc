@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { DownloadSimple, ThumbsUp, HardDrives, Clock, ArrowUp, Check, MagnifyingGlass, ArrowsClockwise, Warning, Tray, CircleNotch, X } from '@phosphor-icons/react'
+import { DownloadSimple, ThumbsUp, HardDrives, Clock, ArrowUp, Check, MagnifyingGlass, ArrowsClockwise, Warning, Tray, CircleNotch, X, CaretLeft } from '@phosphor-icons/react'
 import DownloadButton from '../components/DownloadButton'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import CategoryFilter from '../components/CategoryFilter'
@@ -30,8 +30,38 @@ function getThumbnail(mod) {
   return mod?.logo?.thumbnailUrl || PLACEHOLDER_THUMB
 }
 
-function getAuthor(mod) {
-  return mod?.authors?.[0]?.name || 'Unknown'
+// Author name(s) as clickable links → opens that author's mods. stopPropagation
+// so clicking the nick inside a card doesn't also open the mod detail.
+function AuthorLine({ mod, onOpenAuthor, className = '' }) {
+  const authors = mod?.authors?.length ? mod.authors : null
+  if (!authors) return <p className={`text-emerald-400 text-xs truncate ${className}`}>Unknown</p>
+  return (
+    <p className={`text-xs truncate ${className}`} title={authors.map(a => a.name).join(', ')}>
+      {authors.map((a, i) => (
+        <span key={a.id ?? a.name}>
+          {i > 0 && <span className="text-gray-600">, </span>}
+          {a.id != null && onOpenAuthor ? (
+            <button onClick={(e) => { e.stopPropagation(); onOpenAuthor(a) }} className="text-emerald-400 hover:text-emerald-300 hover:underline">
+              {a.name}
+            </button>
+          ) : <span className="text-emerald-400">{a.name}</span>}
+        </span>
+      ))}
+    </p>
+  )
+}
+
+function SortChips({ sortField, onSortChange }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-gray-600 text-xs">Sort:</span>
+      {SORT_OPTIONS.map(s => (
+        <button key={String(s.id)} onClick={() => onSortChange(s.id)} className={`chip ${sortField === s.id ? 'chip-active' : ''}`}>
+          {s.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function SkeletonCard() {
@@ -49,7 +79,7 @@ function SkeletonCard() {
   )
 }
 
-function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
+function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor }) {
   const latest = pickLatestFile(mod)
   const size = formatBytes(latest?.fileLength)
   const downloads = formatCount(mod.downloadCount)
@@ -89,9 +119,7 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
         <p className="text-white font-semibold text-sm leading-tight line-clamp-2" title={mod.name}>
           {mod.name}
         </p>
-        <p className="text-emerald-400 text-xs truncate" title={getAuthor(mod)}>
-          {getAuthor(mod)}
-        </p>
+        <AuthorLine mod={mod} onOpenAuthor={onOpenAuthor} />
         {mod.summary && (
           <p className="text-gray-500 text-xs leading-snug line-clamp-3 mt-1" title={mod.summary}>
             {mod.summary}
@@ -115,7 +143,7 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen }) {
   )
 }
 
-function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalled, onOpen, onRecheck }) {
+function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalled, onOpen, onOpenAuthor, onRecheck }) {
   if (checking && !updateInfo) {
     return (
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
@@ -169,6 +197,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
             hasUpdate={metaById.get(mod.id)?.updateAvailable === true}
             onInstalled={onInstalled}
             onOpen={onOpen}
+            onOpenAuthor={onOpenAuthor}
           />
         ))}
       </div>
@@ -202,10 +231,13 @@ export default function CurseForgeBrowser() {
   // ids of mods already downloaded (persisted across restarts, self-healing on delete)
   const [downloadedIds, setDownloadedIds] = useState(() => new Set())
   const [selectedMod, setSelectedMod] = useState(null) // detail modal target
-  const [categories, setCategories] = useState([])
-  const [categoryId, setCategoryId] = useState(null) // null = all categories
-  const [sortField, setSortField] = useState(null) // null = API relevance order
+  const [classes, setClasses] = useState([])       // top-level site sections
+  const [categories, setCategories] = useState([]) // leaf categories
+  const [classId, setClassId] = useState(null)     // null = all sections
+  const [categoryIds, setCategoryIds] = useState([]) // multi-select leaf filters (AND)
+  const [sortField, setSortField] = useState(2)    // default: Popularity (avoids the raw-upload firehose)
   const [view, setView] = useState('browse') // browse | installed
+  const [authorView, setAuthorView] = useState(null) // { id, name, avatarUrl } | null
   const [installedFilter, setInstalledFilter] = useState('all') // all | updates
   const [updateInfo, setUpdateInfo] = useState(null) // { checkedAt, updates, mods }
   const [checking, setChecking] = useState(false)
@@ -221,8 +253,12 @@ export default function CurseForgeBrowser() {
   const activeSortRef = useRef(null)
   const scrollRootRef = useRef(null)
   const loadMoreRef = useRef(null)
+  // browse state snapshot taken when entering author view, restored on "Back"
+  const preAuthorRef = useRef(null)
+  // scrollTop to reapply once after a restore fetch settles (best-effort)
+  const restoreScrollRef = useRef(null)
 
-  const fetchPage = useCallback((filter, page, category, sort) => {
+  const fetchPage = useCallback((filter, page, filters, sort) => {
     const reqId = ++reqIdRef.current
     const append = page > 0
     if (append) {
@@ -230,7 +266,7 @@ export default function CurseForgeBrowser() {
       setLoadMoreFailed(false)
     } else {
       activeFilterRef.current = filter
-      activeCategoryRef.current = category ?? null
+      activeCategoryRef.current = filters ?? { classId: null, categoryIds: [] }
       activeSortRef.current = sort ?? null
       setIsLoading(true)
       // ponytail: a superseded in-flight append never reaches its own .finally
@@ -242,8 +278,12 @@ export default function CurseForgeBrowser() {
       setHasMore(true)
     }
     const params = { searchFilter: filter, index: page * PAGE_SIZE, pageSize: PAGE_SIZE }
-    const cat = append ? activeCategoryRef.current : (category ?? null)
-    if (cat != null) params.categoryId = cat
+    const f = (append ? activeCategoryRef.current : filters) ?? { classId: null, categoryIds: [] }
+    if (f.authorId != null) params.authorId = f.authorId // author view: ignore class/category
+    else {
+      if (f.classId != null) params.classId = f.classId
+      if (f.categoryIds?.length) params.categoryIds = f.categoryIds
+    }
     const srt = append ? activeSortRef.current : (sort ?? null)
     if (srt != null) params.sortField = srt
     window.api
@@ -296,34 +336,101 @@ export default function CurseForgeBrowser() {
 
   // Load popular mods on mount
   useEffect(() => {
-    fetchPage('', 0, null)
+    fetchPage('', 0, { classId: null, categoryIds: [] }, sortField)
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPage])
 
-  // Load the category list once for the browse filter
+  // Load the class + category lists once for the browse filters
   useEffect(() => {
     window.api.getCurseForgeCategories?.().then(res => {
-      if (res?.data?.length) setCategories(res.data)
+      if (res?.classes?.length) setClasses(res.classes)
+      if (res?.categories?.length) setCategories(res.categories)
     })
   }, [])
 
-  // Picking a category restarts the browse from page 0, keeping the search text
-  const onCategoryChange = (id) => {
-    setCategoryId(id)
+  // Re-run the browse from page 0 with the given filters, keeping search + sort
+  const applyFilters = useCallback((cls, cats) => {
     if (timerRef.current) clearTimeout(timerRef.current)
     if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
-    fetchPage(activeFilterRef.current, 0, id, activeSortRef.current)
+    fetchPage(activeFilterRef.current, 0, { classId: cls, categoryIds: cats }, activeSortRef.current)
+  }, [fetchPage])
+
+  // Picking a top-level section: single-select. Switching class drops leaf filters
+  // that don't belong to it (they'd AND to zero results).
+  const onClassChange = (id) => {
+    const nextClass = id === classId ? null : id
+    const nextCats = nextClass == null
+      ? categoryIds
+      : categoryIds.filter(cid => categories.find(c => c.id === cid)?.classId === nextClass)
+    setClassId(nextClass)
+    setCategoryIds(nextCats)
+    applyFilters(nextClass, nextCats)
   }
 
-  // Picking a sort restarts from page 0, keeping search + category
+  // Toggling a leaf category: multi-select, AND-combined to narrow results
+  const onCategoryToggle = (id) => {
+    const next = categoryIds.includes(id) ? categoryIds.filter(c => c !== id) : [...categoryIds, id]
+    setCategoryIds(next)
+    applyFilters(classId, next)
+  }
+
+  // Picking a sort restarts from page 0, keeping search + filters
   const onSortChange = (id) => {
     setSortField(id)
     if (timerRef.current) clearTimeout(timerRef.current)
     if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
     fetchPage(activeFilterRef.current, 0, activeCategoryRef.current, id)
   }
+
+  // Enter the author view: snapshot the current browse state, then load only this
+  // author's mods (keeping the active sort). Works from the grid or the detail modal.
+  const openAuthor = useCallback((author) => {
+    if (!author?.id) return
+    if (!authorView) {
+      preAuthorRef.current = {
+        view, searchQuery, classId, categoryIds, sortField,
+        scrollTop: scrollRootRef.current?.scrollTop ?? 0
+      }
+    }
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setSelectedMod(null)
+    setView('browse')
+    setAuthorView({ id: author.id, name: author.name, avatarUrl: author.avatarUrl })
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
+    fetchPage('', 0, { authorId: author.id, classId: null, categoryIds: [] }, sortField)
+  }, [authorView, searchQuery, classId, categoryIds, sortField, fetchPage])
+
+  // Leave the author view: restore the snapshotted filters + scroll position
+  const exitAuthor = useCallback(() => {
+    const snap = preAuthorRef.current
+    setAuthorView(null)
+    if (snap) {
+      setView(snap.view)
+      setSearchQuery(snap.searchQuery)
+      setClassId(snap.classId)
+      setCategoryIds(snap.categoryIds)
+      setSortField(snap.sortField)
+      restoreScrollRef.current = snap.scrollTop
+      // Installed view rebuilds from updateInfo (no page fetch); only refetch for browse
+      if (snap.view !== 'installed') {
+        fetchPage(snap.searchQuery, 0, { classId: snap.classId, categoryIds: snap.categoryIds }, snap.sortField)
+      }
+    } else {
+      fetchPage('', 0, { classId: null, categoryIds: [] }, sortField)
+    }
+    preAuthorRef.current = null
+  }, [fetchPage, sortField])
+
+  // Reapply the saved scroll position once the restore fetch has painted
+  useEffect(() => {
+    if (!isLoading && restoreScrollRef.current != null && scrollRootRef.current) {
+      scrollRootRef.current.scrollTop = restoreScrollRef.current
+      restoreScrollRef.current = null
+    }
+  }, [isLoading])
 
   // Update check: session-cached in main; force re-checks everything
   const runUpdateCheck = useCallback(async (force) => {
@@ -337,9 +444,16 @@ export default function CurseForgeBrowser() {
     }
   }, [])
 
-  // Entering the Installed view loads the (cached) check automatically
+  // Entering the Installed view loads the (cached) check automatically; when that
+  // result was served from the persisted disk cache, recompute once in the background.
+  const bgRefreshedRef = useRef(false)
   useEffect(() => {
-    if (view === 'installed' && !updateInfo && !checking) runUpdateCheck(false)
+    if (view !== 'installed' || checking) return
+    if (!updateInfo) runUpdateCheck(false)
+    else if (updateInfo.fromCache && !bgRefreshedRef.current) {
+      bgRefreshedRef.current = true
+      runUpdateCheck(true)
+    }
   }, [view, updateInfo, checking, runUpdateCheck])
 
   // Load the "already downloaded" set on mount so cards can show the Installed
@@ -408,6 +522,20 @@ export default function CurseForgeBrowser() {
           <p className="page-subtitle">Browse and download Sims 4 mods from CurseForge</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {authorView ? (
+            <>
+              <button onClick={exitAuthor} className="btn-ghost px-3 py-1.5 text-xs">
+                <CaretLeft size={14} weight="bold" /> Back
+              </button>
+              <div className="flex items-center gap-2 min-w-0">
+                {authorView.avatarUrl && <img src={authorView.avatarUrl} alt="" className="w-6 h-6 rounded-full" />}
+                <span className="text-white font-semibold truncate">{authorView.name}</span>
+                {totalCount != null && <span className="text-gray-500 text-xs">· {totalCount.toLocaleString()} mods</span>}
+              </div>
+              <div className="ml-auto"><SortChips sortField={sortField} onSortChange={onSortChange} /></div>
+            </>
+          ) : (
+          <>
           {/* Browse / Installed switch */}
           <div className="flex items-center gap-1.5">
             <button onClick={() => setView('browse')} className={`chip ${view === 'browse' ? 'chip-active' : ''}`}>
@@ -440,23 +568,34 @@ export default function CurseForgeBrowser() {
               </div>
               {categories.length > 0 && (
                 <CategoryFilter
-                  categories={categories}
-                  selectedId={categoryId}
-                  onSelect={onCategoryChange}
+                  categories={classId ? categories.filter(c => c.classId === classId) : categories}
+                  selectedIds={categoryIds}
+                  onToggle={onCategoryToggle}
+                  onClear={() => { setCategoryIds([]); applyFilters(classId, []) }}
                 />
               )}
-              <div className="flex items-center gap-1.5">
-                <span className="text-gray-600 text-xs">Sort:</span>
-                {SORT_OPTIONS.map(s => (
+              <SortChips sortField={sortField} onSortChange={onSortChange} />
+              {/* Section chips (top-level classes) — own row via w-full in the wrap */}
+              {classes.length > 0 && (
+                <div className="w-full flex items-center gap-1.5 flex-wrap">
                   <button
-                    key={String(s.id)}
-                    onClick={() => onSortChange(s.id)}
-                    className={`chip ${sortField === s.id ? 'chip-active' : ''}`}
+                    onClick={() => onClassChange(null)}
+                    className={`chip ${classId == null ? 'chip-active' : ''}`}
                   >
-                    {s.label}
+                    All
                   </button>
-                ))}
-              </div>
+                  {classes.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => onClassChange(c.id)}
+                      className={`chip ${classId === c.id ? 'chip-active' : ''}`}
+                    >
+                      {c.iconUrl && <img src={c.iconUrl} alt="" className="w-3.5 h-3.5 rounded-sm" />}
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -486,6 +625,8 @@ export default function CurseForgeBrowser() {
               </button>
             </>
           )}
+          </>
+          )}
         </div>
       </div>
 
@@ -499,6 +640,7 @@ export default function CurseForgeBrowser() {
             downloadedIds={downloadedIds}
             onInstalled={markInstalled}
             onOpen={setSelectedMod}
+            onOpenAuthor={openAuthor}
             onRecheck={() => runUpdateCheck(true)}
           />
         )}
@@ -534,10 +676,11 @@ export default function CurseForgeBrowser() {
                 ? `Showing ${mods.length.toLocaleString()} of ${totalCount.toLocaleString()} mods`
                 : `${mods.length.toLocaleString()} mod${mods.length !== 1 ? 's' : ''}`}
               {displayedFilter && ` · results for "${displayedFilter}"`}
-              {categoryId && (() => {
-                const c = categories.find(x => x.id === categoryId)
+              {classId && (() => {
+                const c = classes.find(x => x.id === classId)
                 return c ? ` · in ${c.name}` : null
               })()}
+              {categoryIds.length > 0 && ` · ${categoryIds.length} filter${categoryIds.length !== 1 ? 's' : ''}`}
               {(() => {
                 const n = mods.reduce((c, m) => c + (downloadedIds.has(m.id) ? 1 : 0), 0)
                 return n > 0 ? <span className="text-emerald-400"> · {n} installed</span> : null
@@ -555,6 +698,7 @@ export default function CurseForgeBrowser() {
                   hasUpdate={outdatedIds.has(mod.id)}
                   onInstalled={markInstalled}
                   onOpen={setSelectedMod}
+                  onOpenAuthor={openAuthor}
                 />
               ))}
             </div>
@@ -592,6 +736,7 @@ export default function CurseForgeBrowser() {
           hasUpdate={outdatedIds.has(selectedMod.id)}
           onInstalled={markInstalled}
           onClose={() => setSelectedMod(null)}
+          onOpenAuthor={openAuthor}
         />
       )}
     </div>

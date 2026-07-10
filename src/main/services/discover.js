@@ -196,6 +196,30 @@ export async function fetchDiscover({ force = false } = {}) {
 }
 
 /**
+ * Fetch one source's feed on its own (for the author view). Bypasses the shared
+ * aggregate cache entirely so paging an author never disturbs the main feed's
+ * cursor state. Pass the returned nextCursor back to page further (Patreon only).
+ * @returns {Promise<{ ok, items, label?, nextCursor?, error? }>}
+ */
+export async function fetchSourceFeed(sourceId, cursor = null) {
+  const source = [...BUILTINS, ...(await listSources())].find(s => s.id === sourceId)
+  if (!source) return { ok: false, error: 'Source not found', items: [] }
+  const adapter = ADAPTERS[source.type]
+  if (!adapter) return { ok: false, error: 'Unknown source type', items: [] }
+  try {
+    const { label, items, nextCursor } = await adapter(source.input, source.id, { cursor })
+    return {
+      ok: true,
+      label: label ?? source.label,
+      items: (items ?? []).map(it => ({ ...it, sourceId: source.id })),
+      nextCursor: nextCursor ?? null
+    }
+  } catch (err) {
+    return { ok: false, error: err.message, items: [] }
+  }
+}
+
+/**
  * Fetch the next page from every source that still has a cursor (Patreon), append
  * to the session cache, and return the freshly-loaded items to the renderer.
  * @returns {Promise<{ ok, items, hasMore }>}

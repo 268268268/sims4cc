@@ -15,13 +15,15 @@ const SIMS4_GAME_ID = 78062
  * Search CurseForge mods for The Sims 4.
  * @param {Object} params
  * @param {string} [params.searchFilter] - free-text search query
- * @param {number} [params.categoryId]   - CurseForge category id
+ * @param {number} [params.classId]      - CurseForge top-level class id (site section)
+ * @param {number} [params.categoryId]   - single CurseForge leaf category id
+ * @param {number[]} [params.categoryIds]- leaf category ids, AND-combined (narrows)
  * @param {number} [params.index=0]      - pagination offset
  * @param {number} [params.pageSize=50]  - results per page
  * @returns {Promise<{ data: Array, pagination: Object|null, error?: string }>}
  */
 export async function searchMods(params = {}) {
-  const { searchFilter = '', categoryId, index = 0, pageSize = 50, sortField, sortOrder } = params
+  const { searchFilter = '', classId, categoryId, categoryIds, authorId, index = 0, pageSize = 50, sortField, sortOrder } = params
 
   const apiKey = await getApiKey()
 
@@ -33,7 +35,15 @@ export async function searchMods(params = {}) {
   const url = new URL(`${API_BASE}/mods/search`)
   url.searchParams.set('gameId', SIMS4_GAME_ID)
   if (searchFilter) url.searchParams.set('searchFilter', searchFilter)
-  if (categoryId != null) url.searchParams.set('categoryId', categoryId)
+  if (authorId != null) url.searchParams.set('authorId', authorId) // all mods by one author
+  // classId = top-level site section (Create a Sim, Build/Buy…). categoryIds = leaf
+  // filters with AND semantics (a mod must be in ALL of them) — narrows the result.
+  if (classId != null) url.searchParams.set('classId', classId)
+  if (Array.isArray(categoryIds) && categoryIds.length) {
+    url.searchParams.set('categoryIds', JSON.stringify(categoryIds))
+  } else if (categoryId != null) {
+    url.searchParams.set('categoryId', categoryId)
+  }
   // CF sortField enum: 2=Popularity, 3=LastUpdated, 4=Name, 6=TotalDownloads
   if (sortField != null) {
     url.searchParams.set('sortField', sortField)
@@ -241,13 +251,13 @@ let categoriesCache = null
 
 /**
  * Fetch the CurseForge category list for The Sims 4 (for the browse filter).
- * @returns {Promise<{ data: Array, error?: string }>}
+ * @returns {Promise<{ classes: Array, categories: Array, error?: string }>}
  */
 export async function getCategories() {
   if (categoriesCache) return categoriesCache
 
   const apiKey = await getApiKey()
-  if (!apiKey) return { data: [], error: 'CurseForge API key is not set.' }
+  if (!apiKey) return { classes: [], categories: [], error: 'CurseForge API key is not set.' }
 
   try {
     const url = new URL(`${API_BASE}/categories`)
@@ -258,18 +268,18 @@ export async function getCategories() {
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      return { data: [], error: `CurseForge categories error: ${res.status} ${res.statusText} ${body}` }
+      return { classes: [], categories: [], error: `CurseForge categories error: ${res.status} ${res.statusText} ${body}` }
     }
     const json = await res.json()
-    // Only leaf categories are useful as a search filter; classes (isClass) are
-    // top-level groupings the mod search does not tag items with directly.
-    const data = (json.data ?? [])
-      .filter(c => c && c.name && !c.isClass)
-      .sort((a, b) => a.name.localeCompare(b.name))
-    categoriesCache = { data }
+    // Two levels: classes (isClass) are the top-level site sections — filtered via
+    // search's classId; leaf categories carry a classId and filter via categoryIds.
+    const all = (json.data ?? []).filter(c => c && c.name)
+    const classes = all.filter(c => c.isClass).sort((a, b) => a.name.localeCompare(b.name))
+    const categories = all.filter(c => !c.isClass).sort((a, b) => a.name.localeCompare(b.name))
+    categoriesCache = { classes, categories }
     return categoriesCache
   } catch (err) {
-    return { data: [], error: err.message }
+    return { classes: [], categories: [], error: err.message }
   }
 }
 

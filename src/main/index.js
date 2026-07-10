@@ -1,12 +1,13 @@
 import 'dotenv/config'
 
 import { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } from 'electron'
-import { join, dirname, resolve, sep } from 'path'
+import { join, dirname, resolve, sep, basename } from 'path'
 import { unlink, access, rm, mkdir } from 'fs/promises'
 import { pathToFileURL } from 'url'
 import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
 import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription } from './services/curseForgeClient.js'
 import { matchLocalMods } from './services/curseForgeLocalMatch.js'
+import { jsonCache } from './services/jsonCache.js'
 import { extractModArchive } from './services/archiveExtractor.js'
 import { recordDownload, getDownloaded, recordDiscoverDownload, getDiscoverDownloaded } from './services/downloadStore.js'
 import { getThumbCacheDir } from './services/dbpfThumbnail.js'
@@ -14,7 +15,7 @@ import { inspectLocalMod } from './services/localModInspector.js'
 import { deleteLocalMod } from './services/localModDelete.js'
 import { importFiles } from './services/modImporter.js'
 import { checkUpdates, updateInstalledMod, invalidateUpdateCache } from './services/updateService.js'
-import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
+import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, fetchSourceFeed, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
 
@@ -161,6 +162,33 @@ ipcMain.handle('localMods:extractArchive', async (_e, filePath) => {
   }
 })
 
+// IPC: extract every .zip in the Mods folder — each into its own named folder,
+// zip deleted on success. Returns a summary; a bad archive doesn't abort the rest.
+ipcMain.handle('localMods:extractAllArchives', async () => {
+  try {
+    const config = await readConfig()
+    if (!config.modsFolder) return { ok: false, error: 'Mods folder not configured.' }
+    const absFolder = resolve(config.modsFolder)
+    const trayFolder = await findTrayFolder(config.modsFolder)
+    const archives = (await getCachedLocalMods())
+      .filter(m => m.type === 'archive' && m.filePath && /\.zip$/i.test(m.filePath))
+    let extracted = 0
+    const failed = []
+    for (const a of archives) {
+      const absFile = resolve(a.filePath)
+      const rel = absFile.slice(absFolder.length)
+      if (!absFile.startsWith(absFolder) || (rel !== '' && !rel.startsWith(sep))) continue
+      const res = await extractModArchive(absFile, absFolder, undefined, { trayFolder })
+      if (res.ok) { await unlink(absFile).catch(() => {}); extracted++ }
+      else failed.push({ name: basename(absFile), error: res.error })
+    }
+    if (extracted || failed.length) onLocalModsChanged()
+    return { ok: true, extracted, failed }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // IPC: toggle local mod enabled/disabled (rename file extension)
 ipcMain.handle('localMods:toggleEnabled', async (_e, filePath, enabled) => {
   try {
@@ -259,15 +287,23 @@ ipcMain.handle('curseforge:update', async (e, mod) => {
 
 // IPC: identify which local mods come from CurseForge (by file fingerprint) and
 // whether a newer file exists. Returns { [filePathLower]: { modId, name, hasUpdate } }.
-ipcMain.handle('curseforge:matchLocal', async () => {
+const matchLocalCache = jsonCache('cf-match-cache.json')
+ipcMain.handle('curseforge:matchLocal', async (_e, { cached = false } = {}) => {
+  // cached:true → return the last persisted match instantly (empty {} if none),
+  // so a large library shows badges on first paint and recomputes in the background.
+  if (cached) return (await matchLocalCache.load()) ?? {}
   const found = await matchLocalMods()
-  if (!found.length) return {}
+  if (!found.length) {
+    await matchLocalCache.save({})
+    return {}
+  }
   const { data } = await getModsByIds(found.map(f => f.modId))
   const nameById = new Map((data ?? []).map(m => [m.id, m.name]))
   const result = {}
   for (const f of found) {
     result[f.filePath.toLowerCase()] = { modId: f.modId, name: nameById.get(f.modId) ?? null, hasUpdate: f.hasUpdate }
   }
+  await matchLocalCache.save(result)
   return result
 })
 
@@ -374,6 +410,13 @@ ipcMain.handle('discover:fetchMore', async () => {
     return await fetchMoreDiscover()
   } catch (err) {
     return { ok: false, items: [], hasMore: false, error: err.message }
+  }
+})
+ipcMain.handle('discover:fetchSource', async (_e, { sourceId, cursor } = {}) => {
+  try {
+    return await fetchSourceFeed(sourceId, cursor ?? null)
+  } catch (err) {
+    return { ok: false, items: [], error: err.message }
   }
 })
 ipcMain.handle('discover:suggested', () => getSuggested())

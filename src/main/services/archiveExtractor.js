@@ -2,8 +2,6 @@ import AdmZip from 'adm-zip'
 import { join, basename, extname, dirname } from 'path'
 import { mkdir, writeFile, readdir, unlink, rmdir, access } from 'fs/promises'
 
-// files the game actually loads — an archive must contain at least one to count as a mod
-const MOD_EXTS = new Set(['.package', '.ts4script'])
 // lot/household files that belong in <Sims 4>/Tray, not in Mods
 export const TRAY_EXTS = new Set(['.trayitem', '.householdbinary', '.blueprint', '.room', '.bpi', '.hhi', '.sgi'])
 const JUNK_RE = /(^|[\\/])(__MACOSX|\.DS_Store|Thumbs\.db|desktop\.ini)/i
@@ -66,9 +64,9 @@ async function pickTargetFolder(modsFolder, baseName) {
 /**
  * Extract a downloaded mod archive into a fresh `modsFolder/<folderName>/`.
  *
- * Refuses archives with no .package/.ts4script. Extracts EVERY non-junk entry
- * (Tray files, configs, readmes included — deleting the zip afterwards must
- * never lose content), flattened to a single folder: .ts4script mods must sit
+ * Extracts EVERY non-junk entry unconditionally (Tray files, configs, readmes
+ * included — deleting the zip afterwards must never lose content; only a truly
+ * empty archive is refused), flattened to a single folder: .ts4script mods must sit
  * at most one level below Mods, so deep archive layouts would break in game.
  * The target folder is always new or empty ("Name (2)" on collision), so an
  * extraction can never overwrite another mod's files. On any error the files
@@ -97,9 +95,11 @@ export async function extractModArchive(zipPath, modsFolder, nameHint, opts = {}
     return { ok: false, error: `Corrupt zip index: ${err.message}` }
   }
 
-  const hasModFile = entries.some(e => MOD_EXTS.has(extname(e.entryName).toLowerCase()))
-  if (!hasModFile) {
-    return { ok: false, error: 'No Sims 4 mod files (.package / .ts4script) found in the archive.' }
+  // Extract every archive unconditionally — even ones without recognized mod files
+  // (folder-only layouts, unusual extensions). Only a truly empty archive is refused,
+  // so we never delete a zip whose contents we failed to read.
+  if (!entries.length) {
+    return { ok: false, error: 'Archive is empty — nothing to extract.' }
   }
 
   const trayEntries = trayFolder

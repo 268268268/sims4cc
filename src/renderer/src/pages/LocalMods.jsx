@@ -318,7 +318,12 @@ export default function LocalMods({ modsFolder }) {
   useEffect(() => {
     if (state !== 'done' || !result?.mods?.length) return
     let cancelled = false
-    window.api.matchLocalCurseForge?.().then(map => {
+    // Show the previous match from cache instantly, then recompute in the background.
+    window.api.matchLocalCurseForge?.({ cached: true }).then(map => {
+      if (cancelled) return
+      if (map && Object.keys(map).length) setCfFinger(map)
+      return window.api.matchLocalCurseForge?.()
+    }).then(map => {
       if (!cancelled && map) setCfFinger(map)
     }).catch(() => {})
     return () => { cancelled = true }
@@ -397,6 +402,26 @@ export default function LocalMods({ modsFolder }) {
       setBusyPath(p => (p === mod.filePath ? null : p))
     }
   }, [busyPath, scan])
+
+  const [extractingAll, setExtractingAll] = useState(false)
+  const handleExtractAll = useCallback(async () => {
+    if (extractingAll || busyPath) return
+    setActionError(null)
+    setExtractingAll(true)
+    try {
+      const res = await window.api.extractAllArchives()
+      if (!res.ok) { setActionError(res.error ?? 'Extraction failed.'); return }
+      if (res.failed?.length) {
+        setActionError(`${res.extracted} extracted, ${res.failed.length} failed: ${res.failed.map(f => f.name).join(', ')}`)
+      }
+      markChanged()
+      await scan()
+    } catch (err) {
+      setActionError(err.message)
+    } finally {
+      setExtractingAll(false)
+    }
+  }, [extractingAll, busyPath, scan])
 
   // delete flow: card/detail asks → ConfirmDialog → actual trash
   const requestDelete = useCallback((mod) => {
@@ -602,10 +627,19 @@ export default function LocalMods({ modsFolder }) {
         {/* Results */}
         {state === 'done' && visibleMods.length > 0 && (
           <>
-            <p className="text-gray-500 text-xs mb-4">
-              {visibleMods.length} of {result.count} item{result.count !== 1 ? 's' : ''}
-              {result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`}
-            </p>
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <p className="text-gray-500 text-xs">
+                {visibleMods.length} of {result.count} item{result.count !== 1 ? 's' : ''}
+                {result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`}
+              </p>
+              {filter === 'archive' && archiveCount > 0 && (
+                <button onClick={handleExtractAll} disabled={extractingAll || !!busyPath} className="btn-primary px-3 py-1.5 text-xs shrink-0">
+                  {extractingAll
+                    ? <><CircleNotch size={14} weight="bold" className="animate-spin" /> Extracting…</>
+                    : <><UploadSimple size={14} weight="bold" /> Extract all ({archiveCount})</>}
+                </button>
+              )}
+            </div>
             <div className={`grid ${dense ? 'gap-2.5' : 'gap-4'}`} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${dense ? 150 : 200}px, 1fr))` }}>
               {visibleMods.map(mod =>
                 mod.type === 'archive' ? (

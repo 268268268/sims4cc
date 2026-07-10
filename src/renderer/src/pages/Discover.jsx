@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Globe, CircleNotch, Check, Warning, Plus, CaretRight, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple } from '@phosphor-icons/react'
+import { Globe, CircleNotch, Check, Warning, Plus, CaretRight, CaretLeft, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple } from '@phosphor-icons/react'
 import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
@@ -209,7 +209,7 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
   )
 }
 
-function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
+function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor }) {
   const meta = TYPE_META[item.sourceType] ?? { badge: 'bg-gray-700 text-gray-300' }
   const canDownload = (item.downloads?.length ?? 0) > 0
   return (
@@ -247,7 +247,17 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded }) {
         <p className="text-white font-semibold text-sm leading-tight line-clamp-2" title={item.title}>
           {item.title}
         </p>
-        {item.author && <p className="text-emerald-400 text-xs truncate">{item.author}</p>}
+        {item.author && (
+          item.sourceId && onOpenAuthor ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenAuthor(item) }}
+              className="text-emerald-400 hover:text-emerald-300 hover:underline text-xs truncate text-left"
+              title={`See all from ${item.author}`}
+            >
+              {item.author}
+            </button>
+          ) : <p className="text-emerald-400 text-xs truncate">{item.author}</p>
+        )}
         {item.summary && (
           <p className="text-gray-500 text-xs leading-snug line-clamp-2">{item.summary}</p>
         )}
@@ -272,6 +282,15 @@ export default function Discover({ source = 'patreon' }) {
   const [suggested, setSuggested] = useState([])
   const [followingAll, setFollowingAll] = useState(false)
   const [downloaded, setDownloaded] = useState(() => ({ ids: new Set(), files: new Set() }))
+  // author view: one creator's full feed, paged independently of the aggregate
+  const [authorView, setAuthorView] = useState(null) // { sourceId, name } | null
+  const [authorItems, setAuthorItems] = useState([])
+  const [authorCursor, setAuthorCursor] = useState(null)
+  const [authorHasMore, setAuthorHasMore] = useState(false)
+  const [authorLoading, setAuthorLoading] = useState(false)
+  const scrollRootRef = useRef(null)
+  const preAuthorScrollRef = useRef(null)  // scrollTop before entering author view
+  const restoreAuthorScrollRef = useRef(null)
 
   const refreshDownloaded = useCallback(() => {
     window.api.getDownloadedDiscover?.().then(r =>
@@ -371,11 +390,55 @@ export default function Discover({ source = 'patreon' }) {
   // next network page (Patreon cursor) and merge it in.
   const PAGE = 40
   const [shown, setShown] = useState(PAGE)
+  const [authorShown, setAuthorShown] = useState(PAGE)
   const [loadingMore, setLoadingMore] = useState(false)
   const sentinelRef = useRef(null)
 
   useEffect(() => { setShown(PAGE) }, [query, source, postFilter]) // reset window when the filtered set changes
+  useEffect(() => { setAuthorShown(PAGE) }, [query, authorView]) // reset author window on search / new author
   useEffect(() => { setPostFilter('all') }, [source]) // Free/Paid don't apply to every source — reset on switch
+  useEffect(() => { setAuthorView(null) }, [source]) // leave author view when the sidebar source changes
+
+  // author feed, narrowed by the same search box for consistency
+  const authorVisible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return q ? authorItems.filter(i => i.title?.toLowerCase().includes(q) || i.summary?.toLowerCase().includes(q)) : authorItems
+  }, [authorItems, query])
+
+  const loadAuthor = useCallback(async (sourceId) => {
+    setAuthorLoading(true)
+    try {
+      const res = await window.api.fetchSourceDiscover?.({ sourceId, cursor: null })
+      if (res?.ok) { setAuthorItems(res.items ?? []); setAuthorCursor(res.nextCursor ?? null); setAuthorHasMore(!!res.nextCursor) }
+      else { setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false) }
+    } finally { setAuthorLoading(false) }
+  }, [])
+
+  const openAuthor = useCallback((item) => {
+    const sourceId = item?.sourceId
+    if (!sourceId) return
+    preAuthorScrollRef.current = scrollRootRef.current?.scrollTop ?? 0
+    setSelected(null)
+    const name = item.author || (data?.sources ?? []).find(s => s.id === sourceId)?.label || 'Creator'
+    setAuthorView({ sourceId, name })
+    setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false); setAuthorShown(PAGE)
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
+    loadAuthor(sourceId)
+  }, [data, loadAuthor])
+
+  const exitAuthor = useCallback(() => {
+    restoreAuthorScrollRef.current = preAuthorScrollRef.current
+    preAuthorScrollRef.current = null
+    setAuthorView(null)
+  }, [])
+
+  // restore the aggregate feed's scroll once we're back (its `shown` window is intact)
+  useEffect(() => {
+    if (!authorView && restoreAuthorScrollRef.current != null && scrollRootRef.current) {
+      scrollRootRef.current.scrollTop = restoreAuthorScrollRef.current
+      restoreAuthorScrollRef.current = null
+    }
+  }, [authorView])
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return
@@ -395,17 +458,39 @@ export default function Discover({ source = 'patreon' }) {
     }
   }, [loadingMore])
 
+  const loadAuthorMore = useCallback(async () => {
+    if (loadingMore || !authorCursor || !authorView) return
+    setLoadingMore(true)
+    try {
+      const res = await window.api.fetchSourceDiscover?.({ sourceId: authorView.sourceId, cursor: authorCursor })
+      if (res?.ok) {
+        setAuthorItems(prev => {
+          const seen = new Set(prev.map(i => i.id))
+          return [...prev, ...(res.items ?? []).filter(i => !seen.has(i.id))]
+        })
+        setAuthorCursor(res.nextCursor ?? null)
+        setAuthorHasMore(!!res.nextCursor)
+      } else setAuthorHasMore(false)
+    } finally { setLoadingMore(false) }
+  }, [loadingMore, authorCursor, authorView])
+
+  // the feed currently on screen — author view or the aggregate — with its own window + paging
+  const feed = authorView ? authorVisible : visible
+  const feedShown = authorView ? authorShown : shown
+  const feedHasMore = authorView ? authorHasMore : (data?.hasMore ?? false)
+  const activeLoading = authorView ? authorLoading : loading
+
   useEffect(() => {
     const el = sentinelRef.current
     if (!el) return
     const io = new IntersectionObserver(([e]) => {
       if (!e.isIntersecting) return
-      if (shown < visible.length) setShown(s => s + PAGE)
-      else if (data?.hasMore) loadMore()
+      if (feedShown < feed.length) (authorView ? setAuthorShown : setShown)(s => s + PAGE)
+      else if (feedHasMore) (authorView ? loadAuthorMore : loadMore)()
     }, { rootMargin: '600px' })
     io.observe(el)
     return () => io.disconnect()
-  }, [shown, visible.length, data?.hasMore, loadMore])
+  }, [feedShown, feed.length, feedHasMore, authorView, loadMore, loadAuthorMore])
 
   const erroredSources = (data?.sources ?? []).filter(s => s.error)
 
@@ -478,28 +563,36 @@ export default function Discover({ source = 'patreon' }) {
               className="input w-64 pl-9 pr-3 py-2"
             />
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title="Free + patron-only posts (hides news posts with nothing attached)">
-              All
-            </button>
-            {freeCount > 0 && (
-              <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title="Posts with free, directly-installable files">
-                <Gift size={13} weight="fill" /> Free
-                <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>
+          {authorView ? (
+            <div className="flex items-center gap-2 min-w-0">
+              <button onClick={exitAuthor} className="btn-ghost px-3 py-2 text-sm"><CaretLeft size={15} weight="bold" /> Back</button>
+              <span className="text-white font-semibold truncate">{authorView.name}</span>
+              <span className="text-gray-500 text-xs shrink-0">· {authorItems.length}{authorHasMore ? '+' : ''} posts</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title="Free + patron-only posts (hides news posts with nothing attached)">
+                All
               </button>
-            )}
-            {paidCount > 0 && (
-              <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title="Patron-only posts — open on Patreon">
-                <LockSimple size={13} weight="fill" /> Paid
-                <span className="badge bg-amber-600/40 text-amber-200 ml-1">{paidCount}</span>
-              </button>
-            )}
-          </div>
+              {freeCount > 0 && (
+                <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title="Posts with free, directly-installable files">
+                  <Gift size={13} weight="fill" /> Free
+                  <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>
+                </button>
+              )}
+              {paidCount > 0 && (
+                <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title="Patron-only posts — open on Patreon">
+                  <LockSimple size={13} weight="fill" /> Paid
+                  <span className="badge bg-amber-600/40 text-amber-200 ml-1">{paidCount}</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div ref={scrollRootRef} className="flex-1 overflow-y-auto px-6 py-5">
         {erroredSources.length > 0 && (
           <div className="mb-4 banner-warn">
             {erroredSources.map(s => (
@@ -508,7 +601,7 @@ export default function Discover({ source = 'patreon' }) {
           </div>
         )}
 
-        {loading && !data && (
+        {activeLoading && feed.length === 0 && (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="card">
@@ -522,32 +615,34 @@ export default function Discover({ source = 'patreon' }) {
           </div>
         )}
 
-        {!loading && visible.length === 0 && (
+        {!activeLoading && feed.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <Globe size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm flex items-center gap-1 flex-wrap justify-center">
-              {query || postFilter !== 'all' || source !== 'all'
-                ? 'Nothing matches this source or filter.'
-                : <>Follow a creator via <GearSix size={13} weight="fill" className="inline" /> Sources to fill this feed.</>}
+              {authorView
+                ? `No posts from ${authorView.name}.`
+                : query || postFilter !== 'all' || source !== 'all'
+                  ? 'Nothing matches this source or filter.'
+                  : <>Follow a creator via <GearSix size={13} weight="fill" className="inline" /> Sources to fill this feed.</>}
             </p>
           </div>
         )}
 
-        {visible.length > 0 && (
+        {feed.length > 0 && (
           <>
             <p className="text-gray-500 text-xs mb-4">
-              Showing {Math.min(shown, visible.length)} of {visible.length}
-              {data?.fetchedAt && ` · fetched ${new Date(data.fetchedAt).toLocaleTimeString()}`}
+              Showing {Math.min(feedShown, feed.length)} of {feed.length}{authorView && feedHasMore ? '+' : ''}
+              {!authorView && data?.fetchedAt && ` · fetched ${new Date(data.fetchedAt).toLocaleTimeString()}`}
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
-              {visible.slice(0, shown).map(item => (
-                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} />
+              {feed.slice(0, feedShown).map(item => (
+                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} onOpenAuthor={openAuthor} />
               ))}
             </div>
             {/* sentinel: scrolling it into view widens the window / pulls the next page */}
             <div ref={sentinelRef} className="h-10 flex items-center justify-center">
               {loadingMore && <CircleNotch size={20} weight="bold" className="animate-spin text-emerald-400" />}
-              {!loadingMore && shown >= visible.length && !data?.hasMore && (
+              {!loadingMore && feedShown >= feed.length && !feedHasMore && (
                 <span className="text-gray-600 text-xs">— конец ленты —</span>
               )}
             </div>
@@ -559,6 +654,7 @@ export default function Discover({ source = 'patreon' }) {
         <DiscoverDetail
           item={selected}
           onClose={() => setSelected(null)}
+          onOpenAuthor={openAuthor}
           renderDownload={(it) => <DiscoverDownloadButton item={it} installed={isInstalled(it)} onDownloaded={markDownloaded} />}
         />
       )}

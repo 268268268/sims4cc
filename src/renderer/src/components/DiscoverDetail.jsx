@@ -18,7 +18,7 @@ const PLACEHOLDER =
   )
 
 /** In-app preview card for a Discover item (no forced redirect). */
-export default function DiscoverDetail({ item, onClose, renderDownload }) {
+export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAuthor }) {
   const [lightbox, setLightbox] = useState(false)
   const meta = TYPE_META[item.sourceType] ?? { Icon: Globe, label: item.sourceType, badge: 'bg-gray-700 text-gray-300' }
   const MetaIcon = meta.Icon
@@ -50,7 +50,11 @@ export default function DiscoverDetail({ item, onClose, renderDownload }) {
           <div>
             <h2 className="text-xl font-bold text-white leading-tight">{item.title}</h2>
             <div className="flex items-center gap-2 mt-1 text-sm">
-              {item.author && <span className="text-emerald-400">{item.author}</span>}
+              {item.author && (
+                item.sourceId && onOpenAuthor ? (
+                  <button onClick={() => { onClose(); onOpenAuthor(item) }} className="text-emerald-400 hover:text-emerald-300 hover:underline">{item.author}</button>
+                ) : <span className="text-emerald-400">{item.author}</span>
+              )}
               {item.date && <span className="text-gray-600">· {formatRelative(item.date)}</span>}
             </div>
           </div>

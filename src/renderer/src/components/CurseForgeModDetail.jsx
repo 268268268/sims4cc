@@ -65,11 +65,11 @@ function DescriptionTab({ modId }) {
   )
 }
 
-export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInstalled, onClose }) {
+export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInstalled, onClose, onOpenAuthor }) {
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [tab, setTab] = useState('overview') // overview | description
   const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER
-  const author = mod?.authors?.[0]?.name || 'Unknown'
+  const authors = mod?.authors?.length ? mod.authors : null
   const file = pickLatestFile(mod)
   const size = formatBytes(file?.fileLength)
   const downloads = formatCount(mod?.downloadCount)
@@ -99,7 +99,17 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
               <span className="badge bg-emerald-600/90 text-white shrink-0"><Check size={11} weight="bold" /> Installed</span>
             )}
           </div>
-          <p className="text-emerald-400 text-sm mt-1">by {author}</p>
+          <p className="text-emerald-400 text-sm mt-1">
+            by{' '}
+            {authors ? authors.map((a, i) => (
+              <span key={a.id ?? a.name}>
+                {i > 0 && <span className="text-gray-600">, </span>}
+                {a.id != null && onOpenAuthor ? (
+                  <button onClick={() => onOpenAuthor(a)} className="hover:text-emerald-300 hover:underline">{a.name}</button>
+                ) : a.name}
+              </span>
+            )) : 'Unknown'}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">

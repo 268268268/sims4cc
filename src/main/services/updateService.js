@@ -3,10 +3,13 @@ import { resolve, sep } from 'path'
 import { getModsByIds, downloadMod, pickLatestFile } from './curseForgeClient.js'
 import { getDownloaded, recordDownload } from './downloadStore.js'
 import { matchLocalMods } from './curseForgeLocalMatch.js'
+import { jsonCache } from './jsonCache.js'
 
 // Session cache: update checks are cheap but not free — one forced check
-// refreshes everything, navigation reuses the result.
+// refreshes everything, navigation reuses the result. Also persisted to disk so
+// a large library shows its previous result instantly after a restart.
 let lastCheck = null
+const checkCache = jsonCache('cf-update-cache.json')
 
 export function invalidateUpdateCache() {
   lastCheck = null
@@ -18,6 +21,12 @@ export function invalidateUpdateCache() {
  */
 export async function checkUpdates({ force = false } = {}) {
   if (lastCheck && !force) return lastCheck
+  // Cold start: serve the previous result from disk instantly. fromCache tells the
+  // UI to trigger one background refresh so a stale answer gets replaced.
+  if (!force && !lastCheck) {
+    const disk = await checkCache.load()
+    if (disk) return (lastCheck = { ...disk, fromCache: true })
+  }
 
   const downloaded = await getDownloaded()
   const ids = Object.keys(downloaded).map(Number)
@@ -33,6 +42,7 @@ export async function checkUpdates({ force = false } = {}) {
   const allIds = [...new Set([...ids, ...fpByModId.keys()])]
   if (!allIds.length) {
     lastCheck = { ok: true, checkedAt: new Date().toISOString(), updates: [], mods: [] }
+    await checkCache.save(lastCheck)
     return lastCheck
   }
 
@@ -80,6 +90,7 @@ export async function checkUpdates({ force = false } = {}) {
   }
 
   lastCheck = { ok: true, checkedAt: new Date().toISOString(), updates, mods, ...(error ? { error } : {}) }
+  if (!error) await checkCache.save(lastCheck) // don't persist a partial result from a failed fetch
   return lastCheck
 }
 
