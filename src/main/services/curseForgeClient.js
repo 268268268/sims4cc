@@ -183,7 +183,13 @@ export async function matchFingerprints(fingerprints) {
       })
       if (!res.ok) { error = `CurseForge fingerprint error: ${res.status} ${res.statusText}`; continue }
       const json = await res.json()
-      for (const m of json.data?.exactMatches ?? []) matches.push(m)
+      // exactMatches[] is parallel to exactFingerprints[] (the SENT fingerprints that
+      // matched, in order). m.file.fileFingerprint is the mod's LATEST-file hash, NOT
+      // the one we sent — so we must carry the sent fingerprint ourselves to map the
+      // match back to its local file.
+      const ex = json.data?.exactMatches ?? []
+      const exFp = json.data?.exactFingerprints ?? []
+      ex.forEach((m, i) => matches.push({ ...m, matchedFingerprint: exFp[i] ?? m.file?.fileFingerprint }))
     } catch (err) {
       error = err.message
     }

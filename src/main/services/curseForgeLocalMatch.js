@@ -28,8 +28,10 @@ export async function matchLocalMods() {
   const out = []
   for (const mt of matches) {
     const file = mt.file
-    const filePath = file && fpByPath.get(file.fileFingerprint)
-    if (!filePath) continue
+    // map back by the SENT fingerprint (matchedFingerprint), not file.fileFingerprint
+    // which is the mod's latest-file hash and won't be in fpByPath
+    const filePath = fpByPath.get(mt.matchedFingerprint)
+    if (!file || !filePath) continue
     const latest = pickLatestFile({ latestFiles: mt.latestFiles })
     out.push({
       filePath,
