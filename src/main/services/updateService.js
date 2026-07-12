@@ -99,6 +99,17 @@ export async function checkUpdates({ force = false } = {}) {
  * "Name (2)" duplicate: trash the old install first, then download fresh.
  */
 export async function updateInstalledMod(mod, modsFolder, opts = {}) {
+  // Pre-flight: many Sims 4 CC authors disable third-party (app) downloads on
+  // CurseForge. Bail BEFORE trashing the installed file, so a blocked mod never
+  // leaves the user empty-handed with a broken update.
+  if (mod?.allowModDistribution === false) {
+    return {
+      ok: false,
+      blocked: true,
+      error: 'The author disabled app downloads for this mod on CurseForge — open it there to update manually.'
+    }
+  }
+
   const downloaded = await getDownloaded()
   const rec = downloaded[String(mod?.id)]
 

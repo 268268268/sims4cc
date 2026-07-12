@@ -145,7 +145,7 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor 
   )
 }
 
-function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalled, onOpen, onOpenAuthor, onRecheck }) {
+function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalled, onOpen, onOpenAuthor, onRecheck, onUpdateAll, updatingAll }) {
   if (checking && !updateInfo) {
     return (
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
@@ -167,6 +167,9 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
   if (filter === 'updates') mods = mods.filter(m => metaById.get(m.id)?.updateAvailable)
   const missing = updateInfo.updates.filter(u => !u.found)
   const updatesCount = updateInfo.updates.filter(u => u.updateAvailable).length
+  // app-updatable = has an update AND the author allows third-party downloads
+  const updatable = updateInfo.mods.filter(m => metaById.get(m.id)?.updateAvailable === true && m.allowModDistribution !== false)
+  const blockedCount = updateInfo.mods.filter(m => metaById.get(m.id)?.updateAvailable === true && m.allowModDistribution === false).length
 
   if (!mods.length && !missing.length) {
     return (
@@ -186,10 +189,25 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
 
   return (
     <>
-      <p className="text-gray-500 text-xs mb-4">
-        {mods.length} installed mod{mods.length !== 1 ? 's' : ''}
-        {updatesCount > 0 && <span className="text-amber-400"> · {updatesCount} update{updatesCount !== 1 ? 's' : ''} available</span>}
-      </p>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-gray-500 text-xs">
+          {mods.length} installed mod{mods.length !== 1 ? 's' : ''}
+          {updatesCount > 0 && <span className="text-amber-400"> · {updatesCount} update{updatesCount !== 1 ? 's' : ''} available</span>}
+          {blockedCount > 0 && <span className="text-gray-600"> · {blockedCount} can’t update via app</span>}
+        </p>
+        {updatable.length > 0 && (
+          <button
+            onClick={() => onUpdateAll(updatable)}
+            disabled={!!updatingAll}
+            title={blockedCount > 0 ? `${blockedCount} more have app-downloads disabled by the author — update those on CurseForge` : undefined}
+            className="btn-primary px-3 py-1.5 text-xs shrink-0"
+          >
+            {updatingAll
+              ? <><span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" /> Updating {updatingAll.done}/{updatingAll.total}…</>
+              : <><ArrowsClockwise size={14} weight="bold" /> Update all ({updatable.length})</>}
+          </button>
+        )}
+      </div>
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
         {mods.map(mod => (
           <ModCard
@@ -500,6 +518,22 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
     })
   }, [])
 
+  // Update every app-updatable mod in turn (sequential — avoid hammering the CDN),
+  // then re-check so freshly-updated mods drop off the list.
+  const [updatingAll, setUpdatingAll] = useState(null) // { done, total } | null
+  const handleUpdateAll = useCallback(async (targets) => {
+    if (updatingAll || !targets?.length) return
+    setUpdatingAll({ done: 0, total: targets.length })
+    for (const m of targets) {
+      let res
+      try { res = await window.api.updateCurseForgeMod(m) } catch { res = { ok: false } }
+      if (res?.ok) markInstalled(m.id)
+      setUpdatingAll(s => (s ? { ...s, done: s.done + 1 } : s))
+    }
+    setUpdatingAll(null)
+    await runUpdateCheck(true)
+  }, [updatingAll, markInstalled, runUpdateCheck])
+
   // mods with a newer file on CF than the installed one
   const outdatedIds = useMemo(
     () => new Set((updateInfo?.updates ?? []).filter(u => u.updateAvailable).map(u => u.modId)),
@@ -674,6 +708,8 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
             onOpen={setSelectedMod}
             onOpenAuthor={openAuthor}
             onRecheck={() => runUpdateCheck(true)}
+            onUpdateAll={handleUpdateAll}
+            updatingAll={updatingAll}
           />
         )}
 
