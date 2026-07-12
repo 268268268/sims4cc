@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Layout from './components/Layout'
 import Plumbob from './components/Plumbob'
 import DropZone from './components/DropZone'
@@ -19,10 +19,19 @@ export default function App() {
   const [modsFolder, setModsFolder] = useState(undefined) // undefined = loading
   const [activePage, setActivePage] = useState('local-mods')
   const [discoverSource, setDiscoverSource] = useState('patreon') // Discover source sub-nav selection
+  const [pendingAuthor, setPendingAuthor] = useState(null) // author to open after a cross-page jump
 
   useEffect(() => {
     window.api.getConfig().then(cfg => setModsFolder(cfg.modsFolder ?? null))
   }, [])
+
+  // Open a history entry: switch to its tab (no-op if already there) and hand the
+  // author to that page via pendingAuthor. The _n nonce re-triggers even on a repeat.
+  const navigateToAuthor = useCallback((entry) => {
+    setActivePage(entry.type === 'curseforge' ? 'curseforge' : 'discover')
+    setPendingAuthor({ ...entry, _n: Date.now() })
+  }, [])
+  const clearPendingAuthor = useCallback(() => setPendingAuthor(null), [])
 
   // Still loading config
   if (modsFolder === undefined) {
@@ -55,6 +64,9 @@ export default function App() {
           modsFolder={modsFolder}
           onFolderChanged={setModsFolder}
           source={discoverSource}
+          pendingAuthor={pendingAuthor}
+          onNavigateAuthor={navigateToAuthor}
+          onPendingAuthorConsumed={clearPendingAuthor}
         />
       </Layout>
       <DropZone />

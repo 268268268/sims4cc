@@ -174,7 +174,9 @@ body {
   to   { background-position: -200% 0; }
 }
 .skeleton {
-  background: linear-gradient(110deg, #10181300 30%, #12241b 45%, #10181300 60%), rgb(255 255 255 / 0.03);
+  /* visible highlight sweep over a faint base — a dark-green tint reads as static
+     "empty" on the dark theme, so use a brighter moving band */
+  background: linear-gradient(110deg, rgb(255 255 255 / 0.04) 30%, rgb(52 211 153 / 0.14) 50%, rgb(255 255 255 / 0.04) 70%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }

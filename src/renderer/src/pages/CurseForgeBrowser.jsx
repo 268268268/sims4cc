@@ -3,6 +3,8 @@ import { DownloadSimple, ThumbsUp, HardDrives, Clock, ArrowUp, Check, Magnifying
 import DownloadButton from '../components/DownloadButton'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import CategoryFilter from '../components/CategoryFilter'
+import RecentAuthors from '../components/RecentAuthors'
+import { pushAuthor } from '../lib/authorHistory'
 import { formatBytes, formatCount, formatRelative } from '../lib/format'
 import { pickLatestFile, RELEASE_TYPE } from '../lib/cfFile'
 
@@ -215,7 +217,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
   )
 }
 
-export default function CurseForgeBrowser() {
+export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onPendingAuthorConsumed }) {
   const [searchQuery, setSearchQuery] = useState('')
   // filter the displayed list was actually fetched with — searchQuery changes on
   // every keystroke and would mislabel results during the debounce window
@@ -390,47 +392,70 @@ export default function CurseForgeBrowser() {
   const openAuthor = useCallback((author) => {
     if (!author?.id) return
     if (!authorView) {
+      // stash the ENTIRE browse feed (not just filters) so Back can restore it
+      // without refetching — a page-0 refetch would lose the scrolled-in pages and
+      // clamp the restored scroll position.
       preAuthorRef.current = {
         view, searchQuery, classId, categoryIds, sortField,
-        scrollTop: scrollRootRef.current?.scrollTop ?? 0
+        scrollTop: scrollRootRef.current?.scrollTop ?? 0,
+        mods, pageIndex, hasMore, totalCount, displayedFilter,
+        activeFilter: activeFilterRef.current,
+        activeFilters: activeCategoryRef.current,
+        activeSort: activeSortRef.current
       }
     }
     if (timerRef.current) clearTimeout(timerRef.current)
     setSelectedMod(null)
     setView('browse')
     setAuthorView({ id: author.id, name: author.name, avatarUrl: author.avatarUrl })
+    pushAuthor({ type: 'curseforge', id: author.id, name: author.name, avatarUrl: author.avatarUrl })
     if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
     fetchPage('', 0, { authorId: author.id, classId: null, categoryIds: [] }, sortField)
-  }, [authorView, searchQuery, classId, categoryIds, sortField, fetchPage])
+  }, [authorView, view, searchQuery, classId, categoryIds, sortField, mods, pageIndex, hasMore, totalCount, displayedFilter, fetchPage])
 
-  // Leave the author view: restore the snapshotted filters + scroll position
+  // Open an author handed over from the shared history (possibly from another tab)
+  useEffect(() => {
+    if (pendingAuthor?.type === 'curseforge') {
+      openAuthor({ id: pendingAuthor.id, name: pendingAuthor.name, avatarUrl: pendingAuthor.avatarUrl })
+      onPendingAuthorConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAuthor])
+
+  // Leave the author view: restore the snapshotted browse feed as-is (no refetch),
+  // then reapply the scroll position — mirrors how Discover keeps its aggregate feed.
   const exitAuthor = useCallback(() => {
     const snap = preAuthorRef.current
     setAuthorView(null)
-    if (snap) {
+    if (snap && snap.mods?.length) {
       setView(snap.view)
       setSearchQuery(snap.searchQuery)
       setClassId(snap.classId)
       setCategoryIds(snap.categoryIds)
       setSortField(snap.sortField)
+      setMods(snap.mods)
+      setPageIndex(snap.pageIndex)
+      setHasMore(snap.hasMore)
+      setTotalCount(snap.totalCount)
+      setDisplayedFilter(snap.displayedFilter)
+      setIsLoading(false)
+      activeFilterRef.current = snap.activeFilter
+      activeCategoryRef.current = snap.activeFilters
+      activeSortRef.current = snap.activeSort
       restoreScrollRef.current = snap.scrollTop
-      // Installed view rebuilds from updateInfo (no page fetch); only refetch for browse
-      if (snap.view !== 'installed') {
-        fetchPage(snap.searchQuery, 0, { classId: snap.classId, categoryIds: snap.categoryIds }, snap.sortField)
-      }
     } else {
       fetchPage('', 0, { classId: null, categoryIds: [] }, sortField)
     }
     preAuthorRef.current = null
   }, [fetchPage, sortField])
 
-  // Reapply the saved scroll position once the restore fetch has painted
+  // Reapply the saved scroll position once we're back on the (restored) browse feed
   useEffect(() => {
-    if (!isLoading && restoreScrollRef.current != null && scrollRootRef.current) {
+    if (!authorView && restoreScrollRef.current != null && scrollRootRef.current) {
       scrollRootRef.current.scrollTop = restoreScrollRef.current
       restoreScrollRef.current = null
     }
-  }, [isLoading])
+  }, [authorView])
 
   // Update check: session-cached in main; force re-checks everything
   const runUpdateCheck = useCallback(async (force) => {
@@ -532,7 +557,10 @@ export default function CurseForgeBrowser() {
                 <span className="text-white font-semibold truncate">{authorView.name}</span>
                 {totalCount != null && <span className="text-gray-500 text-xs">· {totalCount.toLocaleString()} mods</span>}
               </div>
-              <div className="ml-auto"><SortChips sortField={sortField} onSortChange={onSortChange} /></div>
+              <div className="ml-auto flex items-center gap-2">
+                <SortChips sortField={sortField} onSortChange={onSortChange} />
+                <RecentAuthors onPick={onNavigateAuthor} />
+              </div>
             </>
           ) : (
           <>
@@ -575,6 +603,7 @@ export default function CurseForgeBrowser() {
                 />
               )}
               <SortChips sortField={sortField} onSortChange={onSortChange} />
+              <div className="ml-auto"><RecentAuthors onPick={onNavigateAuthor} /></div>
               {/* Section chips (top-level classes) — own row via w-full in the wrap */}
               {classes.length > 0 && (
                 <div className="w-full flex items-center gap-1.5 flex-wrap">
@@ -609,20 +638,23 @@ export default function CurseForgeBrowser() {
                   Updates only
                 </button>
               </div>
-              <button
-                onClick={() => runUpdateCheck(true)}
-                disabled={checking}
-                className="btn-ghost px-3 py-1.5 text-xs ml-auto"
-              >
-                {checking ? (
-                  <>
-                    <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
-                    Checking…
-                  </>
-                ) : (
-                  <><ArrowsClockwise size={14} weight="bold" /> Check for updates{updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ''}</>
-                )}
-              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => runUpdateCheck(true)}
+                  disabled={checking}
+                  className="btn-ghost px-3 py-1.5 text-xs"
+                >
+                  {checking ? (
+                    <>
+                      <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
+                      Checking…
+                    </>
+                  ) : (
+                    <><ArrowsClockwise size={14} weight="bold" /> Check for updates{updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ''}</>
+                  )}
+                </button>
+                <RecentAuthors onPick={onNavigateAuthor} />
+              </div>
             </>
           )}
           </>

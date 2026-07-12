@@ -4,6 +4,8 @@ import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
 import SourceIcon from '../components/SourceIcon'
+import RecentAuthors from '../components/RecentAuthors'
+import { pushAuthor } from '../lib/authorHistory'
 
 // badge tint per source type — the glyph itself comes from SourceIcon (real logos)
 const TYPE_META = {
@@ -271,7 +273,7 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor 
   )
 }
 
-export default function Discover({ source = 'patreon' }) {
+export default function Discover({ source = 'patreon', pendingAuthor, onNavigateAuthor, onPendingAuthorConsumed }) {
   const [types, setTypes] = useState([])
   const [data, setData] = useState(null) // { items, sources, fetchedAt }
   const [loading, setLoading] = useState(true)
@@ -397,7 +399,13 @@ export default function Discover({ source = 'patreon' }) {
   useEffect(() => { setShown(PAGE) }, [query, source, postFilter]) // reset window when the filtered set changes
   useEffect(() => { setAuthorShown(PAGE) }, [query, authorView]) // reset author window on search / new author
   useEffect(() => { setPostFilter('all') }, [source]) // Free/Paid don't apply to every source — reset on switch
-  useEffect(() => { setAuthorView(null) }, [source]) // leave author view when the sidebar source changes
+  // leave author view when the sidebar source changes — but NOT on first mount,
+  // or a cross-tab jump that opens an author on mount would be wiped immediately
+  const sourceInitRef = useRef(true)
+  useEffect(() => {
+    if (sourceInitRef.current) { sourceInitRef.current = false; return }
+    setAuthorView(null)
+  }, [source])
 
   // author feed, narrowed by the same search box for consistency
   const authorVisible = useMemo(() => {
@@ -419,12 +427,24 @@ export default function Discover({ source = 'patreon' }) {
     if (!sourceId) return
     preAuthorScrollRef.current = scrollRootRef.current?.scrollTop ?? 0
     setSelected(null)
-    const name = item.author || (data?.sources ?? []).find(s => s.id === sourceId)?.label || 'Creator'
+    const meta = (data?.sources ?? []).find(s => s.id === sourceId)
+    const name = item.author || meta?.label || 'Creator'
+    const sourceType = item.sourceType || meta?.type || null
     setAuthorView({ sourceId, name })
+    pushAuthor({ type: 'discover', sourceId, sourceType, name })
     setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false); setAuthorShown(PAGE)
     if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
     loadAuthor(sourceId)
   }, [data, loadAuthor])
+
+  // Open a creator handed over from the shared history (possibly from another tab)
+  useEffect(() => {
+    if (pendingAuthor?.type === 'discover') {
+      openAuthor({ sourceId: pendingAuthor.sourceId, sourceType: pendingAuthor.sourceType, author: pendingAuthor.name })
+      onPendingAuthorConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAuthor])
 
   const exitAuthor = useCallback(() => {
     restoreAuthorScrollRef.current = preAuthorScrollRef.current
@@ -506,6 +526,7 @@ export default function Discover({ source = 'patreon' }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <RecentAuthors onPick={onNavigateAuthor} />
             <button onClick={() => setShowManage(s => !s)} className="btn-ghost px-3 py-2 text-sm">
               {showManage ? <><X size={15} weight="bold" /> Close</> : <><GearSix size={15} weight="fill" /> Sources</>}
             </button>

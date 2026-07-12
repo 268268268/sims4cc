@@ -4,6 +4,7 @@ import SourceIcon from '../components/SourceIcon'
 import LocalModDetail from '../components/LocalModDetail'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Plumbob from '../components/Plumbob'
 import { formatBytes, formatDate } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 
@@ -585,6 +586,14 @@ export default function LocalMods({ modsFolder }) {
           <div className="mb-4 banner-error flex items-center justify-between">
             <span className="flex items-center gap-2"><Warning size={16} weight="fill" /> {actionError}</span>
             <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-200"><X size={14} weight="bold" /></button>
+          </div>
+        )}
+
+        {/* Initial mount: reading the cache off disk (can be slow on a big library) */}
+        {state === 'idle' && (
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <Plumbob size={44} spin />
+            <div className="text-gray-500 text-sm">Loading…</div>
           </div>
         )}
 
