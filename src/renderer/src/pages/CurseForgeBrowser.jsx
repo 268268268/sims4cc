@@ -7,13 +7,14 @@ import RecentAuthors from '../components/RecentAuthors'
 import { pushAuthor } from '../lib/authorHistory'
 import { formatBytes, formatCount, formatRelative } from '../lib/format'
 import { pickLatestFile, RELEASE_TYPE } from '../lib/cfFile'
+import { useT } from '../lib/i18n'
 
 // CF sortField enum: 2=Popularity, 3=LastUpdated, 4=Name, 6=TotalDownloads
 const SORT_OPTIONS = [
-  { id: null, label: 'Relevance' },
-  { id: 2, label: 'Popular' },
-  { id: 3, label: 'Updated' },
-  { id: 6, label: 'Downloads' }
+  { id: null, labelKey: 'curseforge.sortRelevance' },
+  { id: 2, labelKey: 'curseforge.sortPopular' },
+  { id: 3, labelKey: 'curseforge.sortUpdated' },
+  { id: 6, labelKey: 'curseforge.sortDownloads' }
 ]
 
 const DEBOUNCE_MS = 500
@@ -35,8 +36,9 @@ function getThumbnail(mod) {
 // Author name(s) as clickable links → opens that author's mods. stopPropagation
 // so clicking the nick inside a card doesn't also open the mod detail.
 function AuthorLine({ mod, onOpenAuthor, className = '' }) {
+  const { t } = useT()
   const authors = mod?.authors?.length ? mod.authors : null
-  if (!authors) return <p className={`text-emerald-400 text-xs truncate ${className}`}>Unknown</p>
+  if (!authors) return <p className={`text-emerald-400 text-xs truncate ${className}`}>{t('curseforge.unknownAuthor')}</p>
   return (
     <p className={`text-xs truncate ${className}`} title={authors.map(a => a.name).join(', ')}>
       {authors.map((a, i) => (
@@ -54,12 +56,13 @@ function AuthorLine({ mod, onOpenAuthor, className = '' }) {
 }
 
 function SortChips({ sortField, onSortChange }) {
+  const { t } = useT()
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-gray-600 text-xs">Sort:</span>
+      <span className="text-gray-600 text-xs">{t('localMods.sort')}:</span>
       {SORT_OPTIONS.map(s => (
         <button key={String(s.id)} onClick={() => onSortChange(s.id)} className={`chip ${sortField === s.id ? 'chip-active' : ''}`}>
-          {s.label}
+          {t(s.labelKey)}
         </button>
       ))}
     </div>
@@ -82,6 +85,7 @@ function SkeletonCard() {
 }
 
 function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor }) {
+  const { t } = useT()
   const latest = pickLatestFile(mod)
   const size = formatBytes(latest?.fileLength)
   const downloads = formatCount(mod.downloadCount)
@@ -104,11 +108,11 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor 
         />
         {hasUpdate ? (
           <span className="absolute top-2 right-2 badge bg-amber-500/90 text-black font-semibold shadow-md backdrop-blur-sm">
-            <ArrowUp size={11} weight="bold" /> Update available
+            <ArrowUp size={11} weight="bold" /> {t('curseforge.updateAvailable')}
           </span>
         ) : installed && (
           <span className="absolute top-2 right-2 badge bg-emerald-600/90 text-white shadow-md shadow-emerald-950/40 backdrop-blur-sm">
-            <Check size={11} weight="bold" /> Installed
+            <Check size={11} weight="bold" /> {t('curseforge.installedBadge')}
           </span>
         )}
         {release && (
@@ -128,10 +132,10 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor 
           </p>
         )}
         <div className="flex items-center gap-2.5 mt-1 text-gray-500 text-[11px] flex-wrap">
-          {downloads && <span className="inline-flex items-center gap-1" title={`${mod.downloadCount?.toLocaleString()} downloads`}><DownloadSimple size={12} weight="bold" /> {downloads}</span>}
-          {thumbs && <span className="inline-flex items-center gap-1" title={`${mod.thumbsUpCount?.toLocaleString()} thumbs up`}><ThumbsUp size={12} weight="fill" /> {thumbs}</span>}
-          {size && <span className="inline-flex items-center gap-1" title="File size"><HardDrives size={12} weight="regular" /> {size}</span>}
-          {updated && <span className="inline-flex items-center gap-1" title="Last updated"><Clock size={12} weight="regular" /> {updated}</span>}
+          {downloads && <span className="inline-flex items-center gap-1" title={t('curseforge.downloadsTip', { count: mod.downloadCount?.toLocaleString() })}><DownloadSimple size={12} weight="bold" /> {downloads}</span>}
+          {thumbs && <span className="inline-flex items-center gap-1" title={t('curseforge.thumbsUpTip', { count: mod.thumbsUpCount?.toLocaleString() })}><ThumbsUp size={12} weight="fill" /> {thumbs}</span>}
+          {size && <span className="inline-flex items-center gap-1" title={t('curseforge.fileSize')}><HardDrives size={12} weight="regular" /> {size}</span>}
+          {updated && <span className="inline-flex items-center gap-1" title={t('curseforge.lastUpdated')}><Clock size={12} weight="regular" /> {updated}</span>}
         </div>
         <DownloadButton
           mod={mod}
@@ -146,6 +150,7 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor 
 }
 
 function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalled, onOpen, onOpenAuthor, onRecheck, onUpdateAll, updatingAll }) {
+  const { t } = useT()
   if (checking && !updateInfo) {
     return (
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
@@ -157,7 +162,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
         <Tray size={52} weight="thin" className="text-emerald-500/30" />
-        <p className="text-sm">No CurseForge mods installed yet.</p>
+        <p className="text-sm">{t('curseforge.noneInstalled')}</p>
       </div>
     )
   }
@@ -178,10 +183,10 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
           ? <Check size={52} weight="bold" className="text-emerald-500/70" />
           : <Tray size={52} weight="thin" className="text-emerald-500/30" />}
         <p className="text-sm">
-          {filter === 'updates' ? 'Everything is up to date.' : 'No CurseForge mods installed yet.'}
+          {filter === 'updates' ? t('curseforge.upToDate') : t('curseforge.noneInstalled')}
         </p>
         {filter === 'updates' && (
-          <button onClick={onRecheck} className="btn-ghost px-3 py-1.5 text-xs"><ArrowsClockwise size={14} weight="bold" /> Re-check</button>
+          <button onClick={onRecheck} className="btn-ghost px-3 py-1.5 text-xs"><ArrowsClockwise size={14} weight="bold" /> {t('curseforge.recheck')}</button>
         )}
       </div>
     )
@@ -191,20 +196,20 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
     <>
       <div className="flex items-center justify-between gap-3 mb-4">
         <p className="text-gray-500 text-xs">
-          {mods.length} installed mod{mods.length !== 1 ? 's' : ''}
-          {updatesCount > 0 && <span className="text-amber-400"> · {updatesCount} update{updatesCount !== 1 ? 's' : ''} available</span>}
-          {blockedCount > 0 && <span className="text-gray-600"> · {blockedCount} can’t update via app</span>}
+          {t('curseforge.installedModsCount', { count: mods.length })}
+          {updatesCount > 0 && <span className="text-amber-400"> · {t('curseforge.updatesAvailableSuffix', { count: updatesCount })}</span>}
+          {blockedCount > 0 && <span className="text-gray-600"> · {t('curseforge.blockedSuffix', { count: blockedCount })}</span>}
         </p>
         {updatable.length > 0 && (
           <button
             onClick={() => onUpdateAll(updatable)}
             disabled={!!updatingAll}
-            title={blockedCount > 0 ? `${blockedCount} more have app-downloads disabled by the author — update those on CurseForge` : undefined}
+            title={blockedCount > 0 ? t('curseforge.blockedTitle', { count: blockedCount }) : undefined}
             className="btn-primary px-3 py-1.5 text-xs shrink-0"
           >
             {updatingAll
-              ? <><span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" /> Updating {updatingAll.done}/{updatingAll.total}…</>
-              : <><ArrowsClockwise size={14} weight="bold" /> Update all ({updatable.length})</>}
+              ? <><span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" /> {t('curseforge.updatingProgress', { done: updatingAll.done, total: updatingAll.total })}</>
+              : <><ArrowsClockwise size={14} weight="bold" /> {t('curseforge.updateAllCount', { count: updatable.length })}</>}
           </button>
         )}
       </div>
@@ -223,10 +228,10 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
       </div>
       {missing.length > 0 && (
         <div className="mt-6">
-          <p className="text-gray-600 text-xs mb-2">No longer on CurseForge:</p>
+          <p className="text-gray-600 text-xs mb-2">{t('curseforge.noLongerOnCf')}</p>
           <div className="flex flex-col gap-1">
             {missing.map(u => (
-              <p key={u.modId} className="text-gray-500 text-xs flex items-center gap-1.5"><X size={12} weight="bold" className="text-red-400/70" /> {u.name ?? `Mod #${u.modId}`}</p>
+              <p key={u.modId} className="text-gray-500 text-xs flex items-center gap-1.5"><X size={12} weight="bold" className="text-red-400/70" /> {u.name ?? t('curseforge.modNumber', { id: u.modId })}</p>
             ))}
           </div>
         </div>
@@ -236,6 +241,7 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
 }
 
 export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onPendingAuthorConsumed }) {
+  const { t } = useT()
   const [searchQuery, setSearchQuery] = useState('')
   // filter the displayed list was actually fetched with — searchQuery changes on
   // every keystroke and would mislabel results during the debounce window
@@ -577,19 +583,19 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
       {/* Header */}
       <div className="px-6 pt-4 pb-3 border-b border-white/5">
         <div className="mb-3">
-          <h2 className="page-title">CurseForge</h2>
-          <p className="page-subtitle">Browse and download Sims 4 mods from CurseForge</p>
+          <h2 className="page-title">{t('curseforge.title')}</h2>
+          <p className="page-subtitle">{t('curseforge.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {authorView ? (
             <>
               <button onClick={exitAuthor} className="btn-ghost px-3 py-1.5 text-xs">
-                <CaretLeft size={14} weight="bold" /> Back
+                <CaretLeft size={14} weight="bold" /> {t('curseforge.back')}
               </button>
               <div className="flex items-center gap-2 min-w-0">
                 {authorView.avatarUrl && <img src={authorView.avatarUrl} alt="" className="w-6 h-6 rounded-full" />}
                 <span className="text-white font-semibold truncate">{authorView.name}</span>
-                {totalCount != null && <span className="text-gray-500 text-xs">· {totalCount.toLocaleString()} mods</span>}
+                {totalCount != null && <span className="text-gray-500 text-xs">· {totalCount.toLocaleString()} {t('curseforge.modsWord')}</span>}
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <SortChips sortField={sortField} onSortChange={onSortChange} />
@@ -601,10 +607,10 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
           {/* Browse / Installed switch */}
           <div className="flex items-center gap-1.5">
             <button onClick={() => setView('browse')} className={`chip ${view === 'browse' ? 'chip-active' : ''}`}>
-              Browse
+              {t('curseforge.browse')}
             </button>
             <button onClick={() => setView('installed')} className={`chip ${view === 'installed' ? 'chip-active' : ''}`}>
-              Installed
+              {t('curseforge.installed')}
               {downloadedIds.size > 0 && (
                 <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{downloadedIds.size}</span>
               )}
@@ -624,7 +630,7 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
                   type="text"
                   value={searchQuery}
                   onChange={onSearchChange}
-                  placeholder="Search mods…"
+                  placeholder={t('curseforge.searchPlaceholder')}
                   className="input w-full sm:w-72 pl-9 pr-3 py-2"
                 />
               </div>
@@ -645,7 +651,7 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
                     onClick={() => onClassChange(null)}
                     className={`chip ${classId == null ? 'chip-active' : ''}`}
                   >
-                    All
+                    {t('curseforge.all')}
                   </button>
                   {classes.map(c => (
                     <button
@@ -666,10 +672,10 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
             <>
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setInstalledFilter('all')} className={`chip ${installedFilter === 'all' ? 'chip-active' : ''}`}>
-                  All
+                  {t('curseforge.all')}
                 </button>
                 <button onClick={() => setInstalledFilter('updates')} className={`chip ${installedFilter === 'updates' ? 'chip-active' : ''}`}>
-                  Updates only
+                  {t('curseforge.updatesOnly')}
                 </button>
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -681,10 +687,10 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
                   {checking ? (
                     <>
                       <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
-                      Checking…
+                      {t('curseforge.checkingShort')}
                     </>
                   ) : (
-                    <><ArrowsClockwise size={14} weight="bold" /> Check for updates{updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ''}</>
+                    <><ArrowsClockwise size={14} weight="bold" /> {t('curseforge.checkUpdates')}{updateInfo?.checkedAt ? ` · ${new Date(updateInfo.checkedAt).toLocaleTimeString()}` : ''}</>
                   )}
                 </button>
                 <RecentAuthors onPick={onNavigateAuthor} />
@@ -715,7 +721,7 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
 
         {view === 'browse' && isError && (
           <div className="mb-4 banner-error flex items-center gap-2">
-            <Warning size={16} weight="fill" className="shrink-0" /> Failed to fetch mods from CurseForge. Check your API key and network connection.
+            <Warning size={16} weight="fill" className="shrink-0" /> {t('curseforge.fetchError')}
           </div>
         )}
 
@@ -733,7 +739,7 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
         {view === 'browse' && !isLoading && !isError && mods.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <MagnifyingGlass size={52} weight="thin" className="text-emerald-500/30" />
-            <p className="text-sm">No mods found{displayedFilter ? ` for "${displayedFilter}"` : ''}.</p>
+            <p className="text-sm">{displayedFilter ? t('curseforge.noModsFor', { query: displayedFilter }) : t('curseforge.noMods')}</p>
           </div>
         )}
 
@@ -741,17 +747,17 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
           <>
             <p className="text-gray-500 text-xs mb-4">
               {totalCount != null && totalCount > mods.length
-                ? `Showing ${mods.length.toLocaleString()} of ${totalCount.toLocaleString()} mods`
-                : `${mods.length.toLocaleString()} mod${mods.length !== 1 ? 's' : ''}`}
-              {displayedFilter && ` · results for "${displayedFilter}"`}
+                ? t('curseforge.showingOf', { shown: mods.length.toLocaleString(), total: totalCount.toLocaleString() })
+                : t('curseforge.modsSimple', { count: mods.length.toLocaleString() })}
+              {displayedFilter && ` · ${t('curseforge.resultsFor', { query: displayedFilter })}`}
               {classId && (() => {
                 const c = classes.find(x => x.id === classId)
-                return c ? ` · in ${c.name}` : null
+                return c ? ` · ${t('curseforge.inClass', { name: c.name })}` : null
               })()}
-              {categoryIds.length > 0 && ` · ${categoryIds.length} filter${categoryIds.length !== 1 ? 's' : ''}`}
+              {categoryIds.length > 0 && ` · ${t('curseforge.filtersCount', { count: categoryIds.length })}`}
               {(() => {
                 const n = mods.reduce((c, m) => c + (downloadedIds.has(m.id) ? 1 : 0), 0)
-                return n > 0 ? <span className="text-emerald-400"> · {n} installed</span> : null
+                return n > 0 ? <span className="text-emerald-400"> · {t('curseforge.installedSuffix', { count: n })}</span> : null
               })()}
             </p>
             <div

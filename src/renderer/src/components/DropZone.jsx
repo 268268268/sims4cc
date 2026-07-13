@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { DownloadSimple, CircleNotch, CheckCircle, WarningCircle, Check, X } from '@phosphor-icons/react'
 import { markChanged } from '../lib/sessionActivity'
+import { useT } from '../lib/i18n'
 
 /**
  * Whole-window drag-and-drop install target. Mounted once in App; shows an
  * overlay while files hover, imports on drop, and reports a per-file summary.
  */
 export default function DropZone() {
+  const { t } = useT()
   const [depth, setDepth] = useState(0)
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState(null) // { results } | { error }
@@ -74,9 +76,9 @@ export default function DropZone() {
                 : <DownloadSimple size={52} weight="regular" />}
             </div>
             <p className="text-white font-semibold text-lg">
-              {busy ? 'Installing…' : 'Drop mods to install'}
+              {busy ? t('dropzone.installing') : t('dropzone.dropTitle')}
             </p>
-            <p className="text-gray-400 text-sm mt-1">.zip, .package, .ts4script, tray files</p>
+            <p className="text-gray-400 text-sm mt-1">{t('dropzone.dropHint')}</p>
           </div>
         </div>
       )}
@@ -88,7 +90,7 @@ export default function DropZone() {
               {report.ok
                 ? <CheckCircle size={18} weight="fill" className="text-emerald-400" />
                 : <WarningCircle size={18} weight="fill" className="text-amber-400" />}
-              {report.ok ? 'Install finished' : 'Install failed'}
+              {report.ok ? t('dropzone.installFinished') : t('dropzone.installFailed')}
             </p>
             <button onClick={() => setReport(null)} className="text-gray-500 hover:text-white"><X size={14} weight="bold" /></button>
           </div>
@@ -101,7 +103,7 @@ export default function DropZone() {
                   : <X size={13} weight="bold" className="text-red-400" />}</span>
                 <span className={`${r.ok ? 'text-gray-300' : 'text-red-400'} break-all`}>
                   {r.source.split(/[\\/]/).pop()}
-                  {r.trayFiles?.length > 0 && <span className="text-amber-300"> · {r.trayFiles.length} → Tray</span>}
+                  {r.trayFiles?.length > 0 && <span className="text-amber-300"> · {t('dropzone.trayCount', { count: r.trayFiles.length })}</span>}
                   {r.note && <span className="text-gray-500"> · {r.note}</span>}
                   {r.error && <span> — {r.error}</span>}
                 </span>

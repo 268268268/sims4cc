@@ -1,8 +1,8 @@
 import 'dotenv/config'
 
-import { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, session } from 'electron'
 import { join, dirname, resolve, sep, basename } from 'path'
-import { unlink, access, rm, mkdir } from 'fs/promises'
+import { unlink, access, rm, mkdir, readdir, writeFile, readFile } from 'fs/promises'
 import { pathToFileURL } from 'url'
 import { scanMods, getCachedLocalMods, updateCachedMod, clearCachedLocalMods } from './services/localModScanner.js'
 import { searchMods, downloadMod, getCategories, getModsByIds, getModDescription } from './services/curseForgeClient.js'
@@ -22,6 +22,7 @@ import { installSessionFetch, authStatus, connect as authConnect, disconnect as 
 import { toggleLocalModEnabled } from './services/localModActions.js'
 import { fetchAndCacheCatalog } from './services/catalogStore.js'
 import { readConfig, writeConfig } from './services/configStore.js'
+import { listProfiles, getProfile, saveProfile, renameProfile, deleteProfile, setActiveProfile, addImportedProfile, modStableKey } from './services/profileStore.js'
 
 /** dirname(modsFolder)/Tray, but only when it actually exists. */
 async function findTrayFolder(modsFolder) {
@@ -49,6 +50,29 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'modimg', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
 ])
 
+// dev is served over http://localhost by Vite; anything else is the built file://
+// bundle (packaged app or `electron-vite preview`).
+const IS_DEV = !!process.env['ELECTRON_RENDERER_URL']
+
+// Locked-down policy for the shipped app. The renderer only shows our own bundled
+// UI and never fetches remotely (all network goes through the main process over
+// IPC), so scripts are pinned to 'self'. Images come from many hosts (CurseForge/
+// Patreon/Tumblr CDNs, the modimg:// thumbnail scheme, data: SVG placeholders), so
+// img-src stays broad. Not applied in dev — Vite's HMR needs inline/eval + ws:.
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https: modimg:",
+  "font-src 'self' data:",
+  "connect-src 'self' https:",
+  "media-src 'self' https: data:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+  "frame-src 'none'"
+].join('; ')
+
 // config now lives in a shared service so other main-process services can read it
 
 // Local mods changed on disk (download/update/import/delete): drop the mod-scan
@@ -64,14 +88,32 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#1a1a2e',
+    // matches the renderer's body background so there's no colour flash on launch
+    backgroundColor: '#070b09',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      // the preload only uses contextBridge/ipcRenderer/webUtils, all of which work
+      // in a sandboxed renderer — so a compromised page can't reach Node.
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
       // No console for end users — disables DevTools (F12, right-click) in the
       // shipped app, so failed-image 404s and other noise stay hidden. Kept in dev.
       devTools: !app.isPackaged
     }
+  })
+
+  // The window must only ever display our own UI. A stray link in a mod
+  // description or a window.open() is refused; http(s) links are handed to the
+  // system browser instead of hijacking the app frame.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (e, url) => {
+    if (IS_DEV && url.startsWith(process.env['ELECTRON_RENDERER_URL'])) return // Vite HMR
+    e.preventDefault()
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url)
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -91,6 +133,38 @@ ipcMain.handle('set-config', async (_e, key, value) => {
   const config = await readConfig()
   config[key] = value
   await writeConfig(config)
+})
+
+// IPC: sanity-check that a folder looks like a Sims 4 Mods folder, so Settings can
+// warn when the user has pointed the app at something unrelated (a game install,
+// Downloads, …). Heuristic and non-blocking — the user can still use any folder.
+ipcMain.handle('mods:validateFolder', async (_e, folder) => {
+  const target = folder ?? (await readConfig()).modsFolder
+  if (!target) return { ok: false, exists: false }
+  try {
+    await access(target)
+  } catch {
+    return { ok: false, exists: false }
+  }
+  const lower = target.toLowerCase()
+  const isMods = basename(target).toLowerCase() === 'mods'
+  const inSims4Path = lower.includes('the sims 4')
+  let hasResourceCfg = false
+  try { await access(join(target, 'Resource.cfg')); hasResourceCfg = true } catch { /* absent */ }
+  // shallow probe for a .package at the root or one level down (Mods/<creator>/x.package)
+  let hasPackages = false
+  try {
+    const entries = await readdir(target, { withFileTypes: true })
+    hasPackages = entries.some(e => e.isFile() && /\.package(\.disabled)?$/i.test(e.name))
+    if (!hasPackages) {
+      for (const e of entries.filter(x => x.isDirectory()).slice(0, 40)) {
+        const sub = await readdir(join(target, e.name)).catch(() => [])
+        if (sub.some(n => /\.package(\.disabled)?$/i.test(n))) { hasPackages = true; break }
+      }
+    }
+  } catch { /* unreadable — leave false */ }
+  const looksValid = isMods || hasResourceCfg || hasPackages
+  return { ok: true, exists: true, looksValid, isMods, inSims4Path, hasResourceCfg, hasPackages }
 })
 
 // IPC: open native folder picker
@@ -471,6 +545,89 @@ ipcMain.handle('thumbCache:clear', async () => {
   }
 })
 
+// ---- Profiles (named mod sets) ----
+
+// IPC: all profiles + the active id
+ipcMain.handle('profiles:list', () => listProfiles())
+
+// IPC: snapshot the current mod states into a new profile (or overwrite `id`)
+ipcMain.handle('profiles:save', async (_e, payload = {}) => {
+  try {
+    const mods = await getCachedLocalMods()
+    return await saveProfile({ name: payload.name, id: payload.id, mods })
+  } catch (err) {
+    return { profiles: [], activeId: null, error: err.message }
+  }
+})
+
+// IPC: toggle mods so their enabled/disabled state matches the profile. Mods the
+// profile has never recorded are left as they are.
+ipcMain.handle('profiles:apply', async (_e, id) => {
+  try {
+    const config = await readConfig()
+    if (!config.modsFolder) return { ok: false, error: 'Mods folder not configured.' }
+    const profile = await getProfile(id)
+    if (!profile) return { ok: false, error: 'Profile not found.' }
+    const mods = await getCachedLocalMods()
+    let changed = 0
+    const errors = []
+    for (const m of mods) {
+      if (m.type === 'archive') continue
+      const desired = profile.states[modStableKey(m)]
+      if (desired === undefined || desired === m.enabled) continue
+      const res = await toggleLocalModEnabled({ filePath: m.filePath, enabled: desired, modsFolder: config.modsFolder })
+      if (res.ok) { changed++; updateCachedMod(res.oldPath, res.mod) }
+      else errors.push({ file: m.filePath, error: res.error?.message ?? 'toggle failed' })
+    }
+    await setActiveProfile(id)
+    if (changed) onLocalModsChanged()
+    return { ok: true, changed, errors }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// IPC: rename / delete
+ipcMain.handle('profiles:rename', (_e, id, name) => renameProfile(id, name))
+ipcMain.handle('profiles:delete', (_e, id) => deleteProfile(id))
+
+// IPC: export a profile to a user-picked .json file
+ipcMain.handle('profiles:export', async (_e, id) => {
+  try {
+    const profile = await getProfile(id)
+    if (!profile) return { ok: false, error: 'Profile not found.' }
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Export profile',
+      defaultPath: `${profile.name.replace(/[^\w.-]+/g, '_')}.s4profile.json`,
+      filters: [{ name: 'Sims 4 Mod Profile', extensions: ['json'] }]
+    })
+    if (canceled || !filePath) return { ok: false, canceled: true }
+    const payload = { app: 'sims4-mod-manager', kind: 'profile', name: profile.name, states: profile.states }
+    await writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8')
+    return { ok: true, path: filePath }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// IPC: import a profile from a .json file the user picks
+ipcMain.handle('profiles:import', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Import profile',
+      properties: ['openFile'],
+      filters: [{ name: 'Sims 4 Mod Profile', extensions: ['json'] }]
+    })
+    if (canceled || !filePaths?.[0]) return { ok: false, canceled: true }
+    const raw = JSON.parse(await readFile(filePaths[0], 'utf-8'))
+    if (!raw || typeof raw.states !== 'object') return { ok: false, error: 'Not a valid profile file.' }
+    const { data, id } = await addImportedProfile(raw)
+    return { ok: true, data, id }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // IPC: inspect a local mod — sibling files + DBPF resource summary
 ipcMain.handle('localMods:inspect', (_e, filePath) => inspectLocalMod(filePath))
 
@@ -479,8 +636,11 @@ ipcMain.handle('shell:showItemInFolder', (_e, p) => {
   if (typeof p === 'string' && p) shell.showItemInFolder(p)
 })
 
-// IPC: open external URL in default system browser (keeps links out of the app window)
-ipcMain.handle('shell:openExternal', (_e, url) => shell.openExternal(url))
+// IPC: open external URL in default system browser (keeps links out of the app window).
+// Only http(s) — never file: or a custom scheme that could launch another program.
+ipcMain.handle('shell:openExternal', (_e, url) => {
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)
+})
 
 // IPC: delete localthumbcache.package (one dir above modsFolder)
 ipcMain.handle('clear-game-cache', async () => {
@@ -502,6 +662,20 @@ ipcMain.handle('clear-game-cache', async () => {
 app.whenReady().then(() => {
   // route all external-source HTTP through the logged-in session (net.fetch)
   installSessionFetch()
+
+  // Stamp a strict CSP on every response the renderer loads — but only for the
+  // built file:// bundle. Dev is served by Vite (HMR needs inline scripts, eval
+  // and a websocket) so applying it there would break hot reload.
+  if (!IS_DEV) {
+    session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
+      cb({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [CONTENT_SECURITY_POLICY]
+        }
+      })
+    })
+  }
 
   protocol.handle('modimg', async (request) => {
     try {

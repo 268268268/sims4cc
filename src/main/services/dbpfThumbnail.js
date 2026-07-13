@@ -1,4 +1,4 @@
-import { open, mkdir, writeFile, access } from 'fs/promises'
+import { open, mkdir, writeFile, access, stat } from 'fs/promises'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import zlib from 'zlib'
@@ -173,4 +173,47 @@ export async function getCachedThumbnail(filePath, mtimeMs) {
 
 async function exists(p) {
   try { await access(p); return true } catch { return false }
+}
+
+// Author preview.png sidecars are frequently 4–8 MB full-res renders; decoding
+// them at ~128px in a grid of hundreds is the biggest local-scan render cost.
+const SIDECAR_RESIZE_OVER_BYTES = 200 * 1024 // leave already-small previews alone
+const SIDECAR_MAX_DIM = 512
+
+/**
+ * A downscaled, cached copy of an oversized sidecar preview image. Small images
+ * are returned as-is. Cached by (path, mtime) next to the DBPF thumbnails, so the
+ * work happens once per file version. Never throws — falls back to the original.
+ * @param {string} filePath absolute path to the sidecar image
+ * @param {number} [mtimeMs] file mtime for cache keying (stat'd if omitted)
+ * @returns {Promise<string>} path to display (small cached copy, or the original)
+ */
+export async function getSidecarThumbnail(filePath, mtimeMs) {
+  try {
+    let info
+    try { info = await stat(filePath) } catch { return filePath }
+    if (info.size <= SIDECAR_RESIZE_OVER_BYTES) return filePath
+
+    const dir = await cacheDir()
+    const key = createHash('sha1').update(`sidecar|${filePath}|${mtimeMs ?? info.mtimeMs}`).digest('hex').slice(0, 16)
+    const isPng = /\.png$/i.test(filePath)
+    const out = join(dir, `${key}.${isPng ? 'png' : 'jpg'}`)
+    if (await exists(out)) return out
+
+    const { nativeImage } = await import('electron')
+    const img = nativeImage.createFromPath(filePath)
+    if (img.isEmpty()) return filePath
+    const { width, height } = img.getSize()
+    if (!width || !height) return filePath
+    const scaled = Math.max(width, height) > SIDECAR_MAX_DIM
+      ? img.resize(width >= height ? { width: SIDECAR_MAX_DIM, quality: 'good' } : { height: SIDECAR_MAX_DIM, quality: 'good' })
+      : img
+    const buf = isPng ? scaled.toPNG() : scaled.toJPEG(82)
+    if (!buf?.length) return filePath
+    await mkdir(dir, { recursive: true })
+    await writeFile(out, buf)
+    return out
+  } catch {
+    return filePath
+  }
 }

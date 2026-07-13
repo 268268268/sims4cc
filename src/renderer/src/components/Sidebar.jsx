@@ -2,25 +2,27 @@ import { useState } from 'react'
 import { Package, Globe, GearSix, CaretDoubleLeft, CaretDoubleRight } from '@phosphor-icons/react'
 import Plumbob from './Plumbob'
 import SourceIcon from './SourceIcon'
+import { useT } from '../lib/i18n'
 
 const NAV_ITEMS = [
-  { id: 'local-mods', label: 'Local Mods', Icon: Package },
-  { id: 'curseforge', label: 'CurseForge', brand: 'curseforge' },
-  { id: 'discover', label: 'Discover', Icon: Globe },
-  { id: 'settings', label: 'Settings', Icon: GearSix }
+  { id: 'local-mods', labelKey: 'nav.localMods', Icon: Package },
+  { id: 'curseforge', labelKey: 'nav.curseforge', brand: 'curseforge' },
+  { id: 'discover', labelKey: 'nav.discover', Icon: Globe },
+  { id: 'settings', labelKey: 'nav.settings', Icon: GearSix }
 ]
 
 // Discover source sub-nav. Patreon is the default (the source that actually works);
 // the rest are supported but usually empty until the user follows something there.
 const DISCOVER_SOURCES = [
-  { id: 'all', label: 'All sources' },
-  { id: 'patreon', label: 'Patreon' },
-  { id: 'modthesims', label: 'ModTheSims' },
-  { id: 'tumblr', label: 'Tumblr' },
-  { id: 'pinterest', label: 'Pinterest' }
+  { id: 'all', labelKey: 'nav.allSources' },
+  { id: 'patreon', labelKey: 'nav.patreon' },
+  { id: 'modthesims', labelKey: 'nav.modthesims' },
+  { id: 'tumblr', labelKey: 'nav.tumblr' },
+  { id: 'pinterest', labelKey: 'nav.pinterest' }
 ]
 
 export default function Sidebar({ activePage, onNavigate, discoverSource, onDiscoverSource }) {
+  const { t } = useT()
   // ponytail: local state + localStorage — collapse only affects this component, no need to lift to App
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === '1')
   const toggle = () => setCollapsed(c => {
@@ -41,14 +43,15 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
           <h1 className="text-lg font-bold leading-tight tracking-tight whitespace-nowrap">
             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Sims 4</span>
             <br />
-            <span className="text-white">Mod Manager</span>
+            <span className="text-white">{t('nav.brandLine2')}</span>
           </h1>
         )}
       </div>
 
       <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ id, label, Icon, brand }) => {
+        {NAV_ITEMS.map(({ id, labelKey, Icon, brand }) => {
           const active = activePage === id
+          const label = t(labelKey)
           return (
             <div key={id}>
               <button
@@ -72,7 +75,8 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
               {/* Source sub-nav — only under an open Discover, expanded sidebar */}
               {id === 'discover' && active && !collapsed && (
                 <div className="mt-1 ml-4 pl-3 border-l border-white/10 flex flex-col gap-0.5">
-                  {DISCOVER_SOURCES.map(({ id: sid, label: slabel }) => {
+                  {DISCOVER_SOURCES.map(({ id: sid, labelKey: slabelKey }) => {
+                    const slabel = t(slabelKey)
                     const on = (discoverSource ?? 'patreon') === sid
                     return (
                       <button
@@ -97,7 +101,7 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
         {!collapsed && <span className="text-xs text-gray-600">v1.0.0</span>}
         <button
           onClick={toggle}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
           className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
         >
           {collapsed ? <CaretDoubleRight size={16} weight="bold" /> : <CaretDoubleLeft size={16} weight="bold" />}

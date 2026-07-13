@@ -3,6 +3,7 @@ import { HeartStraight, PushPin, NotePencil, Bank, Globe, LockSimple, Gift, Pack
 import Modal from './Modal'
 import Lightbox from './Lightbox'
 import { formatRelative } from '../lib/format'
+import { useT } from '../lib/i18n'
 
 const TYPE_META = {
   patreon: { Icon: HeartStraight, label: 'Patreon', badge: 'bg-orange-600/30 text-orange-200' },
@@ -19,6 +20,7 @@ const PLACEHOLDER =
 
 /** In-app preview card for a Discover item (no forced redirect). */
 export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAuthor }) {
+  const { t } = useT()
   const [lightbox, setLightbox] = useState(false)
   const meta = TYPE_META[item.sourceType] ?? { Icon: Globe, label: item.sourceType, badge: 'bg-gray-700 text-gray-300' }
   const MetaIcon = meta.Icon
@@ -40,9 +42,9 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
             <MetaIcon size={12} weight="fill" /> {meta.label}
           </span>
           {item.locked ? (
-            <span className="absolute top-3 right-12 badge bg-black/70 text-amber-300 backdrop-blur-sm"><LockSimple size={11} weight="fill" /> patrons</span>
+            <span className="absolute top-3 right-12 badge bg-black/70 text-amber-300 backdrop-blur-sm"><LockSimple size={11} weight="fill" /> {t('discover.patronsOnly')}</span>
           ) : downloads.length > 0 && (
-            <span className="absolute top-3 right-12 badge bg-emerald-600/80 text-white backdrop-blur-sm"><Gift size={11} weight="fill" /> free</span>
+            <span className="absolute top-3 right-12 badge bg-emerald-600/80 text-white backdrop-blur-sm"><Gift size={11} weight="fill" /> {t('discover.freeBadge')}</span>
           )}
         </div>
 
@@ -72,7 +74,7 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
           {downloads.length > 0 && (
             <div>
               <p className="text-gray-500 text-[11px] uppercase tracking-wide mb-2">
-                {downloads.length} file{downloads.length !== 1 ? 's' : ''}
+                {t('discover.filesCount', { count: downloads.length })}
               </p>
               <div className="flex flex-col gap-1 max-h-40 overflow-y-auto rounded-lg border border-white/5 divide-y divide-white/5">
                 {downloads.map((d, i) => (
@@ -89,15 +91,14 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
 
           {item.locked && (
             <p className="banner-warn flex items-start gap-2">
-              <LockSimple size={14} weight="fill" className="shrink-0 mt-0.5" /> This is a patron-only post. Connect your Patreon account in Settings (if you back this
-              creator) to download it, or open the original to view on Patreon.
+              <LockSimple size={14} weight="fill" className="shrink-0 mt-0.5" /> {t('discover.patronWarning')}
             </p>
           )}
 
           <div className="flex items-center gap-3 pt-1 flex-wrap">
             {downloads.length > 0 && renderDownload?.(item)}
             <button onClick={() => window.api.openExternal(item.url)} className="btn-ghost px-4 py-2 text-sm">
-              <ArrowUpRight size={16} weight="bold" /> Open original
+              <ArrowUpRight size={16} weight="bold" /> {t('discover.openOriginal')}
             </button>
           </div>
         </div>

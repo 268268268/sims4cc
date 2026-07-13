@@ -3,6 +3,7 @@ import { Package, Scroll, Image as ImageIcon, House, FileText, Paperclip, Folder
 import SourceIcon from './SourceIcon'
 import Modal from './Modal'
 import { formatBytes, formatDate } from '../lib/format'
+import { useT } from '../lib/i18n'
 
 const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', archive: '.zip', unknown: '?' }
 
@@ -22,6 +23,7 @@ function FileIcon({ ext, ...props }) {
 }
 
 export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, onToggle, onDelete, onClose }) {
+  const { t } = useT()
   const [imgUrl, setImgUrl] = useState(catalogMeta?.imageUrl || null)
   const [info, setInfo] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
         {info?.packageContents && (
           <div>
             <p className="text-gray-500 text-[11px] uppercase tracking-wide mb-2">
-              Package contents · {info.packageContents.total} resources
+              {t('detail.packageContents', { count: info.packageContents.total })}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {info.packageContents.types.map(t => (
@@ -100,7 +102,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
         {/* Files in this mod's folder */}
         <div>
           <p className="text-gray-500 text-[11px] uppercase tracking-wide mb-2">
-            Files {info?.files?.length ? `· ${info.files.length}` : ''}
+            {t('detail.files')} {info?.files?.length ? `· ${info.files.length}` : ''}
           </p>
           {loading ? (
             <div className="space-y-1.5">
@@ -120,7 +122,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
               ))}
             </div>
           ) : (
-            <p className="text-gray-600 text-xs">{info?.error || 'No sibling files.'}</p>
+            <p className="text-gray-600 text-xs">{info?.error || t('detail.noSiblingFiles')}</p>
           )}
         </div>
 
@@ -133,32 +135,33 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
           {!isArchive && (
             <button
               onClick={() => { onToggle?.(mod); onClose() }}
-              className={`${mod.enabled ? 'btn-danger' : 'btn-success'} px-4 py-2 text-sm`}
+              className={`${mod.enabled ? 'btn-ghost' : 'btn-success'} px-4 py-2 text-sm`}
+              title={mod.enabled ? t('detail.disableHint') : t('detail.enableHint')}
             >
-              {mod.enabled ? 'Disable' : 'Enable'}
+              {mod.enabled ? t('common.disable') : t('common.enable')}
             </button>
           )}
           <button
             onClick={() => window.api.showItemInFolder(mod.filePath)}
             className="btn-ghost px-4 py-2 text-sm"
           >
-            <FolderOpen size={16} weight="fill" /> Reveal in folder
+            <FolderOpen size={16} weight="fill" /> {t('detail.revealInFolder')}
           </button>
           {cfMatch && (
             <button
               onClick={() => { onClose(); onOpenCf?.(cfMatch) }}
               className="btn-ghost px-4 py-2 text-sm"
             >
-              <SourceIcon type="curseforge" size={16} /> View on CurseForge
+              <SourceIcon type="curseforge" size={16} /> {t('detail.viewOnCurseForge')}
             </button>
           )}
           {onDelete && (
             <button
               onClick={() => onDelete(mod)}
               className="btn-ghost px-4 py-2 text-sm text-red-300 hover:text-red-200"
-              title="Move to Recycle Bin"
+              title={t('localMods.moveToRecycle')}
             >
-              <Trash size={16} weight="regular" /> Delete
+              <Trash size={16} weight="regular" /> {t('common.delete')}
             </button>
           )}
         </div>

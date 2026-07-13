@@ -1,7 +1,7 @@
 import { readdir, stat, access, readFile, writeFile, unlink } from 'fs/promises'
 import { join, relative, dirname, basename, extname, sep } from 'path'
 import { createHash } from 'crypto'
-import { getCachedThumbnail } from './dbpfThumbnail.js'
+import { getCachedThumbnail, getSidecarThumbnail } from './dbpfThumbnail.js'
 import { getPackageMeta, loadMetaCache, saveMetaCache } from './packageMeta.js'
 
 const MOD_EXTENSIONS = new Set(['.package', '.ts4script'])
@@ -18,6 +18,21 @@ function makeId(relativePath) {
   return createHash('sha1').update(relativePath).digest('hex').slice(0, 16)
 }
 
+/**
+ * Strip control characters and literal escape sequences a display name can carry.
+ * A STBL string ending in a real newline (or a literal "\n") rendered a card title
+ * as `…壁挂置物架\n`; collapse those to a single space so cards stay clean.
+ */
+export function cleanModName(name) {
+  if (!name || typeof name !== 'string') return name
+  return name
+    .replace(/\\[nrt]/g, ' ')            // literal backslash-n / -r / -t
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]+/g, ' ')   // real control characters
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** Strip .disabled, then .package/.ts4script; replace _/- with spaces; trim */
 function deriveName(fileName) {
   let n = fileName
@@ -25,7 +40,7 @@ function deriveName(fileName) {
   if (n.endsWith('.package')) n = n.slice(0, -8)
   else if (n.endsWith('.ts4script')) n = n.slice(0, -10)
   n = n.replace(/[_-]+/g, ' ').trim()
-  return n || fileName
+  return cleanModName(n) || fileName
 }
 
 /** First folder segment under modsFolder → author, or null if file is at root */
@@ -60,33 +75,39 @@ async function detectThumbnail(filePath) {
   // 1. stem-based sidecars
   for (const suffix of SIDECAR_SUFFIXES) {
     const candidate = join(dir, stem + suffix)
-    if (await exists(candidate)) return { source: 'sidecar', path: candidate }
+    if (await exists(candidate)) return { source: 'sidecar', path: await getSidecarThumbnail(candidate) }
   }
   // 2. generic fallback names in same dir
   for (const name of FALLBACK_NAMES) {
     const candidate = join(dir, name)
-    if (await exists(candidate)) return { source: 'sidecar', path: candidate }
+    if (await exists(candidate)) return { source: 'sidecar', path: await getSidecarThumbnail(candidate) }
   }
   return { source: 'fallback', path: null }
 }
 
-/** Walk directory recursively, collecting all file paths */
-async function walkDir(dir, results = []) {
+/**
+ * Walk a directory recursively, collecting all file paths. Sibling subfolders are
+ * walked concurrently — a scan is almost entirely I/O wait, so overlapping the
+ * readdir calls is a large win on big libraries. libuv's threadpool caps the
+ * actual parallel fs ops, so this can't exhaust file descriptors.
+ */
+async function walkDir(dir) {
   let entries
   try {
     entries = await readdir(dir, { withFileTypes: true })
   } catch {
-    return results // unreadable dir — skip silently
+    return [] // unreadable dir — skip silently
   }
+  const files = []
+  const subdirs = []
   for (const entry of entries) {
     const full = join(dir, entry.name)
-    if (entry.isDirectory()) {
-      await walkDir(full, results)
-    } else if (entry.isFile()) {
-      results.push(full)
-    }
+    if (entry.isDirectory()) subdirs.push(full)
+    else if (entry.isFile()) files.push(full)
   }
-  return results
+  const nested = await Promise.all(subdirs.map(walkDir))
+  for (const list of nested) files.push(...list)
+  return files
 }
 
 /** Determine if a file is a known mod file we should process */
@@ -168,7 +189,11 @@ export async function buildLocalModDto(filePath, modsFolder, metaCache = null, p
   // (path changes), so a stale enabled state can never be served from here.
   if (prevByPath && !error) {
     const prev = prevByPath.get(filePath)
-    if (prev && !prev.error && prev.modifiedAt === modifiedAt && prev.size === size) return prev
+    if (prev && !prev.error && prev.modifiedAt === modifiedAt && prev.size === size) {
+      // clean legacy cached names in place so old scans don't keep showing "\n"
+      const cleaned = cleanModName(prev.name)
+      return cleaned === prev.name ? prev : { ...prev, name: cleaned }
+    }
   }
 
   // DBPF parse — real display name from STBL + coarse content kinds
@@ -190,7 +215,7 @@ export async function buildLocalModDto(filePath, modsFolder, metaCache = null, p
 
   return {
     id,
-    name: realName || deriveName(fileName),
+    name: cleanModName(realName) || deriveName(fileName),
     author: deriveAuthor(relPath),
     fileName,
     filePath,

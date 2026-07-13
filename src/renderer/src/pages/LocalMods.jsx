@@ -1,12 +1,15 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { Package, FileZip, CircleNotch, UploadSimple, Trash, ArrowsClockwise, MagnifyingGlass, Warning, X, FolderDashed } from '@phosphor-icons/react'
+import { Package, FileZip, CircleNotch, UploadSimple, Trash, ArrowsClockwise, MagnifyingGlass, Warning, X, FolderDashed, SquaresFour, Stack } from '@phosphor-icons/react'
 import SourceIcon from '../components/SourceIcon'
+import Switch from '../components/Switch'
+import ProfilesModal from '../components/ProfilesModal'
 import LocalModDetail from '../components/LocalModDetail'
 import CurseForgeModDetail from '../components/CurseForgeModDetail'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Plumbob from '../components/Plumbob'
 import { formatBytes, formatDate } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
+import { useT } from '../lib/i18n'
 
 const TYPE_LABEL = { package: '.package', ts4script: '.ts4script', archive: '.zip', unknown: '?' }
 const TYPE_COLOR = {
@@ -15,20 +18,33 @@ const TYPE_COLOR = {
   archive: 'bg-amber-600/30 text-amber-200',
   unknown: 'bg-gray-700 text-gray-300'
 }
+// plain-language tooltip keys so the card badges aren't cryptic at a glance
+const TYPE_HELP_KEY = {
+  package: 'localMods.typeHelpPackage',
+  ts4script: 'localMods.typeHelpScript',
+  archive: 'localMods.typeHelpArchive',
+  unknown: 'localMods.typeHelpUnknown'
+}
+const KIND_HELP_KEY = {
+  CAS: 'localMods.kindCAS',
+  Object: 'localMods.kindObject',
+  Tuning: 'localMods.kindTuning',
+  Animation: 'localMods.kindAnimation'
+}
 
 const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'enabled', label: 'Enabled' },
-  { id: 'disabled', label: 'Disabled' },
-  { id: 'package', label: 'Packages' },
-  { id: 'ts4script', label: 'Scripts' },
-  { id: 'archive', label: 'Archives' }
+  { id: 'all', labelKey: 'localMods.filterAll' },
+  { id: 'enabled', labelKey: 'localMods.filterEnabled' },
+  { id: 'disabled', labelKey: 'localMods.filterDisabled' },
+  { id: 'package', labelKey: 'localMods.filterPackages' },
+  { id: 'ts4script', labelKey: 'localMods.filterScripts' },
+  { id: 'archive', labelKey: 'localMods.filterArchives' }
 ]
 
 const SORTS = [
-  { id: 'name', label: 'Name' },
-  { id: 'date', label: 'Newest' },
-  { id: 'size', label: 'Size' }
+  { id: 'name', labelKey: 'localMods.sortName' },
+  { id: 'date', labelKey: 'localMods.sortNewest' },
+  { id: 'size', labelKey: 'localMods.sortSize' }
 ]
 
 function ModThumbnail({ absPath, imageUrl }) {
@@ -75,11 +91,11 @@ function ModThumbnail({ absPath, imageUrl }) {
 }
 
 function ArchiveCard({ mod, pending, onExtract, onOpen }) {
+  const { t } = useT()
   return (
     <div
       onClick={() => onOpen(mod)}
       className="card card-hover flex flex-col border-amber-500/20 cursor-pointer"
-      title="Click for details"
     >
       <div className="w-full h-32 bg-gradient-to-br from-amber-950/40 to-black/20 flex items-center justify-center select-none">
         <FileZip size={40} weight="thin" className="text-amber-300/60" />
@@ -90,7 +106,7 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`badge font-mono ${TYPE_COLOR.archive}`}>{TYPE_LABEL.archive}</span>
-          <span className="badge bg-amber-900/40 text-amber-300">not installed</span>
+          <span className="badge bg-amber-900/40 text-amber-300">{t('localMods.notInstalled')}</span>
         </div>
         <p className="text-gray-500 text-xs">{formatBytes(mod.size)}</p>
         <p className="text-gray-600 text-xs truncate mt-auto pt-1" title={mod.relativePath}>
@@ -102,8 +118,8 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
           className="btn-primary mt-2 px-3 py-1.5 text-xs"
         >
           {pending
-            ? <><CircleNotch size={14} weight="bold" className="animate-spin" /> Extracting…</>
-            : <><UploadSimple size={14} weight="bold" /> Extract to Mods</>}
+            ? <><CircleNotch size={14} weight="bold" className="animate-spin" /> {t('localMods.extracting')}</>
+            : <><UploadSimple size={14} weight="bold" /> {t('localMods.extractToMods')}</>}
         </button>
       </div>
     </div>
@@ -111,6 +127,7 @@ function ArchiveCard({ mod, pending, onExtract, onOpen }) {
 }
 
 function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, catalogMeta }) {
+  const { t } = useT()
   const creatorName = catalogMeta?.creatorName
   const imageUrl = catalogMeta?.imageUrl
   const tags = catalogMeta?.tags
@@ -119,12 +136,13 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
     <div
       onClick={() => onOpen(mod)}
       className={`card card-hover flex flex-col cursor-pointer ${mod.enabled ? '' : 'opacity-70 saturate-50'}`}
-      title="Click for details"
     >
       <ModThumbnail absPath={mod.thumbnail?.path ?? null} imageUrl={imageUrl} />
 
       <div className="p-3 flex flex-col gap-1.5 flex-1">
-        <p className="text-white font-semibold text-sm leading-tight truncate" title={mod.name}>
+        {/* two lines: the distinguishing tail (…SKIN vs …TATTOO) survives instead
+            of being cut by a single-line ellipsis. Full name is in the tooltip. */}
+        <p className="text-white font-semibold text-sm leading-tight line-clamp-2 break-words" title={mod.name}>
           {mod.name}
         </p>
 
@@ -135,20 +153,23 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
         )}
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`badge font-mono ${TYPE_COLOR[mod.type]}`}>
+          <span className={`badge font-mono ${TYPE_COLOR[mod.type]}`} title={t(TYPE_HELP_KEY[mod.type])}>
             {TYPE_LABEL[mod.type]}
           </span>
-          <span className={`badge ${mod.enabled ? 'bg-emerald-800/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}`}>
-            {mod.enabled ? 'enabled' : 'disabled'}
+          <span
+            className={`badge ${mod.enabled ? 'bg-emerald-800/50 text-emerald-300' : 'bg-gray-700/60 text-gray-300'}`}
+            title={mod.enabled ? t('localMods.enabledHelp') : t('localMods.disabledHelp')}
+          >
+            {mod.enabled ? t('common.enabled').toLowerCase() : t('common.disabled').toLowerCase()}
           </span>
           {mod.kinds?.map(k => (
-            <span key={k} className="badge bg-white/5 text-gray-400">{k}</span>
+            <span key={k} className="badge bg-white/5 text-gray-400" title={KIND_HELP_KEY[k] ? t(KIND_HELP_KEY[k]) : t('localMods.kindOther', { kind: k })}>{k}</span>
           ))}
           {cfMatch && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenCf(cfMatch) }}
               className="badge bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 transition-colors"
-              title="From CurseForge — view details"
+              title={t('localMods.cfFrom')}
             >
               <SourceIcon type="curseforge" size={11} /> CF
             </button>
@@ -157,9 +178,9 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
             <button
               onClick={(e) => { e.stopPropagation(); onOpenCf(cfMatch) }}
               className="badge bg-amber-600/30 text-amber-200 hover:bg-amber-600/50 transition-colors"
-              title="A newer file is available on CurseForge — click to update"
+              title={t('localMods.cfUpdate')}
             >
-              <ArrowsClockwise size={11} weight="bold" /> update
+              <ArrowsClockwise size={11} weight="bold" /> {t('localMods.update')}
             </button>
           )}
         </div>
@@ -175,28 +196,30 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
         <p className="text-gray-500 text-xs">
           {formatBytes(mod.size)}
           {mod.folderFiles > 1 && mod.folderSize > mod.size && (
-            <span className="text-gray-600"> · folder {formatBytes(mod.folderSize)} ({mod.folderFiles})</span>
+            <span className="text-gray-600"> · {t('localMods.folderInfo', { size: formatBytes(mod.folderSize), count: mod.folderFiles })}</span>
           )}
-          {mod.dateAdded && <span className="text-gray-600"> · added {formatDate(mod.dateAdded)}</span>}
+          {mod.dateAdded && <span className="text-gray-600"> · {t('localMods.added', { date: formatDate(mod.dateAdded) })}</span>}
         </p>
 
         <p className="text-gray-600 text-xs truncate mt-auto pt-1" title={mod.relativePath}>
           {mod.relativePath}
         </p>
 
-        <div className="flex items-center gap-1.5 mt-2">
+        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            on={mod.enabled}
+            pending={pending}
+            onClick={() => onToggle(mod)}
+            title={mod.enabled ? t('localMods.enabledToggle') : t('localMods.disabledToggle')}
+          />
+          <span className="text-xs text-gray-400 select-none">
+            {pending ? '…' : mod.enabled ? t('common.enabled') : t('common.disabled')}
+          </span>
           <button
-            onClick={(e) => { e.stopPropagation(); onToggle(mod) }}
+            onClick={() => onDelete(mod)}
             disabled={pending}
-            className={`${mod.enabled ? 'btn-danger' : 'btn-success'} flex-1 px-3 py-1.5 text-xs`}
-          >
-            {pending ? '…' : mod.enabled ? 'Disable' : 'Enable'}
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(mod) }}
-            disabled={pending}
-            className="btn-ghost px-2.5 py-1.5 text-xs"
-            title="Move to Recycle Bin"
+            className="btn-ghost ml-auto px-2.5 py-1.5 text-xs hover:text-red-300"
+            title={t('localMods.moveToRecycle')}
           >
             <Trash size={14} weight="regular" />
           </button>
@@ -207,6 +230,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, cfMatch, 
 }
 
 export default function LocalMods({ modsFolder }) {
+  const { t } = useT()
   const [state, setState] = useState('idle') // idle | loading | done | error
   const [result, setResult] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -224,6 +248,7 @@ export default function LocalMods({ modsFolder }) {
   const [cfFinger, setCfFinger] = useState({}) // filePathLower -> { modId, name, hasUpdate } from CF fingerprint match
   const [cfDetailMod, setCfDetailMod] = useState(null) // full CF mod for the modal
   const [cfDetailLoading, setCfDetailLoading] = useState(false)
+  const [showProfiles, setShowProfiles] = useState(false)
 
   // Fetch remote catalog on mount
   useEffect(() => {
@@ -492,7 +517,7 @@ export default function LocalMods({ modsFolder }) {
       <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="page-title">Local Mods</h2>
+            <h2 className="page-title">{t('localMods.title')}</h2>
             {modsFolder && (
               <p className="page-subtitle truncate max-w-lg" title={modsFolder}>
                 {modsFolder}
@@ -500,20 +525,29 @@ export default function LocalMods({ modsFolder }) {
             )}
           </div>
 
-          <button
-            onClick={scan}
-            disabled={state === 'loading'}
-            className="btn-primary px-4 py-2 text-sm"
-          >
-            {state === 'loading' ? (
-              <>
-                <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                Scanning…
-              </>
-            ) : (
-              <><ArrowsClockwise size={16} weight="bold" /> Rescan</>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowProfiles(true)}
+              className="btn-ghost px-3 py-2 text-sm"
+              title={t('profiles.title')}
+            >
+              <Stack size={16} weight="fill" /> {t('profiles.button')}
+            </button>
+            <button
+              onClick={scan}
+              disabled={state === 'loading'}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              {state === 'loading' ? (
+                <>
+                  <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  {t('localMods.scanning')}
+                </>
+              ) : (
+                <><ArrowsClockwise size={16} weight="bold" /> {t('localMods.rescan')}</>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Toolbar: search / filter / sort */}
@@ -524,7 +558,7 @@ export default function LocalMods({ modsFolder }) {
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search name, author, file…"
+              placeholder={t('localMods.searchPlaceholder')}
               className="input w-72 pl-9 pr-3 py-2"
             />
           </div>
@@ -536,7 +570,7 @@ export default function LocalMods({ modsFolder }) {
                 onClick={() => setFilter(f.id)}
                 className={`chip ${filter === f.id ? 'chip-active' : ''}`}
               >
-                {f.label}
+                {t(f.labelKey)}
                 {f.id === 'archive' && archiveCount > 0 && (
                   <span className="badge bg-amber-600/40 text-amber-200 ml-1">{archiveCount}</span>
                 )}
@@ -545,22 +579,22 @@ export default function LocalMods({ modsFolder }) {
           </div>
 
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className="text-gray-600 text-xs">Sort:</span>
+            <span className="text-gray-600 text-xs">{t('localMods.sort')}:</span>
             {SORTS.map(s => (
               <button
                 key={s.id}
                 onClick={() => setSort(s.id)}
                 className={`chip ${sort === s.id ? 'chip-active' : ''}`}
               >
-                {s.label}
+                {t(s.labelKey)}
               </button>
             ))}
             <button
               onClick={toggleDense}
-              title="Toggle grid density"
+              title={t('localMods.compactHint')}
               className={`chip ml-1 ${dense ? 'chip-active' : ''}`}
             >
-              {dense ? 'Compact' : 'Comfort'}
+              <SquaresFour size={13} weight="bold" /> {t('localMods.compact')}
             </button>
           </div>
         </div>
@@ -577,7 +611,7 @@ export default function LocalMods({ modsFolder }) {
         {/* Scan errors (partial) */}
         {state === 'done' && result?.errors?.length > 0 && (
           <div className="mb-4 banner-warn">
-            {result.errors.length} file(s) had errors during scan.
+            {t('localMods.scanErrors', { count: result.errors.length })}
           </div>
         )}
 
@@ -593,7 +627,7 @@ export default function LocalMods({ modsFolder }) {
         {state === 'idle' && (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <Plumbob size={44} spin />
-            <div className="text-gray-500 text-sm">Loading…</div>
+            <div className="text-gray-500 text-sm">{t('common.loading')}</div>
           </div>
         )}
 
@@ -620,8 +654,8 @@ export default function LocalMods({ modsFolder }) {
         {state === 'done' && result?.count === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <FolderDashed size={52} weight="thin" className="text-emerald-500/30" />
-            <p className="text-sm">No mods found in this folder.</p>
-            <p className="text-xs text-gray-700">Download something from the CurseForge tab to get started.</p>
+            <p className="text-sm">{t('localMods.noModsTitle')}</p>
+            <p className="text-xs text-gray-700">{t('localMods.noModsHint')}</p>
           </div>
         )}
 
@@ -629,7 +663,7 @@ export default function LocalMods({ modsFolder }) {
         {state === 'done' && result?.count > 0 && visibleMods.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <MagnifyingGlass size={52} weight="thin" className="text-emerald-500/30" />
-            <p className="text-sm">Nothing matches your search or filter.</p>
+            <p className="text-sm">{t('localMods.nothingMatches')}</p>
           </div>
         )}
 
@@ -638,14 +672,14 @@ export default function LocalMods({ modsFolder }) {
           <>
             <div className="flex items-center justify-between mb-4 gap-3">
               <p className="text-gray-500 text-xs">
-                {visibleMods.length} of {result.count} item{result.count !== 1 ? 's' : ''}
-                {result.scannedAt && ` · scanned ${new Date(result.scannedAt).toLocaleTimeString()}`}
+                {t('localMods.itemsCount', { shown: visibleMods.length, total: result.count, plural: result.count !== 1 ? 's' : '' })}
+                {result.scannedAt && ` · ${t('localMods.scannedAt', { time: new Date(result.scannedAt).toLocaleTimeString() })}`}
               </p>
               {filter === 'archive' && archiveCount > 0 && (
                 <button onClick={handleExtractAll} disabled={extractingAll || !!busyPath} className="btn-primary px-3 py-1.5 text-xs shrink-0">
                   {extractingAll
-                    ? <><CircleNotch size={14} weight="bold" className="animate-spin" /> Extracting…</>
-                    : <><UploadSimple size={14} weight="bold" /> Extract all ({archiveCount})</>}
+                    ? <><CircleNotch size={14} weight="bold" className="animate-spin" /> {t('localMods.extracting')}</>
+                    : <><UploadSimple size={14} weight="bold" /> {t('localMods.extractAll', { count: archiveCount })}</>}
                 </button>
               )}
             </div>
@@ -699,11 +733,13 @@ export default function LocalMods({ modsFolder }) {
         />
       )}
 
+      {showProfiles && <ProfilesModal onClose={() => setShowProfiles(false)} />}
+
       {confirmTarget && (
         <ConfirmDialog
-          title={`Delete "${confirmTarget.name}"?`}
-          message="The file will be moved to the Recycle Bin (recoverable). Folders left empty are removed too."
-          confirmLabel={<><Trash size={15} weight="bold" /> Delete</>}
+          title={t('confirm.deleteTitle', { name: confirmTarget.name })}
+          message={t('confirm.deleteMessage')}
+          confirmLabel={<><Trash size={15} weight="bold" /> {t('common.delete')}</>}
           onConfirm={() => handleDelete(confirmTarget)}
           onCancel={() => setConfirmTarget(null)}
         />

@@ -115,6 +115,16 @@ body {
     @apply border-emerald-400/60 bg-emerald-500/20 text-emerald-200;
   }
 
+  /* grid cards can number in the thousands on a big library; content-visibility
+     lets Chromium skip layout/paint for the ones scrolled off-screen. The
+     intrinsic-size hint keeps the scrollbar honest before a card first renders.
+     Scoped to card-hover so it only hits interactive grid cards, not the few
+     static .card panels in Settings. */
+  .card-hover {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
+  }
+
   .page-title {
     @apply text-xl font-bold text-white tracking-tight;
   }

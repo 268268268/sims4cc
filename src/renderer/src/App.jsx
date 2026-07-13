@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Layout from './components/Layout'
 import Plumbob from './components/Plumbob'
+import { useT } from './lib/i18n'
 import DropZone from './components/DropZone'
 import Welcome from './pages/Welcome'
 import LocalMods from './pages/LocalMods'
@@ -16,6 +17,7 @@ const PAGES = {
 }
 
 export default function App() {
+  const { t } = useT()
   const [modsFolder, setModsFolder] = useState(undefined) // undefined = loading
   const [activePage, setActivePage] = useState('local-mods')
   const [discoverSource, setDiscoverSource] = useState('patreon') // Discover source sub-nav selection
@@ -39,7 +41,7 @@ export default function App() {
       <div className="flex h-screen app-bg items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Plumbob size={44} spin />
-          <div className="text-gray-500 text-sm">Loading…</div>
+          <div className="text-gray-500 text-sm">{t('common.loading')}</div>
         </div>
       </div>
     )

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Package, CircleNotch, Check, Warning, ArrowUp, ArrowsClockwise, DownloadSimple } from '@phosphor-icons/react'
 import { formatBytes } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
+import { useT } from '../lib/i18n'
 
 const ICON = { size: 15, weight: 'bold' }
 
@@ -13,6 +14,7 @@ const ICON = { size: 15, weight: 'bold' }
  * mode: 'download' (default) | 'update' — update replaces the old install.
  */
 export default function DownloadButton({ mod, installed, onInstalled, mode = 'download', className = '' }) {
+  const { t } = useT()
   const [dlState, setDlState] = useState('idle') // idle | downloading | done | error
   const [progress, setProgress] = useState(null) // { received, total, phase }
 
@@ -54,19 +56,19 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
   const label =
     dlState === 'downloading'
       ? installing
-        ? <><Package {...ICON} /> Installing…</>
+        ? <><Package {...ICON} /> {t('curseforge.installing')}</>
         : pct != null
           ? <><CircleNotch {...ICON} className="animate-spin" /> {`${pct}% · ${formatBytes(progress.received)}${progress.total ? ` / ${formatBytes(progress.total)}` : ''}`}</>
-          : <><CircleNotch {...ICON} className="animate-spin" /> Downloading…</>
+          : <><CircleNotch {...ICON} className="animate-spin" /> {t('curseforge.downloading')}</>
       : dlState === 'done'
-        ? <><Check {...ICON} /> {mode === 'update' ? 'Updated!' : 'Downloaded!'}</>
+        ? <><Check {...ICON} /> {mode === 'update' ? t('curseforge.updated') : t('curseforge.downloaded')}</>
         : dlState === 'error'
-          ? <><Warning {...ICON} /> Failed — retry</>
+          ? <><Warning {...ICON} /> {t('curseforge.failedRetry')}</>
           : mode === 'update'
-            ? <><ArrowUp {...ICON} /> Update</>
+            ? <><ArrowUp {...ICON} /> {t('curseforge.updateBtn')}</>
             : installed
-              ? <><ArrowsClockwise {...ICON} /> Re-download</>
-              : <><DownloadSimple {...ICON} /> Download</>
+              ? <><ArrowsClockwise {...ICON} /> {t('curseforge.redownload')}</>
+              : <><DownloadSimple {...ICON} /> {t('curseforge.download')}</>
 
   const stateClass =
     dlState === 'downloading'

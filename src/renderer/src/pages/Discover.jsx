@@ -6,13 +6,14 @@ import DiscoverDetail from '../components/DiscoverDetail'
 import SourceIcon from '../components/SourceIcon'
 import RecentAuthors from '../components/RecentAuthors'
 import { pushAuthor } from '../lib/authorHistory'
+import { useT } from '../lib/i18n'
 
 // badge tint per source type — the glyph itself comes from SourceIcon (real logos)
 const TYPE_META = {
-  patreon: { badge: 'bg-orange-600/30 text-orange-200' },
-  pinterest: { badge: 'bg-red-600/30 text-red-200' },
-  tumblr: { badge: 'bg-sky-600/30 text-sky-200' },
-  modthesims: { badge: 'bg-emerald-600/30 text-emerald-200' }
+  patreon: { badge: 'bg-orange-600/30 text-orange-200', label: 'Patreon' },
+  pinterest: { badge: 'bg-red-600/30 text-red-200', label: 'Pinterest' },
+  tumblr: { badge: 'bg-sky-600/30 text-sky-200', label: 'Tumblr' },
+  modthesims: { badge: 'bg-emerald-600/30 text-emerald-200', label: 'ModTheSims' }
 }
 
 /** Inline source-type icon — real brand logo where one exists. */
@@ -106,6 +107,7 @@ function AddSourceForm({ types, onAdded }) {
 }
 
 function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
+  const { t } = useT()
   const [state, setState] = useState(installed ? 'done' : 'idle') // idle | downloading | done | error
   const [progress, setProgress] = useState(null)
 
@@ -147,11 +149,11 @@ function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
   const label =
     state === 'downloading'
       ? progress?.phase === 'installing'
-        ? <><Package size={14} weight="bold" /> Installing…</>
+        ? <><Package size={14} weight="bold" /> {t('curseforge.installing')}</>
         : <><CircleNotch size={14} weight="bold" className="animate-spin" /> {`${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ''}${pct != null ? `${pct}%` : '…'}`}</>
-      : state === 'done' ? <><Check size={14} weight="bold" /> Installed</>
-        : state === 'error' ? <><Warning size={14} weight="bold" /> Failed — retry</>
-          : <><DownloadSimple size={14} weight="bold" /> {`Download${item.downloads.length > 1 ? ` (${item.downloads.length})` : ''}`}</>
+      : state === 'done' ? <><Check size={14} weight="bold" /> {t('curseforge.installedBadge')}</>
+        : state === 'error' ? <><Warning size={14} weight="bold" /> {t('curseforge.failedRetry')}</>
+          : <><DownloadSimple size={14} weight="bold" /> {`${t('discover.download')}${item.downloads.length > 1 ? ` (${item.downloads.length})` : ''}`}</>
 
   const cls =
     state === 'downloading' ? 'btn-ghost cursor-wait'
@@ -212,6 +214,7 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
 }
 
 function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor }) {
+  const { t } = useT()
   const meta = TYPE_META[item.sourceType] ?? { badge: 'bg-gray-700 text-gray-300' }
   const canDownload = (item.downloads?.length ?? 0) > 0
   return (
@@ -232,16 +235,16 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor 
           <TypeIcon type={item.sourceType} /> {item.sourceType}
         </span>
         {item.locked ? (
-          <span className="absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm" title="Patron-only post — opens on Patreon">
-            <LockSimple size={11} weight="fill" /> patrons
+          <span className="absolute top-2 right-2 badge bg-black/70 text-amber-300 backdrop-blur-sm" title={t('discover.filterPaidTip')}>
+            <LockSimple size={11} weight="fill" /> {t('discover.patronsOnly')}
           </span>
         ) : installed ? (
-          <span className="absolute top-2 right-2 badge bg-emerald-500 text-white backdrop-blur-sm" title="Already downloaded through the app">
-            <Check size={11} weight="bold" /> installed
+          <span className="absolute top-2 right-2 badge bg-emerald-500 text-white backdrop-blur-sm" title={t('discover.installedBadge')}>
+            <Check size={11} weight="bold" /> {t('discover.installedBadge')}
           </span>
         ) : canDownload && (
-          <span className="absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm" title="Free files attached — installs directly">
-            <Gift size={11} weight="fill" /> free
+          <span className="absolute top-2 right-2 badge bg-emerald-600/80 text-white backdrop-blur-sm" title={t('discover.filterFreeTip')}>
+            <Gift size={11} weight="fill" /> {t('discover.freeBadge')}
           </span>
         )}
       </div>
@@ -265,15 +268,31 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor 
         )}
         <div className="flex items-center gap-2 mt-auto pt-1.5 text-gray-600 text-[11px]">
           {item.date && <span className="inline-flex items-center gap-1"><Clock size={12} weight="regular" /> {formatRelative(item.date)}</span>}
-          <span className="ml-auto text-gray-500 inline-flex items-center gap-1"><ArrowUpRight size={12} weight="bold" /> open</span>
+          <span
+            className="ml-auto text-gray-400 inline-flex items-center gap-1"
+            title={t('discover.openOn', { source: meta.label ?? item.sourceType })}
+          >
+            <ArrowUpRight size={12} weight="bold" /> {item.locked ? t('discover.openOn', { source: meta.label ?? item.sourceType }) : t('discover.open')}
+          </span>
         </div>
-        {canDownload && <DiscoverDownloadButton item={item} installed={installed} onDownloaded={onDownloaded} />}
+        {/* locked posts can't install in-app — send the user to the source to view/back it */}
+        {canDownload ? (
+          <DiscoverDownloadButton item={item} installed={installed} onDownloaded={onDownloaded} />
+        ) : item.locked ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); window.api.openExternal(item.url) }}
+            className="btn-ghost mt-3 px-3 py-1.5 text-xs w-full"
+          >
+            <ArrowUpRight size={13} weight="bold" /> {t('discover.openOn', { source: meta.label ?? item.sourceType })}
+          </button>
+        ) : null}
       </div>
     </div>
   )
 }
 
 export default function Discover({ source = 'patreon', pendingAuthor, onNavigateAuthor, onPendingAuthorConsumed }) {
+  const { t } = useT()
   const [types, setTypes] = useState([])
   const [data, setData] = useState(null) // { items, sources, fetchedAt }
   const [loading, setLoading] = useState(true)
@@ -520,20 +539,20 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
       <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="page-title">Discover</h2>
+            <h2 className="page-title">{t('discover.title')}</h2>
             <p className="page-subtitle">
-              Follow creators on Patreon, Pinterest boards, Tumblr blogs — plus the latest from ModTheSims
+              {t('discover.subtitle')}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <RecentAuthors onPick={onNavigateAuthor} />
             <button onClick={() => setShowManage(s => !s)} className="btn-ghost px-3 py-2 text-sm">
-              {showManage ? <><X size={15} weight="bold" /> Close</> : <><GearSix size={15} weight="fill" /> Sources</>}
+              {showManage ? <><X size={15} weight="bold" /> {t('discover.close')}</> : <><GearSix size={15} weight="fill" /> {t('discover.sources')}</>}
             </button>
             <button onClick={() => load(true)} disabled={loading} className="btn-primary px-3 py-2 text-sm">
               {loading ? (
                 <CircleNotch size={16} weight="bold" className="animate-spin" />
-              ) : <><ArrowsClockwise size={15} weight="bold" /> Refresh</>}
+              ) : <><ArrowsClockwise size={15} weight="bold" /> {t('discover.refresh')}</>}
             </button>
           </div>
         </div>
@@ -541,7 +560,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
         {showManage && (
           <div className="card p-4 mb-3 flex flex-col gap-4">
             <div>
-              <p className="text-gray-400 text-xs mb-2">Add your own source</p>
+              <p className="text-gray-400 text-xs mb-2">{t('discover.addSource')}</p>
               <AddSourceForm types={types} onAdded={() => { load(false); refreshSuggested() }} />
             </div>
 
@@ -552,7 +571,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             />
 
             <div>
-              <p className="text-gray-400 text-xs mb-2">Following ({(data?.sources ?? []).length})</p>
+              <p className="text-gray-400 text-xs mb-2">{t('discover.following', { count: (data?.sources ?? []).length })}</p>
               <div className="flex flex-wrap gap-2">
                 {(data?.sources ?? []).map(s => (
                   <span key={s.id} className={`chip !cursor-default ${s.error ? '!border-red-700/60' : ''}`}>
@@ -562,7 +581,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
                       <button
                         onClick={() => removeSource(s.id)}
                         className="text-gray-500 hover:text-red-400 ml-1"
-                        title="Unfollow"
+                        title={t('discover.unfollow')}
                       >
                         <X size={12} weight="bold" />
                       </button>
@@ -580,30 +599,30 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Filter fetched items…"
+              placeholder={t('discover.filterPlaceholder')}
               className="input w-64 pl-9 pr-3 py-2"
             />
           </div>
           {authorView ? (
             <div className="flex items-center gap-2 min-w-0">
-              <button onClick={exitAuthor} className="btn-ghost px-3 py-2 text-sm"><CaretLeft size={15} weight="bold" /> Back</button>
+              <button onClick={exitAuthor} className="btn-ghost px-3 py-2 text-sm"><CaretLeft size={15} weight="bold" /> {t('discover.back')}</button>
               <span className="text-white font-semibold truncate">{authorView.name}</span>
-              <span className="text-gray-500 text-xs shrink-0">· {authorItems.length}{authorHasMore ? '+' : ''} posts</span>
+              <span className="text-gray-500 text-xs shrink-0">· {authorItems.length}{authorHasMore ? '+' : ''} {t('discover.posts')}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title="Free + patron-only posts (hides news posts with nothing attached)">
-                All
+              <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title={t('discover.filterAllTip')}>
+                {t('discover.all')}
               </button>
               {freeCount > 0 && (
-                <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title="Posts with free, directly-installable files">
-                  <Gift size={13} weight="fill" /> Free
+                <button onClick={() => setPostFilter('free')} className={`chip ${postFilter === 'free' ? 'chip-active' : ''}`} title={t('discover.filterFreeTip')}>
+                  <Gift size={13} weight="fill" /> {t('discover.free')}
                   <span className="badge bg-emerald-600/40 text-emerald-200 ml-1">{freeCount}</span>
                 </button>
               )}
               {paidCount > 0 && (
-                <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title="Patron-only posts — open on Patreon">
-                  <LockSimple size={13} weight="fill" /> Paid
+                <button onClick={() => setPostFilter('paid')} className={`chip ${postFilter === 'paid' ? 'chip-active' : ''}`} title={t('discover.filterPaidTip')}>
+                  <LockSimple size={13} weight="fill" /> {t('discover.paid')}
                   <span className="badge bg-amber-600/40 text-amber-200 ml-1">{paidCount}</span>
                 </button>
               )}
@@ -641,10 +660,10 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             <Globe size={52} weight="thin" className="text-emerald-500/30" />
             <p className="text-sm flex items-center gap-1 flex-wrap justify-center">
               {authorView
-                ? `No posts from ${authorView.name}.`
+                ? t('discover.emptyNoAuthor', { name: authorView.name })
                 : query || postFilter !== 'all' || source !== 'all'
-                  ? 'Nothing matches this source or filter.'
-                  : <>Follow a creator via <GearSix size={13} weight="fill" className="inline" /> Sources to fill this feed.</>}
+                  ? t('discover.emptyNoMatch')
+                  : t('discover.emptyFollow')}
             </p>
           </div>
         )}
@@ -652,8 +671,11 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
         {feed.length > 0 && (
           <>
             <p className="text-gray-500 text-xs mb-4">
-              Showing {Math.min(feedShown, feed.length)} of {feed.length}{authorView && feedHasMore ? '+' : ''}
-              {!authorView && data?.fetchedAt && ` · fetched ${new Date(data.fetchedAt).toLocaleTimeString()}`}
+              {t('discover.showingOf', {
+                shown: `${Math.min(feedShown, feed.length)}`,
+                total: `${feed.length}${authorView && feedHasMore ? '+' : ''}`
+              })}
+              {!authorView && data?.fetchedAt && ` · ${t('discover.fetchedAt', { time: new Date(data.fetchedAt).toLocaleTimeString() })}`}
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
               {feed.slice(0, feedShown).map(item => (
@@ -664,7 +686,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             <div ref={sentinelRef} className="h-10 flex items-center justify-center">
               {loadingMore && <CircleNotch size={20} weight="bold" className="animate-spin text-emerald-400" />}
               {!loadingMore && feedShown >= feed.length && !feedHasMore && (
-                <span className="text-gray-600 text-xs">— конец ленты —</span>
+                <span className="text-gray-600 text-xs">{t('discover.endOfFeed')}</span>
               )}
             </div>
           </>

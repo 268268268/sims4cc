@@ -11,6 +11,11 @@ const API_BASE = 'https://api.curseforge.com/v1'
 // 32197 returns 200 OK but 0 results (ghost id); 78062 is the real one.
 const SIMS4_GAME_ID = 78062
 
+// Per-request tracing is noise in normal use — opt in with CF_DEBUG=1. Real
+// errors still log unconditionally via console.error below.
+const DEBUG = !!process.env.CF_DEBUG
+const dbg = (...args) => { if (DEBUG) console.log(...args) }
+
 /**
  * Search CurseForge mods for The Sims 4.
  * @param {Object} params
@@ -28,7 +33,6 @@ export async function searchMods(params = {}) {
   const apiKey = await getApiKey()
 
   if (!apiKey) {
-    console.error('DEBUG: CURSEFORGE_API_KEY is missing — check .env / Settings.')
     return { data: [], pagination: null, error: 'CurseForge API key is not set. Add it in Settings or .env.' }
   }
 
@@ -52,7 +56,7 @@ export async function searchMods(params = {}) {
   url.searchParams.set('index', index)
   url.searchParams.set('pageSize', pageSize)
 
-  console.log('DEBUG: Fetching CurseForge URL:', url.toString())
+  dbg('DEBUG: Fetching CurseForge URL:', url.toString())
 
   try {
     const res = await fetch(url, {
@@ -74,8 +78,7 @@ export async function searchMods(params = {}) {
     const json = await res.json()
     const data = json.data ?? []
 
-    console.log('DEBUG: Response keys:', Object.keys(json))
-    console.log(
+    dbg(
       'DEBUG: Parsed — totalCount:',
       json.pagination?.totalCount,
       '| returned:',

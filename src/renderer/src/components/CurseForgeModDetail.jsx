@@ -5,6 +5,7 @@ import Lightbox from './Lightbox'
 import DownloadButton from './DownloadButton'
 import { formatBytes, formatCount, formatDate } from '../lib/format'
 import { pickLatestFile, RELEASE_TYPE } from '../lib/cfFile'
+import { useT } from '../lib/i18n'
 
 const PLACEHOLDER =
   'data:image/svg+xml,' +
@@ -23,6 +24,7 @@ function Stat({ Icon, label, value }) {
 }
 
 function DescriptionTab({ modId }) {
+  const { t } = useT()
   const [state, setState] = useState({ loading: true, html: '', error: null })
   const boxRef = useRef(null)
 
@@ -53,7 +55,7 @@ function DescriptionTab({ modId }) {
     )
   }
   if (state.error) return <p className="text-red-400 text-sm flex items-center gap-1.5"><Warning size={15} weight="fill" /> {state.error}</p>
-  if (!state.html) return <p className="text-gray-600 text-sm">No description provided.</p>
+  if (!state.html) return <p className="text-gray-600 text-sm">{t('curseforge.noDescription')}</p>
 
   return (
     <div
@@ -66,6 +68,7 @@ function DescriptionTab({ modId }) {
 }
 
 export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInstalled, onClose, onOpenAuthor }) {
+  const { t } = useT()
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [tab, setTab] = useState('overview') // overview | description
   const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER
@@ -94,13 +97,13 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
               <span className={`badge ${release.cls} shrink-0`} title={release.title}>{release.label}</span>
             )}
             {hasUpdate ? (
-              <span className="badge bg-amber-500/90 text-black font-semibold shrink-0"><ArrowUp size={11} weight="bold" /> Update available</span>
+              <span className="badge bg-amber-500/90 text-black font-semibold shrink-0"><ArrowUp size={11} weight="bold" /> {t('curseforge.updateAvailable')}</span>
             ) : installed && (
-              <span className="badge bg-emerald-600/90 text-white shrink-0"><Check size={11} weight="bold" /> Installed</span>
+              <span className="badge bg-emerald-600/90 text-white shrink-0"><Check size={11} weight="bold" /> {t('curseforge.installedBadge')}</span>
             )}
           </div>
           <p className="text-emerald-400 text-sm mt-1">
-            by{' '}
+            {t('curseforge.by')}{' '}
             {authors ? authors.map((a, i) => (
               <span key={a.id ?? a.name}>
                 {i > 0 && <span className="text-gray-600">, </span>}
@@ -108,25 +111,25 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
                   <button onClick={() => onOpenAuthor(a)} className="hover:text-emerald-300 hover:underline">{a.name}</button>
                 ) : a.name}
               </span>
-            )) : 'Unknown'}
+            )) : t('curseforge.unknownAuthor')}
           </p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <Stat Icon={DownloadSimple} label="Downloads" value={downloads} />
-          <Stat Icon={ThumbsUp} label="Likes" value={thumbs} />
-          <Stat Icon={HardDrives} label="File size" value={size} />
-          <Stat Icon={CalendarBlank} label="Updated" value={updated} />
-          <Stat Icon={GameController} label="Game ver." value={gameVersion} />
+          <Stat Icon={DownloadSimple} label={t('curseforge.statDownloads')} value={downloads} />
+          <Stat Icon={ThumbsUp} label={t('curseforge.statLikes')} value={thumbs} />
+          <Stat Icon={HardDrives} label={t('curseforge.fileSize')} value={size} />
+          <Stat Icon={CalendarBlank} label={t('curseforge.statUpdated')} value={updated} />
+          <Stat Icon={GameController} label={t('curseforge.statGameVer')} value={gameVersion} />
         </div>
 
         {/* Tabs */}
         <div className="flex items-center gap-1.5 border-b border-white/5 pb-2">
           <button onClick={() => setTab('overview')} className={`chip ${tab === 'overview' ? 'chip-active' : ''}`}>
-            Overview
+            {t('curseforge.overview')}
           </button>
           <button onClick={() => setTab('description')} className={`chip ${tab === 'description' ? 'chip-active' : ''}`}>
-            Description
+            {t('curseforge.description')}
           </button>
         </div>
 
@@ -151,7 +154,7 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
 
             {screenshots.length > 0 && (
               <div>
-                <p className="text-gray-500 text-[11px] uppercase tracking-wide mb-2">Screenshots</p>
+                <p className="text-gray-500 text-[11px] uppercase tracking-wide mb-2">{t('curseforge.screenshots')}</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {screenshots.map((s, idx) => (
                     <img
@@ -182,7 +185,7 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
               onClick={() => window.api.openExternal(websiteUrl)}
               className="btn-ghost px-4 py-2 text-sm"
             >
-              <ArrowSquareOut size={16} weight="bold" /> Open on CurseForge
+              <ArrowSquareOut size={16} weight="bold" /> {t('curseforge.openOnCf')}
             </button>
           )}
         </div>

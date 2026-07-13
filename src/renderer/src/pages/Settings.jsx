@@ -1,7 +1,37 @@
 import { useState, useEffect } from 'react'
-import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle } from '@phosphor-icons/react'
+import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate } from '@phosphor-icons/react'
+import { useT, LANG_OPTIONS } from '../lib/i18n'
+
+function LanguageSection() {
+  const { t, pref, setLanguage } = useT()
+  return (
+    <section className="mb-6 fade-in-up">
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        {t('settings.language')}
+      </h3>
+      <div className="card p-5">
+        <p className="text-gray-400 text-sm mb-3 leading-relaxed flex items-center gap-2">
+          <Translate size={18} weight="fill" className="text-emerald-400 shrink-0" />
+          {t('settings.languageHint')}
+        </p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {LANG_OPTIONS.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setLanguage(opt.id)}
+              className={`chip ${pref === opt.id ? 'chip-active' : ''}`}
+            >
+              {opt.id === 'auto' ? t('settings.languageAuto') : opt.native}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function ApiKeySection() {
+  const { t } = useT()
   const [key, setKey] = useState('')
   const [show, setShow] = useState(false)
   const [status, setStatus] = useState(null) // null | 'saving' | 'saved'
@@ -24,18 +54,17 @@ function ApiKeySection() {
   return (
     <section className="mb-6 fade-in-up">
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-        CurseForge API Key
+        {t('settings.apiKey')}
       </h3>
       <div className="card p-5">
         <p className="text-gray-400 text-sm mb-3 leading-relaxed">
-          Needed to browse and download mods. Get a free key at{' '}
+          {t('settings.apiKeyHint')}{' '}
           <button
             onClick={() => window.api.openExternal('https://console.curseforge.com/')}
             className="text-emerald-300 underline hover:text-emerald-200"
           >
             console.curseforge.com
           </button>
-          . A key in a <code className="text-emerald-300 bg-white/5 px-1 rounded">.env</code> file takes precedence over this one.
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -45,11 +74,11 @@ function ApiKeySection() {
             placeholder="$2a$10$…"
             className="input flex-1 px-3 py-2 font-mono text-xs"
           />
-          <button onClick={() => setShow(s => !s)} className="btn-ghost px-3 py-2 text-sm" title={show ? 'Hide' : 'Show'}>
+          <button onClick={() => setShow(s => !s)} className="btn-ghost px-3 py-2 text-sm" title={show ? t('common.hide') : t('common.show')}>
             {show ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
           </button>
           <button onClick={onSave} disabled={status === 'saving'} className="btn-primary px-4 py-2 text-sm">
-            {status === 'saving' ? 'Saving…' : status === 'saved' ? <><Check size={15} weight="bold" /> Saved</> : 'Save'}
+            {status === 'saving' ? t('common.saving') : status === 'saved' ? <><Check size={15} weight="bold" /> {t('common.saved')}</> : t('common.save')}
           </button>
         </div>
       </div>
@@ -60,6 +89,7 @@ function ApiKeySection() {
 const PROVIDER_ICON = { patreon: HeartStraight, pinterest: PushPin }
 
 function ConnectedAccountsSection() {
+  const { t } = useT()
   const [status, setStatus] = useState({})
   const [busy, setBusy] = useState(null)
 
@@ -88,13 +118,11 @@ function ConnectedAccountsSection() {
   return (
     <section className="mb-6 fade-in-up">
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-        Connected Accounts
+        {t('settings.connectedAccounts')}
       </h3>
       <div className="card p-5">
         <p className="text-gray-400 text-sm mb-4 leading-relaxed">
-          Sign in to your own accounts to download everything you have access to — including
-          posts you back on Patreon. You log in on the real site in a normal window;
-          <strong className="text-gray-300"> this app never sees your password</strong>.
+          {t('settings.connectedAccountsHint')}
         </p>
         <div className="flex flex-col gap-2">
           {Object.entries(status).map(([provider, s]) => {
@@ -104,23 +132,23 @@ function ConnectedAccountsSection() {
               <PI size={20} weight="fill" className="text-emerald-400 shrink-0" />
               <span className="text-white text-sm font-medium">{s.label}</span>
               {s.connected
-                ? <span className="badge bg-emerald-800/50 text-emerald-300"><Check size={11} weight="bold" /> connected</span>
-                : <span className="badge bg-white/10 text-gray-400">not connected</span>}
+                ? <span className="badge bg-emerald-800/50 text-emerald-300"><Check size={11} weight="bold" /> {t('settings.connected')}</span>
+                : <span className="badge bg-white/10 text-gray-400">{t('settings.notConnected')}</span>}
               <div className="ml-auto">
                 {s.connected ? (
                   <button onClick={() => disconnect(provider)} disabled={busy === provider} className="btn-ghost px-3 py-1.5 text-xs">
-                    {busy === provider ? '…' : 'Disconnect'}
+                    {busy === provider ? '…' : t('common.disconnect')}
                   </button>
                 ) : (
                   <button onClick={() => connect(provider)} disabled={busy === provider} className="btn-primary px-3 py-1.5 text-xs">
-                    {busy === provider ? 'Waiting for login…' : 'Connect'}
+                    {busy === provider ? t('settings.waitingLogin') : t('common.connect')}
                   </button>
                 )}
               </div>
             </div>
           )})}
           {Object.keys(status).length === 0 && (
-            <p className="text-gray-600 text-xs">Loading…</p>
+            <p className="text-gray-600 text-xs">{t('common.loading')}</p>
           )}
         </div>
       </div>
@@ -129,6 +157,7 @@ function ConnectedAccountsSection() {
 }
 
 function ThumbCacheSection() {
+  const { t } = useT()
   const [status, setStatus] = useState(null)
 
   const onClear = async () => {
@@ -141,22 +170,21 @@ function ThumbCacheSection() {
   return (
     <section className="mb-6 fade-in-up">
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-        Thumbnail Cache
+        {t('settings.thumbnailCache')}
       </h3>
       <div className="card p-5">
         <p className="text-gray-400 text-sm mb-3 leading-relaxed">
-          Mod previews extracted from <code className="text-emerald-300 bg-white/5 px-1 rounded">.package</code> files
-          are cached on disk. Clear it if thumbnails look stale — they regenerate on the next scan.
+          {t('settings.thumbnailCacheHint')}
         </p>
         <div className="flex items-center gap-2">
           <button onClick={() => window.api.openThumbCache()} className="btn-ghost px-4 py-2 text-sm">
-            <FolderOpen size={16} weight="fill" /> Open cache folder
+            <FolderOpen size={16} weight="fill" /> {t('settings.openCacheFolder')}
           </button>
           <button onClick={onClear} disabled={status === 'clearing'} className="btn-ghost px-4 py-2 text-sm">
-            {status === 'clearing' ? 'Clearing…'
-              : status === 'cleared' ? <><Check size={15} weight="bold" /> Cleared</>
-              : status === 'error' ? <><Warning size={15} weight="bold" /> Failed</>
-              : <><Broom size={15} weight="fill" /> Clear cache</>}
+            {status === 'clearing' ? t('cacheBanner.clearing')
+              : status === 'cleared' ? <><Check size={15} weight="bold" /> {t('settings.cleared')}</>
+              : status === 'error' ? <><Warning size={15} weight="bold" /> {t('common.failed')}</>
+              : <><Broom size={15} weight="fill" /> {t('settings.clearCache')}</>}
           </button>
         </div>
       </div>
@@ -165,8 +193,21 @@ function ThumbCacheSection() {
 }
 
 export default function Settings({ modsFolder, onFolderChanged }) {
+  const { t } = useT()
   const [cacheStatus, setCacheStatus] = useState(null) // null | 'loading' | {success, msg}
   const [folderLoading, setFolderLoading] = useState(false)
+  const [folderCheck, setFolderCheck] = useState(null) // { looksValid, ... } | null
+
+  // Validate the configured folder whenever it changes, so we can warn if it
+  // doesn't look like a Sims 4 Mods folder.
+  useEffect(() => {
+    let cancelled = false
+    if (!modsFolder) { setFolderCheck(null); return }
+    window.api.validateModsFolder?.(modsFolder).then(res => {
+      if (!cancelled) setFolderCheck(res ?? null)
+    }).catch(() => { if (!cancelled) setFolderCheck(null) })
+    return () => { cancelled = true }
+  }, [modsFolder])
 
   async function handleChangeFolder() {
     setFolderLoading(true)
@@ -201,31 +242,45 @@ export default function Settings({ modsFolder, onFolderChanged }) {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 pt-4 pb-3 border-b border-white/5 shrink-0">
-        <h2 className="page-title">Settings</h2>
-        <p className="page-subtitle">Configure folders and maintenance actions</p>
+        <h2 className="page-title">{t('settings.title')}</h2>
+        <p className="page-subtitle">{t('settings.subtitle')}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 max-w-2xl">
         {/* Mods Folder */}
         <section className="mb-6 fade-in-up">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Mods Folder
+            {t('settings.modsFolder')}
           </h3>
           <div className="card p-5">
-            <p className="text-xs text-gray-500 mb-1">Current path</p>
+            <p className="text-xs text-gray-500 mb-1">{t('settings.currentPath')}</p>
             <p className="text-gray-200 font-mono text-sm break-all mb-4">
-              {modsFolder ?? <span className="text-red-400">Not configured</span>}
+              {modsFolder ?? <span className="text-red-400">{t('settings.notConfigured')}</span>}
             </p>
             <button
               onClick={handleChangeFolder}
               disabled={folderLoading}
               className="btn-ghost py-2 px-4 text-sm"
             >
-              {folderLoading ? 'Opening…' : <><Folder size={16} weight="fill" /> Change Mods Folder</>}
+              {folderLoading ? t('settings.opening') : <><Folder size={16} weight="fill" /> {t('settings.changeModsFolder')}</>}
             </button>
+
+            {/* warn if the folder doesn't look like a Sims 4 Mods folder */}
+            {modsFolder && folderCheck && !folderCheck.looksValid && (
+              <div className="mt-4 text-xs px-4 py-3 rounded-xl border text-amber-300 bg-amber-950/40 border-amber-800/50 flex items-start gap-2">
+                <Warning size={15} weight="fill" className="shrink-0 mt-0.5" />
+                <span>{t('settings.folderInvalid')}</span>
+              </div>
+            )}
+            {modsFolder && folderCheck?.looksValid && (
+              <p className="mt-3 text-emerald-400/80 text-xs flex items-center gap-1.5">
+                <CheckCircle size={14} weight="fill" /> {t('settings.folderValid')}
+              </p>
+            )}
           </div>
         </section>
 
+        <LanguageSection />
         <ConnectedAccountsSection />
         <ApiKeySection />
         <ThumbCacheSection />
@@ -233,25 +288,23 @@ export default function Settings({ modsFolder, onFolderChanged }) {
         {/* Game Cache */}
         <section className="fade-in-up">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Game Cache
+            {t('settings.gameCache')}
           </h3>
           <div className="card p-5">
             <p className="text-gray-400 text-sm mb-4 leading-relaxed">
-              Deletes <code className="text-emerald-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">localthumbcache.package</code> from
-              your Sims 4 folder. The game will regenerate it on next launch.
-              Do this after installing or removing mods to fix thumbnail glitches.
+              {t('settings.gameCacheHint')}
             </p>
             <button
               onClick={handleClearCache}
               disabled={cacheStatus === 'loading' || !modsFolder}
               className="btn-danger py-2 px-5 text-sm font-semibold"
             >
-              <Trash size={15} weight="bold" /> {cacheStatus === 'loading' ? 'Deleting…' : 'Clear Game Cache'}
+              <Trash size={15} weight="bold" /> {cacheStatus === 'loading' ? t('settings.deleting') : t('settings.clearGameCache')}
             </button>
 
             {!modsFolder && (
               <p className="mt-3 text-amber-400 text-xs">
-                Configure your Mods folder first.
+                {t('settings.configureFolderFirst')}
               </p>
             )}
 

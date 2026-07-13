@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { SquaresFour, CaretDown, MagnifyingGlass, Check } from '@phosphor-icons/react'
+import { useT } from '../lib/i18n'
 
 /**
  * Multi-select dropdown to narrow by CurseForge leaf categories (AND-combined),
  * with a type-to-filter box. Selected ids are controlled by the parent.
  */
 export default function CategoryFilter({ categories, selectedIds = [], onToggle, onClear }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const ref = useRef(null)
@@ -31,11 +33,11 @@ export default function CategoryFilter({ categories, selectedIds = [], onToggle,
       <button
         onClick={() => setOpen(o => !o)}
         className={`chip ${count ? 'chip-active' : ''}`}
-        title="Filter by category"
+        title={t('curseforge.filterByCategory')}
       >
         <SquaresFour size={14} weight="regular" />
         <span className="max-w-[10rem] truncate">
-          {count ? `${count} categor${count === 1 ? 'y' : 'ies'}` : 'All categories'}
+          {count ? t('curseforge.categoriesCount', { count }) : t('curseforge.allCategories')}
         </span>
         <CaretDown size={11} weight="bold" className="opacity-70" />
       </button>
@@ -50,7 +52,7 @@ export default function CategoryFilter({ categories, selectedIds = [], onToggle,
                   autoFocus
                   value={q}
                   onChange={e => setQ(e.target.value)}
-                  placeholder="Filter categories…"
+                  placeholder={t('curseforge.filterCategoriesPlaceholder')}
                   className="input w-full pl-7 pr-2.5 py-1.5 text-xs"
                 />
               </div>
@@ -62,7 +64,7 @@ export default function CategoryFilter({ categories, selectedIds = [], onToggle,
                 onClick={onClear}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-gray-400 hover:bg-white/5"
               >
-                <SquaresFour size={16} weight="regular" className="shrink-0" /> Clear ({count})
+                <SquaresFour size={16} weight="regular" className="shrink-0" /> {t('curseforge.clearCount', { count })}
               </button>
             )}
             {shown.map(c => {
@@ -81,7 +83,7 @@ export default function CategoryFilter({ categories, selectedIds = [], onToggle,
               )
             })}
             {shown.length === 0 && (
-              <p className="px-2.5 py-3 text-gray-600 text-xs text-center">No categories match.</p>
+              <p className="px-2.5 py-3 text-gray-600 text-xs text-center">{t('curseforge.noCategoriesMatch')}</p>
             )}
           </div>
         </div>

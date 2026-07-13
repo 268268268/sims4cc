@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   setConfig: (key, value) => ipcRenderer.invoke('set-config', key, value),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+  validateModsFolder: (folder) => ipcRenderer.invoke('mods:validateFolder', folder),
   clearGameCache: () => ipcRenderer.invoke('clear-game-cache'),
 
   // local mods
@@ -26,6 +27,15 @@ contextBridge.exposeInMainWorld('api', {
     }
   },
   showItemInFolder: (p) => ipcRenderer.invoke('shell:showItemInFolder', p),
+
+  // profiles (named mod sets)
+  listProfiles: () => ipcRenderer.invoke('profiles:list'),
+  saveProfile: (payload) => ipcRenderer.invoke('profiles:save', payload),
+  applyProfile: (id) => ipcRenderer.invoke('profiles:apply', id),
+  renameProfile: (id, name) => ipcRenderer.invoke('profiles:rename', id, name),
+  deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
+  exportProfile: (id) => ipcRenderer.invoke('profiles:export', id),
+  importProfile: () => ipcRenderer.invoke('profiles:import'),
 
   // creator catalog
   getCatalog: () => ipcRenderer.invoke('catalog:get'),

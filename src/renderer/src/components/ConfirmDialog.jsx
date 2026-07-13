@@ -1,7 +1,9 @@
 import Modal from './Modal'
+import { useT } from '../lib/i18n'
 
 /** Small confirmation dialog: message + danger confirm / ghost cancel. */
-export default function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfirm, onCancel }) {
+export default function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }) {
+  const { t } = useT()
   return (
     <Modal onClose={onCancel} maxWidth="max-w-sm">
       <div className="p-6 flex flex-col gap-4">
@@ -9,10 +11,10 @@ export default function ConfirmDialog({ title, message, confirmLabel = 'Delete',
         {message && <p className="text-gray-400 text-sm leading-relaxed">{message}</p>}
         <div className="flex items-center gap-3 pt-1">
           <button onClick={onConfirm} className="btn-danger px-4 py-2 text-sm">
-            {confirmLabel}
+            {confirmLabel ?? t('common.delete')}
           </button>
           <button onClick={onCancel} className="btn-ghost px-4 py-2 text-sm">
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </div>
