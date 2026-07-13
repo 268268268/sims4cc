@@ -163,8 +163,10 @@ export async function followBatch({ type, text }) {
 
 export async function fetchDiscover({ force = false } = {}) {
   const sources = [...BUILTINS, ...(await listSources())]
-  // cap concurrency so following 20+ creators doesn't hammer Patreon at once
-  const results = await mapPool(sources, 5, async (s) => ({ s, r: await fetchSource(s, force) }))
+  // Per-host politeness (http.js) is the real gate now — it trickles Patreon to
+  // 2-at-a-time while distinct hosts (Tumblr blogs, MTS) run free. So a wider
+  // pool just lets those finish sooner without ever flooding patreon.com.
+  const results = await mapPool(sources, 10, async (s) => ({ s, r: await fetchSource(s, force) }))
 
   const items = []
   const seenIds = new Set()
@@ -229,7 +231,7 @@ export async function fetchMoreDiscover() {
   const pageable = sources.filter(s => cache.get(s.id)?.nextCursor)
   if (!pageable.length) return { ok: true, items: [], hasMore: false }
 
-  const pages = await mapPool(pageable, 5, async (s) => {
+  const pages = await mapPool(pageable, 10, async (s) => {
     const page = await fetchSource(s, true, cache.get(s.id).nextCursor) // cursor set → bypasses cache
     const base = cache.get(s.id)
     if (base && !page.error) {

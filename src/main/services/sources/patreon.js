@@ -1,8 +1,49 @@
 import { fetchJson, stripHtml, toIso } from './feedUtils.js'
 import { httpFetch } from './http.js'
 
-// campaign ids rarely change — cache per creator for the session
-const campaignCache = new Map()
+// campaign ids rarely change — cache per creator. Persisted to disk so a refresh
+// (or a fresh launch) skips the creator-page request entirely and only hits the
+// posts API: halves Patreon traffic, which matters a lot with many followed creators.
+const campaignCache = new Map() // slug -> { id, name }
+let CACHE_PATH = null
+
+async function cachePath() {
+  if (!CACHE_PATH) {
+    const { app } = await import('electron')
+    CACHE_PATH = (await import('path')).join(app.getPath('userData'), 'patreon-campaigns.json')
+  }
+  return CACHE_PATH
+}
+
+// Memoize the LOAD PROMISE, not a boolean — a boolean set before the async read
+// completes lets concurrent cold-start callers proceed against an empty Map and
+// re-fetch creator pages the cache already holds. Every caller awaits this one.
+let loadPromise = null
+function loadDisk() {
+  if (!loadPromise) {
+    loadPromise = (async () => {
+      try {
+        const { readFile } = await import('fs/promises')
+        const obj = JSON.parse(await readFile(await cachePath(), 'utf-8'))
+        for (const [slug, v] of Object.entries(obj)) {
+          if (v?.id) campaignCache.set(slug, v)
+        }
+      } catch {
+        // no cache yet, or running under plain node without electron — memory-only
+      }
+    })()
+  }
+  return loadPromise
+}
+
+async function saveDisk() {
+  try {
+    const { writeFile } = await import('fs/promises')
+    await writeFile(await cachePath(), JSON.stringify(Object.fromEntries(campaignCache)), 'utf-8')
+  } catch {
+    // best-effort
+  }
+}
 
 /** "CreatorName" | patreon.com URL → creator slug. */
 export function normalizePatreonInput(input) {
@@ -13,6 +54,7 @@ export function normalizePatreonInput(input) {
 }
 
 async function resolveCampaign(slug) {
+  await loadDisk()
   if (campaignCache.has(slug)) return campaignCache.get(slug)
   // force English so og:title parsing is locale-independent (the app may run
   // under any system locale, which Patreon otherwise mirrors)
@@ -38,6 +80,7 @@ async function resolveCampaign(slug) {
   if (!id) throw new Error(`Could not find the Patreon campaign for "${slug}".`)
   const resolved = { id, name }
   campaignCache.set(slug, resolved)
+  saveDisk() // fire-and-forget
   return resolved
 }
 

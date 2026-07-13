@@ -21,6 +21,7 @@ async function streamToFile(url, destPath, onProgress) {
     const res = await httpFetch(url, { signal: controller.signal })
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
     if (!res.body) return { ok: false, error: 'empty response body' }
+    resetIdle() // fresh 30s for the streaming phase — connect+retry time shouldn't count as a stall
     const total = Number(res.headers.get('content-length')) || null
     let bytes = 0
     let last = 0
