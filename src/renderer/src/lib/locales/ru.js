@@ -239,7 +239,13 @@ export default {
     filterPaidTip: 'Только для патронов — открываются на Patreon',
     filesCount: 'файлов: {count}',
     patronWarning: 'Это пост только для патронов. Подключите аккаунт Patreon в настройках (если вы поддерживаете этого автора), чтобы скачать, или откройте оригинал на Patreon.',
-    openOriginal: 'Открыть оригинал'
+    openOriginal: 'Открыть оригинал',
+    linkTitle: 'Скачать по ссылке',
+    linkHint: 'Вставь ссылку на пин Pinterest, пост Patreon, SimFileShare или прямой файл',
+    linkPlaceholder: 'https://…',
+    linkFetch: 'Получить',
+    linkResolving: 'Обработка…',
+    linkOpenInstead: 'Открыть в браузере'
   },
   settings: {
     title: 'Настройки',

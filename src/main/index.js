@@ -17,6 +17,7 @@ import { importFiles } from './services/modImporter.js'
 import { checkUpdates, updateInstalledMod, invalidateUpdateCache } from './services/updateService.js'
 import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, fetchSourceFeed, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
+import { resolveLink } from './services/linkResolver.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
 
 import { toggleLocalModEnabled } from './services/localModActions.js'
@@ -502,6 +503,16 @@ ipcMain.handle('discover:followSuggested', async (_e, entries) => {
   }
 })
 
+// IPC: resolve any URL (Pinterest pin / Patreon post / SimFileShare / direct file)
+// to installable files — for the "Download from link" box
+ipcMain.handle('discover:resolveLink', async (_e, url) => {
+  try {
+    return await resolveLink(url)
+  } catch (err) {
+    return { ok: false, openUrl: url, reason: err.message }
+  }
+})
+
 // IPC: download a free Discover item's files straight into the Mods folder
 ipcMain.handle('discover:download', async (e, item) => {
   try {
@@ -631,9 +642,20 @@ ipcMain.handle('profiles:import', async () => {
 // IPC: inspect a local mod — sibling files + DBPF resource summary
 ipcMain.handle('localMods:inspect', (_e, filePath) => inspectLocalMod(filePath))
 
-// IPC: reveal a file/folder in the OS file manager
-ipcMain.handle('shell:showItemInFolder', (_e, p) => {
-  if (typeof p === 'string' && p) shell.showItemInFolder(p)
+// IPC: reveal a file/folder in the OS file manager — only inside the Mods folder
+// or our own thumbnail cache, so a compromised renderer can't pop Explorer anywhere
+ipcMain.handle('shell:showItemInFolder', async (_e, p) => {
+  if (typeof p !== 'string' || !p) return
+  try {
+    const abs = resolve(p)
+    const config = await readConfig()
+    const roots = [config.modsFolder, await getThumbCacheDir()].filter(Boolean).map(r => resolve(r))
+    const ok = roots.some(root => {
+      const rel = abs.slice(root.length)
+      return abs.toLowerCase().startsWith(root.toLowerCase()) && (rel === '' || rel.startsWith(sep))
+    })
+    if (ok) shell.showItemInFolder(abs)
+  } catch { /* ignore */ }
 })
 
 // IPC: open external URL in default system browser (keeps links out of the app window).

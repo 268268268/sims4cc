@@ -11,6 +11,7 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
   - '!{.eslintrc.*,.prettierrc.*,README.md,CHANGELOG.md}'
 win:
+  icon: build/icon.ico
   # two artifacts: an installer (setup.exe) and a single portable .exe
   target:
     - nsis

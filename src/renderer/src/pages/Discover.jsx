@@ -106,6 +106,66 @@ function AddSourceForm({ types, onAdded }) {
   )
 }
 
+function LinkDownloadBox({ onResolved }) {
+  const { t } = useT()
+  const [url, setUrl] = useState('')
+  const [state, setState] = useState('idle') // idle | resolving | error
+  const [result, setResult] = useState(null) // { ok:false, openUrl, reason }
+
+  const onFetch = async () => {
+    const link = url.trim()
+    if (!link || state === 'resolving') return
+    setState('resolving')
+    setResult(null)
+    try {
+      const r = await window.api.resolveDiscoverLink(link)
+      if (r?.ok) {
+        setUrl('')
+        setState('idle')
+        onResolved(r) // opens the preview modal with a Download button
+      } else {
+        setResult(r ?? { reason: 'Could not resolve this link.' })
+        setState('error')
+      }
+    } catch (err) {
+      setResult({ reason: err.message })
+      setState('error')
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-gray-400 text-xs mb-2">{t('discover.linkTitle')}</p>
+      <div className="flex items-center gap-2">
+        <input
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onFetch() }}
+          placeholder={t('discover.linkPlaceholder')}
+          className="input flex-1 px-3 py-2 text-sm"
+        />
+        <button onClick={onFetch} disabled={state === 'resolving'} className="btn-primary px-4 py-2 text-sm">
+          {state === 'resolving'
+            ? <><CircleNotch size={15} weight="bold" className="animate-spin" /> {t('discover.linkResolving')}</>
+            : <><DownloadSimple size={15} weight="bold" /> {t('discover.linkFetch')}</>}
+        </button>
+      </div>
+      <p className="text-gray-600 text-[11px] mt-1">{t('discover.linkHint')}</p>
+      {state === 'error' && result && (
+        <div className="mt-2 flex items-center gap-2 text-xs text-amber-300">
+          <Warning size={13} weight="fill" className="shrink-0" />
+          <span className="flex-1">{result.reason}</span>
+          {result.openUrl && (
+            <button onClick={() => window.api.openExternal(result.openUrl)} className="btn-ghost px-2.5 py-1 text-xs shrink-0">
+              <ArrowUpRight size={13} weight="bold" /> {t('discover.linkOpenInstead')}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
   const { t } = useT()
   const [state, setState] = useState(installed ? 'done' : 'idle') // idle | downloading | done | error
@@ -559,6 +619,8 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
 
         {showManage && (
           <div className="card p-4 mb-3 flex flex-col gap-4">
+            <LinkDownloadBox onResolved={setSelected} />
+
             <div>
               <p className="text-gray-400 text-xs mb-2">{t('discover.addSource')}</p>
               <AddSourceForm types={types} onAdded={() => { load(false); refreshSuggested() }} />

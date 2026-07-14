@@ -17,12 +17,13 @@ export async function toggleLocalModEnabled({ filePath, enabled, modsFolder }) {
   if (typeof enabled !== 'boolean') return err('enabled must be a boolean')
   if (!modsFolder || typeof modsFolder !== 'string') return err('modsFolder is required')
 
-  // --- security: filePath must be inside modsFolder ---
+  // --- security: filePath must be strictly INSIDE modsFolder ---
   const absFile = resolve(filePath)
   const absFolder = resolve(modsFolder)
-  // ponytail: relative path check — must not escape modsFolder
+  // must actually start with the folder AND have a separator after it — a bare
+  // slice() check alone accepts `<folder>z\x.package` and short outside paths
   const rel = absFile.slice(absFolder.length)
-  if (rel !== '' && !rel.startsWith(sep)) {
+  if (!absFile.toLowerCase().startsWith(absFolder.toLowerCase()) || !rel.startsWith(sep)) {
     return err('filePath is outside the configured Mods folder')
   }
 

@@ -239,7 +239,13 @@ export default {
     filterPaidTip: 'Patron-only posts — open on Patreon',
     filesCount: '{count} files',
     patronWarning: 'This is a patron-only post. Connect your Patreon account in Settings (if you back this creator) to download it, or open the original to view on Patreon.',
-    openOriginal: 'Open original'
+    openOriginal: 'Open original',
+    linkTitle: 'Download from a link',
+    linkHint: 'Paste a Pinterest pin, a Patreon post, a SimFileShare or direct file link',
+    linkPlaceholder: 'https://…',
+    linkFetch: 'Fetch',
+    linkResolving: 'Resolving…',
+    linkOpenInstead: 'Open in browser'
   },
   settings: {
     title: 'Settings',

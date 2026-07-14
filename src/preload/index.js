@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('api', {
   getSuggestedSources: () => ipcRenderer.invoke('discover:suggested'),
   followSuggestedSources: (entries) => ipcRenderer.invoke('discover:followSuggested', entries),
   downloadDiscoverItem: (item) => ipcRenderer.invoke('discover:download', item),
+  resolveDiscoverLink: (url) => ipcRenderer.invoke('discover:resolveLink', url),
   onDiscoverProgress: (cb) => {
     const handler = (_e, p) => cb(p)
     ipcRenderer.on('discover:progress', handler)

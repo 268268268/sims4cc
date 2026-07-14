@@ -1,4 +1,4 @@
-import { session, BrowserWindow, net } from 'electron'
+import { session, BrowserWindow, net, shell } from 'electron'
 import { setFetchImpl } from './sources/http.js'
 
 // A persistent, isolated session partition holds the user's login cookies for
@@ -66,6 +66,12 @@ export async function connect(provider) {
     title: `Sign in to ${p.label}`,
     autoHideMenuBar: true,
     webPreferences: { partition: PARTITION, sandbox: true, nodeIntegration: false, contextIsolation: true }
+  })
+  // the login page is a live third-party site — never let it spawn app-framed
+  // child windows; route any popup to the user's real browser
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url)
+    return { action: 'deny' }
   })
   win.loadURL(p.loginUrl).catch(() => {})
 
