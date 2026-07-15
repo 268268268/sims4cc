@@ -28,6 +28,7 @@ const PLACEHOLDER =
   )
 
 function AddSourceForm({ types, onAdded }) {
+  const { t } = useT()
   const [type, setType] = useState('patreon')
   const [input, setInput] = useState('')
   const [state, setState] = useState('idle') // idle | adding
@@ -35,6 +36,8 @@ function AddSourceForm({ types, onAdded }) {
   const [report, setReport] = useState(null) // { added, results:[{input,ok,error}] } from a batch
 
   const hint = types.find(t => t.type === type)?.hint ?? ''
+  // short "how do I add one" line, tailored to the selected source type
+  const help = { patreon: t('discover.addHelpPatreon'), pinterest: t('discover.addHelpPinterest'), tumblr: t('discover.addHelpTumblr') }[type]
   // count tokens the same way the backend splits, so the button label matches
   const count = input.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean).length
 
@@ -79,7 +82,7 @@ function AddSourceForm({ types, onAdded }) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onAdd() }}
-            placeholder={`${hint} — add several at once, separated by spaces, commas or new lines`}
+            placeholder={`${hint} — ${t('discover.addMultiHint')}`}
             rows={2}
             className="input w-full px-3 py-2 text-sm resize-y"
           />
@@ -87,17 +90,22 @@ function AddSourceForm({ types, onAdded }) {
         </div>
         <button onClick={onAdd} disabled={state === 'adding'} className="btn-primary px-4 py-2 text-sm whitespace-nowrap">
           {state === 'adding'
-            ? <><CircleNotch size={15} weight="bold" className="animate-spin" /> Checking…</>
-            : <><Plus size={15} weight="bold" /> {`Follow${count > 1 ? ` (${count})` : ''}`}</>}
+            ? <><CircleNotch size={15} weight="bold" className="animate-spin" /> {t('discover.addChecking')}</>
+            : <><Plus size={15} weight="bold" /> {count > 1 ? t('discover.addFollowN', { count }) : t('discover.addFollow')}</>}
         </button>
       </div>
+      {help && (
+        <p className="text-gray-500 text-[11px] flex items-start gap-1">
+          <Sparkle size={12} weight="fill" className="text-emerald-500/60 shrink-0 mt-px" /> {help}
+        </p>
+      )}
       {report && (
         <p className="text-xs flex items-center gap-1 flex-wrap">
-          <span className="text-emerald-400 inline-flex items-center gap-1"><Check size={12} weight="bold" /> Added {report.added}</span>
-          {report.skipped > 0 && <span className="text-gray-400 ml-2">· {report.skipped} already following</span>}
+          <span className="text-emerald-400 inline-flex items-center gap-1"><Check size={12} weight="bold" /> {t('discover.addReportAdded', { count: report.added })}</span>
+          {report.skipped > 0 && <span className="text-gray-400 ml-2">· {t('discover.addReportSkipped', { count: report.skipped })}</span>}
           {failed.length > 0 && (
             <span className="text-red-400 ml-2 inline-flex items-center gap-1">
-              <Warning size={12} weight="fill" /> {failed.length} failed: {failed.map(f => `${f.input} (${f.error ?? 'error'})`).join(', ')}
+              <Warning size={12} weight="fill" /> {t('discover.addReportFailed', { count: failed.length })}
             </span>
           )}
         </p>
@@ -355,6 +363,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
   const { t } = useT()
   const [types, setTypes] = useState([])
   const [data, setData] = useState(null) // { items, sources, fetchedAt }
+  const [sourceList, setSourceList] = useState(null) // followed sources — read cheaply (no network) so empty tabs answer instantly
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [postFilter, setPostFilter] = useState('all') // all | free | paid — source picked in the sidebar
@@ -409,20 +418,30 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     window.api.getSuggestedSources?.().then(s => setSuggested(s ?? []))
   }, [])
 
+  // The followed-source list is a cheap local read (no network), unlike the full
+  // aggregate feed which can take a while when many creators are followed. Load it
+  // up front so a tab with no sources of its type (e.g. Pinterest) can show its
+  // "add one" hint immediately instead of spinning until the whole feed arrives.
+  const refreshSourceList = useCallback(() => {
+    window.api.getSources?.().then(s => setSourceList(s ?? []))
+  }, [])
+
   useEffect(() => {
     window.api.getSourceTypes?.().then(t => setTypes(t ?? []))
     refreshSuggested()
+    refreshSourceList()
     refreshDownloaded()
     // paint the last feed from disk instantly, then revalidate in the background
     ;(window.api.getCachedDiscover?.() ?? Promise.resolve(null)).then(cached => {
       if (cached?.items?.length) { setData(cached); setLoading(false) }
       load(false)
     })
-  }, [load, refreshSuggested, refreshDownloaded])
+  }, [load, refreshSuggested, refreshSourceList, refreshDownloaded])
 
   const removeSource = async (id) => {
     await window.api.unfollowSource(id)
     refreshSuggested()
+    refreshSourceList()
     load(false)
   }
 
@@ -432,11 +451,12 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     try {
       await window.api.followSuggestedSources(entries)
       refreshSuggested()
+      refreshSourceList()
       await load(false) // pull the newly-followed feeds in
     } finally {
       setFollowingAll(false)
     }
-  }, [load, refreshSuggested])
+  }, [load, refreshSuggested, refreshSourceList])
 
   // items narrowed to the sidebar-selected source type (before the All/Free/Paid split)
   const sourceItems = useMemo(() => {
@@ -593,6 +613,17 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
 
   const erroredSources = (data?.sources ?? []).filter(s => s.error)
 
+  // Followed sources of the currently-selected type. Prefer the cheap up-front
+  // list (sourceList) so this is known within milliseconds of mount; the fetched
+  // aggregate (data.sources) supersedes it once available. A tab with none of its
+  // type shows an "add one" hint immediately instead of spinning skeletons forever
+  // — this is what made the Pinterest tab look like it loaded infinitely.
+  const knownSources = data?.sources ?? sourceList
+  const tabSourceCount = source === 'all'
+    ? (knownSources ?? []).length
+    : (knownSources ?? []).filter(s => s.type === source).length
+  const noSourcesForTab = knownSources != null && !authorView && tabSourceCount === 0
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -623,7 +654,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
 
             <div>
               <p className="text-gray-400 text-xs mb-2">{t('discover.addSource')}</p>
-              <AddSourceForm types={types} onAdded={() => { load(false); refreshSuggested() }} />
+              <AddSourceForm types={types} onAdded={() => { load(false); refreshSuggested(); refreshSourceList() }} />
             </div>
 
             <SuggestedCreators
@@ -633,10 +664,17 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             />
 
             <div>
-              <p className="text-gray-400 text-xs mb-2">{t('discover.following', { count: (data?.sources ?? []).length })}</p>
+              <p className="text-gray-400 text-xs mb-2 flex items-center gap-2">
+                {t('discover.following', { count: (data?.sources ?? []).length })}
+                {erroredSources.length > 0 && (
+                  <span className="text-gray-600 inline-flex items-center gap-1" title={erroredSources.map(s => s.label).join(', ')}>
+                    · {t('discover.someUnreachable', { count: erroredSources.length })}
+                  </span>
+                )}
+              </p>
               <div className="flex flex-wrap gap-2">
                 {(data?.sources ?? []).map(s => (
-                  <span key={s.id} className={`chip !cursor-default ${s.error ? '!border-red-700/60' : ''}`}>
+                  <span key={s.id} className={`chip !cursor-default ${s.error ? '!border-red-700/60' : ''}`} title={s.error || undefined}>
                     <TypeIcon type={s.type} /> {s.label}
                     <span className="text-gray-600">({s.count})</span>
                     {!s.builtin && (
@@ -673,6 +711,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             </div>
           ) : (
             <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-gray-500 text-xs mr-0.5">{t('discover.filterLabel')}:</span>
               <button onClick={() => setPostFilter('all')} className={`chip ${postFilter === 'all' ? 'chip-active' : ''}`} title={t('discover.filterAllTip')}>
                 {t('discover.all')}
               </button>
@@ -695,15 +734,11 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
 
       {/* Body */}
       <div ref={scrollRootRef} className="flex-1 overflow-y-auto px-6 py-5">
-        {erroredSources.length > 0 && (
-          <div className="mb-4 banner-warn">
-            {erroredSources.map(s => (
-              <p key={s.id} className="flex items-center gap-1.5"><Warning size={13} weight="fill" className="shrink-0" /> {s.label}: {s.error}</p>
-            ))}
-          </div>
-        )}
+        {/* Failed sources are intentionally NOT shown as a page banner — a source
+            that 404s is just skipped; the feed shows whatever loaded. The only
+            hint is a subtle red border + count in the Sources panel. */}
 
-        {activeLoading && feed.length === 0 && (
+        {activeLoading && feed.length === 0 && !noSourcesForTab && (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="card">
@@ -717,16 +752,29 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
           </div>
         )}
 
-        {!activeLoading && feed.length === 0 && (
+        {(noSourcesForTab || !activeLoading) && feed.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-gray-600 gap-3">
             <Globe size={52} weight="thin" className="text-emerald-500/30" />
-            <p className="text-sm flex items-center gap-1 flex-wrap justify-center">
-              {authorView
-                ? t('discover.emptyNoAuthor', { name: authorView.name })
-                : query || postFilter !== 'all' || source !== 'all'
-                  ? t('discover.emptyNoMatch')
-                  : t('discover.emptyFollow')}
-            </p>
+            {authorView ? (
+              <p className="text-sm text-center">{t('discover.emptyNoAuthor', { name: authorView.name })}</p>
+            ) : noSourcesForTab ? (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <p className="text-sm">{t('discover.emptyNoTypeSources', { type: TYPE_META[source]?.label ?? source })}</p>
+                <p className="text-xs text-gray-600">{t('discover.emptyNoTypeSourcesHint')}</p>
+                <button onClick={() => setShowManage(true)} className="btn-ghost px-3 py-1.5 text-xs mt-1">
+                  <Plus size={13} weight="bold" /> {t('discover.addSourceCta')}
+                </button>
+              </div>
+            ) : query || postFilter !== 'all' ? (
+              <p className="text-sm text-center">{t('discover.emptyNoMatch')}</p>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <p className="text-sm">{t('discover.emptyFollow')}</p>
+                <button onClick={() => setShowManage(true)} className="btn-ghost px-3 py-1.5 text-xs mt-1">
+                  <Plus size={13} weight="bold" /> {t('discover.addSourceCta')}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

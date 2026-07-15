@@ -97,15 +97,23 @@ export async function searchMods(params = {}) {
 }
 
 async function getApiKey() {
-  // precedence: .env (dotenv) → Vite define → user-entered key in Settings (config.json)
+  // precedence: dev .env override → user's own key in Settings → the key baked
+  // into the build (import.meta.env, inlined by electron-vite at build time so
+  // the shipped app works out of the box without any setup).
   if (process.env.CURSEFORGE_API_KEY) return process.env.CURSEFORGE_API_KEY
-  if (import.meta.env?.MAIN_VITE_CURSEFORGE_API_KEY) return import.meta.env.MAIN_VITE_CURSEFORGE_API_KEY
   try {
     const { readConfig } = await import('./configStore.js')
-    return (await readConfig()).curseForgeApiKey || null
-  } catch {
-    return null
+    const userKey = (await readConfig()).curseForgeApiKey
+    if (userKey) return userKey
+  } catch { /* fall through to the bundled key */ }
+  // Key baked into the build. Stored base64-encoded because the raw key contains
+  // `$` chars that Vite's dotenv-expand would mangle. No optional chaining —
+  // Vite only statically replaces the exact `import.meta.env.MAIN_VITE_*` member.
+  const b64 = import.meta.env.MAIN_VITE_CURSEFORGE_API_KEY_B64
+  if (b64) {
+    try { return Buffer.from(b64, 'base64').toString('utf8') } catch { /* ignore */ }
   }
+  return null
 }
 
 /**
