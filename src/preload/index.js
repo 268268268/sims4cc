@@ -76,10 +76,21 @@ contextBridge.exposeInMainWorld('api', {
   followSuggestedSources: (entries) => ipcRenderer.invoke('discover:followSuggested', entries),
   downloadDiscoverItem: (item) => ipcRenderer.invoke('discover:download', item),
   resolveDiscoverLink: (url) => ipcRenderer.invoke('discover:resolveLink', url),
+  getSavedLinks: () => ipcRenderer.invoke('discover:savedLinks'),
+  removeSavedLink: (id) => ipcRenderer.invoke('discover:removeSavedLink', id),
   onDiscoverProgress: (cb) => {
     const handler = (_e, p) => cb(p)
     ipcRenderer.on('discover:progress', handler)
     return () => ipcRenderer.removeListener('discover:progress', handler)
+  },
+
+  // download helper: watch Downloads after opening a distribution-blocked mod's page,
+  // then be told when a fresh mod file lands so we can offer to install it
+  startDownloadWatch: () => ipcRenderer.invoke('cfHelper:watch'),
+  onDownloadDetected: (cb) => {
+    const handler = (_e, p) => cb(p)
+    ipcRenderer.on('cfHelper:detected', handler)
+    return () => ipcRenderer.removeListener('cfHelper:detected', handler)
   },
 
   // maintenance

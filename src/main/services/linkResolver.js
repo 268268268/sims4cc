@@ -12,13 +12,23 @@ function fail(url, reason) {
   return { ok: false, openUrl: url, reason }
 }
 
-/** Pinterest pin → its single outbound destination URL (or null). */
-async function pinOutbound(url) {
+/**
+ * Pinterest pin → { out, image }: its single outbound destination URL (or null)
+ * and the pin's own image (og:image), so the resolved card gets a real preview
+ * instead of the placeholder diamond.
+ */
+async function pinInfo(url) {
   const html = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
   const links = [...html.matchAll(/["']link["']\s*:\s*["'](https?:[^"']+)/g)]
     .map(m => m[1].replace(/\\u0026.*$/, '').replace(/\\u002F/g, '/'))
     .filter(u => !/pinterest|pinimg/.test(u))
-  return links[0] ?? null
+  // http(s) only — a pin page is attacker-controllable and the image is persisted
+  // + auto-rendered as <img src> later, so never accept data:/relative/other schemes.
+  const image =
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["'](https?:[^"']+)["']/i)?.[1] ||
+    html.match(/["']image_url["']\s*:\s*["'](https?:[^"']+)["']/)?.[1]?.replace(/\\u002F/g, '/') ||
+    null
+  return { out: links[0] ?? null, image }
 }
 
 /** Patreon post URL → free-post installable files (media + attachments). */
@@ -118,9 +128,12 @@ export async function resolveLink(url, hop = 0) {
 
     if (host.endsWith('pinterest.com') || host === 'pin.it') {
       if (hop >= MAX_HOPS) return fail(u.href, 'Too many redirects to follow.')
-      const out = await pinOutbound(u.href)
+      const { out, image } = await pinInfo(u.href)
       if (!out) return fail(u.href, 'This pin has no outbound link (image only).')
-      return resolveLink(out, hop + 1)
+      const sub = await resolveLink(out, hop + 1)
+      // carry the pin's own image down so the card/modal shows a real preview
+      if (sub?.ok && !sub.imageUrl && image) sub.imageUrl = image
+      return sub
     }
 
     if (host.endsWith('patreon.com') && /\/posts\//.test(u.pathname)) return resolvePatreonPost(u.href)

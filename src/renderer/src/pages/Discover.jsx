@@ -364,6 +364,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
   const [types, setTypes] = useState([])
   const [data, setData] = useState(null) // { items, sources, fetchedAt }
   const [sourceList, setSourceList] = useState(null) // followed sources — read cheaply (no network) so empty tabs answer instantly
+  const [savedLinks, setSavedLinks] = useState([]) // links pasted into "Download from a link", persisted + shown on their tab
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [postFilter, setPostFilter] = useState('all') // all | free | paid — source picked in the sidebar
@@ -404,13 +405,17 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     })
   }, [])
 
-  const load = useCallback(async (force = false) => {
-    setLoading(true)
+  // quiet = revalidate in the background without spinning the header/skeletons.
+  // The in-memory source cache is empty on every launch, so a non-quiet revalidate
+  // would spin the Refresh button for the whole (multi-source) re-scrape even
+  // though the disk snapshot already painted the feed — that read as "stuck".
+  const load = useCallback(async (force = false, quiet = false) => {
+    if (!quiet) setLoading(true)
     try {
       const res = await window.api.fetchDiscover({ force })
       if (res?.ok) setData(res)
     } finally {
-      setLoading(false)
+      if (!quiet) setLoading(false)
     }
   }, [])
 
@@ -426,17 +431,29 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     window.api.getSources?.().then(s => setSourceList(s ?? []))
   }, [])
 
+  const refreshSavedLinks = useCallback(() => {
+    window.api.getSavedLinks?.().then(s => setSavedLinks(s ?? []))
+  }, [])
+
   useEffect(() => {
     window.api.getSourceTypes?.().then(t => setTypes(t ?? []))
     refreshSuggested()
     refreshSourceList()
+    refreshSavedLinks()
     refreshDownloaded()
-    // paint the last feed from disk instantly, then revalidate in the background
+    // paint the last feed from disk instantly, then revalidate. If we have a
+    // cached feed to show, revalidate QUIETLY (no spinner) — otherwise show the
+    // loading state until the first real fetch lands.
     ;(window.api.getCachedDiscover?.() ?? Promise.resolve(null)).then(cached => {
-      if (cached?.items?.length) { setData(cached); setLoading(false) }
-      load(false)
+      if (cached?.items?.length) { setData(cached); setLoading(false); load(false, true) }
+      else load(false)
     })
-  }, [load, refreshSuggested, refreshSourceList, refreshDownloaded])
+  }, [load, refreshSuggested, refreshSourceList, refreshSavedLinks, refreshDownloaded])
+
+  const removeSavedLink = useCallback(async (id) => {
+    await window.api.removeSavedLink?.(id)
+    refreshSavedLinks()
+  }, [refreshSavedLinks])
 
   const removeSource = async (id) => {
     await window.api.unfollowSource(id)
@@ -458,11 +475,19 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     }
   }, [load, refreshSuggested, refreshSourceList])
 
-  // items narrowed to the sidebar-selected source type (before the All/Free/Paid split)
+  // items narrowed to the sidebar-selected source type (before the All/Free/Paid split).
+  // Saved links (pasted into "Download from a link") are pinned in front on the tab
+  // they were pasted from, and survive restarts — deduped against the fetched feed.
   const sourceItems = useMemo(() => {
     const items = data?.items ?? []
-    return source === 'all' ? items : items.filter(i => i.sourceType === source)
-  }, [data, source])
+    const saved = (savedLinks ?? []).map(s => ({ ...s, date: s.savedAt ?? s.date }))
+    // dedupe across id namespaces: a resolved id is `resolved:patreon:123` while
+    // the same post in the fetched feed is `patreon:123` — strip the prefix so a
+    // followed creator's post pasted as a link doesn't render twice.
+    const savedKeys = new Set(saved.flatMap(s => [s.id, String(s.id).replace(/^resolved:/, '')]))
+    const merged = [...saved, ...items.filter(i => !savedKeys.has(i.id))]
+    return source === 'all' ? merged : merged.filter(i => i.sourceType === source)
+  }, [data, source, savedLinks])
 
   const freeCount = useMemo(() => sourceItems.filter(i => (i.downloads?.length ?? 0) > 0).length, [sourceItems])
   const paidCount = useMemo(() => sourceItems.filter(i => i.locked).length, [sourceItems])
@@ -650,7 +675,27 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
 
         {showManage && (
           <div className="card p-4 mb-3 flex flex-col gap-4">
-            <LinkDownloadBox onResolved={setSelected} />
+            <LinkDownloadBox onResolved={(r) => { setSelected(r); refreshSavedLinks() }} />
+
+            {savedLinks.length > 0 && (
+              <div>
+                <p className="text-gray-400 text-xs mb-2">{t('discover.savedLinks', { count: savedLinks.length })}</p>
+                <div className="flex flex-wrap gap-2">
+                  {savedLinks.map(s => (
+                    <span key={s.id} className="chip !cursor-default" title={s.pinUrl || s.url}>
+                      <TypeIcon type={s.sourceType} /> <span className="truncate max-w-[12rem]">{s.title}</span>
+                      <button
+                        onClick={() => removeSavedLink(s.id)}
+                        className="text-gray-500 hover:text-red-400 ml-1"
+                        title={t('discover.unfollow')}
+                      >
+                        <X size={12} weight="bold" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <p className="text-gray-400 text-xs mb-2">{t('discover.addSource')}</p>

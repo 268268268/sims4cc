@@ -18,6 +18,8 @@ import { checkUpdates, updateInstalledMod, invalidateUpdateCache } from './servi
 import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, fetchSourceFeed, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { resolveLink } from './services/linkResolver.js'
+import { listSavedLinks, addSavedLink, removeSavedLink } from './services/savedLinksStore.js'
+import { startDownloadWatch } from './services/downloadWatcher.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
 
 import { toggleLocalModEnabled } from './services/localModActions.js'
@@ -503,13 +505,53 @@ ipcMain.handle('discover:followSuggested', async (_e, entries) => {
   }
 })
 
+// Which Discover tab a pasted link belongs on — derived from where the user
+// pasted it FROM (a Pinterest pin stays on the Pinterest tab even though it
+// resolves to a Patreon file), falling back to the resolved host's own type.
+function tabTypeForUrl(pastedUrl, resolved) {
+  try {
+    const h = new URL(pastedUrl).hostname.toLowerCase()
+    if (h.endsWith('pinterest.com') || h === 'pin.it') return 'pinterest'
+    if (h.endsWith('patreon.com')) return 'patreon'
+    if (h.endsWith('tumblr.com')) return 'tumblr'
+  } catch { /* ignore */ }
+  return resolved?.sourceType || 'pinterest'
+}
+
 // IPC: resolve any URL (Pinterest pin / Patreon post / SimFileShare / direct file)
-// to installable files — for the "Download from link" box
+// to installable files — for the "Download from link" box. A successful resolve
+// is remembered (saved-links.json) so it keeps showing on its Discover tab.
 ipcMain.handle('discover:resolveLink', async (_e, url) => {
   try {
-    return await resolveLink(url)
+    const res = await resolveLink(url)
+    if (res?.ok && res.id) {
+      await addSavedLink({
+        id: res.id,
+        pinUrl: url,
+        title: res.title ?? 'Saved link',
+        author: res.author ?? null,
+        imageUrl: res.imageUrl ?? null,
+        sourceType: tabTypeForUrl(url, res),
+        url: res.url ?? url,
+        downloads: res.downloads ?? [],
+        locked: !!res.locked,
+        saved: true
+      }).catch(() => {})
+    }
+    return res
   } catch (err) {
     return { ok: false, openUrl: url, reason: err.message }
+  }
+})
+// Download helper: the user is about to grab a distribution-blocked mod from its
+// CurseForge page in their browser — watch Downloads and offer to install what lands.
+ipcMain.handle('cfHelper:watch', (e) => { startDownloadWatch(e.sender); return { ok: true } })
+ipcMain.handle('discover:savedLinks', () => listSavedLinks())
+ipcMain.handle('discover:removeSavedLink', async (_e, id) => {
+  try {
+    return await removeSavedLink(id)
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 })
 
@@ -525,7 +567,17 @@ ipcMain.handle('discover:download', async (e, item) => {
     }
     const trayFolder = await findTrayFolder(config.modsFolder)
     const sender = e.sender
-    const res = await downloadRemoteItem(item, config.modsFolder, {
+    // Saved links persist their download URLs, but Patreon signs those and they
+    // expire — re-resolve from the original link so a saved card downloaded days
+    // later still gets a fresh, working file URL (falls back to the stored one).
+    let toDownload = item
+    if (item?.saved && (item.pinUrl || item.url)) {
+      try {
+        const fresh = await resolveLink(item.pinUrl || item.url)
+        if (fresh?.ok && fresh.downloads?.length) toDownload = { ...item, downloads: fresh.downloads }
+      } catch { /* keep the stored URLs */ }
+    }
+    const res = await downloadRemoteItem(toDownload, config.modsFolder, {
       trayFolder,
       onProgress: (p) => { if (!sender.isDestroyed()) sender.send('discover:progress', { itemId: item?.id, ...p }) }
     })

@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import Plumbob from './components/Plumbob'
 import { useT } from './lib/i18n'
 import DropZone from './components/DropZone'
+import DownloadCatcher from './components/DownloadCatcher'
 import Welcome from './pages/Welcome'
 import LocalMods from './pages/LocalMods'
 import CurseForge from './pages/CurseForgeBrowser'
@@ -72,6 +73,7 @@ export default function App() {
         />
       </Layout>
       <DropZone />
+      <DownloadCatcher />
     </>
   )
 }

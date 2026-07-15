@@ -189,6 +189,12 @@ export default {
     updated: 'Updated!',
     downloaded: 'Downloaded!',
     failedRetry: 'Failed — retry',
+    openOnSite: 'Get on CurseForge',
+    distBlockedTip: 'This creator disabled downloads through CurseForge’s API. Opens the mod’s page — download it there and the app will offer to install it automatically.',
+    caughtTitle: 'Downloaded from CurseForge',
+    caughtInstall: 'Install to Mods',
+    caughtInstalled: 'Installed!',
+    caughtFailed: 'Couldn’t install this file.',
     updateBtn: 'Update',
     redownload: 'Re-download',
     by: 'by',
@@ -261,7 +267,8 @@ export default {
     emptyNoTypeSources: 'You don’t follow any {type} sources yet.',
     emptyNoTypeSourcesHint: 'Add one below to fill this feed.',
     addSourceCta: 'Add a source',
-    someUnreachable: '{count} not responding'
+    someUnreachable: '{count} not responding',
+    savedLinks: 'Saved links ({count})'
   },
   settings: {
     title: 'Settings',

@@ -189,6 +189,12 @@ export default {
     updated: 'Обновлено!',
     downloaded: 'Скачано!',
     failedRetry: 'Ошибка — повторить',
+    openOnSite: 'Открыть на CurseForge',
+    distBlockedTip: 'Автор запретил скачивание через API CurseForge. Откроется страница мода — скачайте там, и приложение предложит установить файл автоматически.',
+    caughtTitle: 'Скачано с CurseForge',
+    caughtInstall: 'Установить в Mods',
+    caughtInstalled: 'Установлено!',
+    caughtFailed: 'Не удалось установить файл.',
     updateBtn: 'Обновить',
     redownload: 'Скачать заново',
     by: 'от',
@@ -261,7 +267,8 @@ export default {
     emptyNoTypeSources: 'Вы пока не отслеживаете источники {type}.',
     emptyNoTypeSourcesHint: 'Добавьте ниже, чтобы наполнить ленту.',
     addSourceCta: 'Добавить источник',
-    someUnreachable: '{count} не отвечают'
+    someUnreachable: '{count} не отвечают',
+    savedLinks: 'Сохранённые ссылки ({count})'
   },
   settings: {
     title: 'Настройки',

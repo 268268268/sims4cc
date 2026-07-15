@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Package, CircleNotch, Check, Warning, ArrowUp, ArrowsClockwise, DownloadSimple } from '@phosphor-icons/react'
+import { Package, CircleNotch, Check, Warning, ArrowUp, ArrowsClockwise, DownloadSimple, ArrowSquareOut } from '@phosphor-icons/react'
 import { formatBytes } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import { useT } from '../lib/i18n'
@@ -17,6 +17,13 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
   const { t } = useT()
   const [dlState, setDlState] = useState('idle') // idle | downloading | done | error
   const [progress, setProgress] = useState(null) // { received, total, phase }
+  const [apiBlocked, setApiBlocked] = useState(false) // a download 403'd at runtime
+
+  const websiteUrl = mod.links?.websiteUrl
+  // CurseForge lets authors forbid third-party/API downloads; for those the API
+  // 403s the download-url and retrying never helps (~70% of Sims 4 mods). Send
+  // the user to the mod's own page instead of a dead "Failed — retry".
+  const distributionBlocked = (mod.allowModDistribution === false || apiBlocked) && !!websiteUrl
 
   // subscribe to progress only while this mod is actively downloading
   useEffect(() => {
@@ -26,6 +33,14 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
     })
     return () => off?.()
   }, [dlState, mod.id])
+
+  const openSite = (e) => {
+    e?.stopPropagation()
+    if (!websiteUrl) return
+    // start watching Downloads so we can offer to install what the user grabs
+    window.api.startDownloadWatch?.()
+    window.api.openExternal(websiteUrl)
+  }
 
   const onClick = async (e) => {
     e?.stopPropagation()
@@ -42,12 +57,33 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
         onInstalled?.(mod.id)
       } else {
         console.error(`[CurseForge] ${mode} failed:`, res?.error)
-        setDlState('error')
+        // a 403 means the author blocked API downloads — flip to "open on site"
+        // instead of a useless retry loop
+        if (/\b403\b/.test(res?.error || '') && websiteUrl) {
+          setApiBlocked(true)
+          setDlState('idle')
+        } else {
+          setDlState('error')
+        }
       }
     } catch (err) {
       console.error(`[CurseForge] ${mode} threw:`, err)
       setDlState('error')
     }
+  }
+
+  // Distribution-blocked mods can't be pulled through the API at all — offer the
+  // website instead of a download button that would only ever fail.
+  if (distributionBlocked && dlState !== 'downloading' && dlState !== 'done') {
+    return (
+      <button
+        onClick={openSite}
+        title={t('curseforge.distBlockedTip')}
+        className={`btn-ghost ${className}`}
+      >
+        <ArrowSquareOut {...ICON} /> {t('curseforge.openOnSite')}
+      </button>
+    )
   }
 
   const pct = progress?.total ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : null
