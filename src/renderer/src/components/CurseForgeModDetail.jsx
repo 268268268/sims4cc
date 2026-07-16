@@ -182,7 +182,10 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
           />
           {websiteUrl && (
             <button
-              onClick={() => { window.api.startDownloadWatch?.(); window.api.openExternal(websiteUrl) }}
+              onClick={() => {
+                window.api.startDownloadWatch?.({ id: mod.id, name: mod.name, latestFiles: mod.latestFiles })
+                window.api.openExternal(websiteUrl)
+              }}
               className="btn-ghost px-4 py-2 text-sm"
             >
               <ArrowSquareOut size={16} weight="bold" /> {t('curseforge.openOnCf')}

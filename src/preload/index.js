@@ -86,7 +86,8 @@ contextBridge.exposeInMainWorld('api', {
 
   // download helper: watch Downloads after opening a distribution-blocked mod's page,
   // then be told when a fresh mod file lands so we can offer to install it
-  startDownloadWatch: () => ipcRenderer.invoke('cfHelper:watch'),
+  startDownloadWatch: (mod) => ipcRenderer.invoke('cfHelper:watch', mod),
+  installCaughtFile: (payload) => ipcRenderer.invoke('cfHelper:install', payload),
   onDownloadDetected: (cb) => {
     const handler = (_e, p) => cb(p)
     ipcRenderer.on('cfHelper:detected', handler)

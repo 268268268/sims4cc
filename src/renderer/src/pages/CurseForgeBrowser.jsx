@@ -524,6 +524,17 @@ export default function CurseForgeBrowser({ pendingAuthor, onNavigateAuthor, onP
     })
   }, [])
 
+  // A mod grabbed from its CurseForge page (download helper) is installed from the
+  // toast, outside this page — reflect its Installed badge without a remount.
+  useEffect(() => {
+    const onInstalledElsewhere = (e) => {
+      const id = e.detail?.modId
+      if (id != null) markInstalled(id)
+    }
+    window.addEventListener('curseforge-installed', onInstalledElsewhere)
+    return () => window.removeEventListener('curseforge-installed', onInstalledElsewhere)
+  }, [markInstalled])
+
   // Update every app-updatable mod in turn (sequential — avoid hammering the CDN),
   // then re-check so freshly-updated mods drop off the list.
   const [updatingAll, setUpdatingAll] = useState(null) // { done, total } | null

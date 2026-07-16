@@ -37,8 +37,9 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
   const openSite = (e) => {
     e?.stopPropagation()
     if (!websiteUrl) return
-    // start watching Downloads so we can offer to install what the user grabs
-    window.api.startDownloadWatch?.()
+    // Watch Downloads so we can offer to install what the user grabs. Pass the mod
+    // along so the install is recorded as THIS CurseForge mod (Installed badge).
+    window.api.startDownloadWatch?.({ id: mod.id, name: mod.name, latestFiles: mod.latestFiles })
     window.api.openExternal(websiteUrl)
   }
 

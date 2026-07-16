@@ -31,11 +31,16 @@ function CatchToast({ item, onClose }) {
     setState('installing')
     setError(null)
     try {
-      const res = await window.api.importFiles([item.path])
+      // routes through cfHelper:install so a known CurseForge mod is also recorded
+      // as installed (the browser's Installed badge reads that store)
+      const res = await window.api.installCaughtFile({ path: item.path, mod: item.mod ?? null })
       if (res?.ok) {
         setState('done')
         markChanged()
         window.dispatchEvent(new CustomEvent('local-mods-changed'))
+        if (res.recordedModId) {
+          window.dispatchEvent(new CustomEvent('curseforge-installed', { detail: { modId: res.recordedModId } }))
+        }
         setTimeout(onClose, 2500)
       } else {
         setError(res?.error || (res?.results ?? []).find(r => !r.ok)?.error || t('curseforge.caughtFailed'))

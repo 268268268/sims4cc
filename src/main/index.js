@@ -545,7 +545,36 @@ ipcMain.handle('discover:resolveLink', async (_e, url) => {
 })
 // Download helper: the user is about to grab a distribution-blocked mod from its
 // CurseForge page in their browser — watch Downloads and offer to install what lands.
-ipcMain.handle('cfHelper:watch', (e) => { startDownloadWatch(e.sender); return { ok: true } })
+ipcMain.handle('cfHelper:watch', (e, mod) => { startDownloadWatch(e.sender, mod ?? null); return { ok: true } })
+
+// Install a file the helper caught. Same import path as drag-drop, but when we
+// know which CurseForge mod the user opened, ALSO record it as that mod's
+// download — otherwise the CurseForge tab would never mark it Installed.
+ipcMain.handle('cfHelper:install', async (_e, { path, mod } = {}) => {
+  try {
+    if (!path) return { ok: false, results: [], error: 'No file to install.' }
+    const config = await readConfig()
+    if (!config.modsFolder) return { ok: false, results: [], error: 'Mods folder not configured.' }
+    try {
+      await access(config.modsFolder)
+    } catch {
+      return { ok: false, results: [], error: `Mods folder not found: ${config.modsFolder}` }
+    }
+    const trayFolder = await findTrayFolder(config.modsFolder)
+    const res = await importFiles({ paths: [path], modsFolder: config.modsFolder, trayFolder })
+    if (res.ok) {
+      onLocalModsChanged()
+      const installed = (res.results ?? []).find(r => r.ok)
+      // zips land in `folder`, loose mod files in `dest` — recordDownload needs a
+      // real path so its self-heal can drop the entry if the user deletes the mod
+      const modPath = installed?.folder ?? installed?.dest ?? null
+      if (mod?.id && modPath) await recordDownload(mod, { ok: true, path: modPath }).catch(() => {})
+    }
+    return { ...res, recordedModId: mod?.id ?? null }
+  } catch (err) {
+    return { ok: false, results: [], error: err.message }
+  }
+})
 ipcMain.handle('discover:savedLinks', () => listSavedLinks())
 ipcMain.handle('discover:removeSavedLink', async (_e, id) => {
   try {
