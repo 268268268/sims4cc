@@ -73,6 +73,16 @@ Get a free key at <https://console.curseforge.com/>. The *Discover* tab works wi
 Electron 43 · electron‑vite · React 18 · Tailwind CSS 4 · Phosphor Icons.
 App data (settings, caches, followed sources) lives in `%APPDATA%\sims4-mod-manager` — never in the repo.
 
+## Support
+
+The app is free and MIT‑licensed — nothing is locked behind a payment. If it saves you time and
+you'd like to chip in for its development:
+
+- **Ko‑fi:** <https://ko-fi.com/sims4ccmanager>
+- **PayPal:** `feliks.pochta@gmail.com`
+
+Entirely optional — and please keep supporting the CC creators themselves first.
+
 ## Disclaimer
 
 This tool only accesses **publicly available** content and honors paywalls: patron‑only Patreon

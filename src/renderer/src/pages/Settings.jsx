@@ -1,6 +1,54 @@
 import { useState, useEffect } from 'react'
-import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate } from '@phosphor-icons/react'
+import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar } from '@phosphor-icons/react'
 import { useT, LANG_OPTIONS } from '../lib/i18n'
+
+const KOFI_URL = 'https://ko-fi.com/sims4ccmanager'
+const PAYPAL_EMAIL = 'feliks.pochta@gmail.com'
+
+/** Optional "support the app" links. Nothing is gated — this is a plain thank-you. */
+function SupportSection() {
+  const { t } = useT()
+  const [copied, setCopied] = useState(false)
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(PAYPAL_EMAIL)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable — the address is on screen anyway */ }
+  }
+
+  return (
+    <section className="mb-6 fade-in-up">
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        {t('settings.support')}
+      </h3>
+      <div className="card p-5">
+        <p className="text-gray-400 text-sm mb-4 leading-relaxed">{t('settings.supportHint')}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => window.api.openExternal(KOFI_URL)} className="btn-primary px-4 py-2 text-sm">
+            <Coffee size={16} weight="fill" /> {t('settings.supportKofi')}
+          </button>
+          <button
+            onClick={() => window.api.openExternal(`https://www.paypal.com/donate/?business=${encodeURIComponent(PAYPAL_EMAIL)}`)}
+            className="btn-ghost px-4 py-2 text-sm"
+          >
+            <CurrencyCircleDollar size={16} weight="fill" /> {t('settings.supportPaypal')}
+          </button>
+        </div>
+        <div className="mt-4 flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500">{t('settings.supportPaypalEmail')}</span>
+          <code className="text-xs text-gray-300 font-mono select-all">{PAYPAL_EMAIL}</code>
+          <button onClick={copyEmail} className="text-gray-500 hover:text-emerald-400" title={t('settings.supportCopy')}>
+            {copied
+              ? <Check size={13} weight="bold" className="text-emerald-400" />
+              : <Copy size={13} weight="bold" />}
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function LanguageSection() {
   const { t, pref, setLanguage } = useT()
@@ -286,7 +334,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
         <ThumbCacheSection />
 
         {/* Game Cache */}
-        <section className="fade-in-up">
+        <section className="mb-6 fade-in-up">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
             {t('settings.gameCache')}
           </h3>
@@ -319,6 +367,8 @@ export default function Settings({ modsFolder, onFolderChanged }) {
             )}
           </div>
         </section>
+
+        <SupportSection />
       </div>
     </div>
   )

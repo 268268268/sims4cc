@@ -299,6 +299,12 @@ export default {
     gameCacheHint: 'Deletes localthumbcache.package from your Sims 4 folder. The game will regenerate it on next launch. Do this after installing or removing mods to fix thumbnail glitches.',
     clearGameCache: 'Clear Game Cache',
     deleting: 'Deleting…',
-    configureFolderFirst: 'Configure your Mods folder first.'
+    configureFolderFirst: 'Configure your Mods folder first.',
+    support: 'Support the app',
+    supportHint: 'This app is free and open to use. If it saves you time, you can chip in for its development — entirely optional, nothing is locked behind it. And please keep supporting the CC creators themselves.',
+    supportKofi: 'Support on Ko-fi',
+    supportPaypal: 'Donate via PayPal',
+    supportPaypalEmail: 'or send to PayPal:',
+    supportCopy: 'Copy address'
   }
 }
