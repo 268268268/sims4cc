@@ -1,6 +1,6 @@
 {
   "name": "sims4-mod-manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sims 4 Mod Manager & Downloader",
   "author": "PoZi268",
   "main": "./out/main/index.js",
