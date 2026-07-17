@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { HeartStraight, PushPin, NotePencil, Bank, Globe, LockSimple, Gift, Package, FileZip, ArrowUpRight } from '@phosphor-icons/react'
 import Modal from './Modal'
 import Lightbox from './Lightbox'
 import { formatRelative } from '../lib/format'
+import { isDownloadable } from '../lib/downloadable'
 import { useT } from '../lib/i18n'
 
 const TYPE_META = {
@@ -21,11 +22,23 @@ const PLACEHOLDER =
 /** In-app preview card for a Discover item (no forced redirect). */
 export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAuthor }) {
   const { t } = useT()
-  const [lightbox, setLightbox] = useState(false)
+  const [lightbox, setLightbox] = useState(null) // gallery index | null
+  const [mts, setMts] = useState(null) // { downloads, images } — fetched on open for MTS items
   const meta = TYPE_META[item.sourceType] ?? { Icon: Globe, label: item.sourceType, badge: 'bg-gray-700 text-gray-300' }
   const MetaIcon = meta.Icon
   const banner = item.imageUrl || PLACEHOLDER
-  const downloads = item.downloads ?? []
+  const downloads = item.downloads?.length ? item.downloads : (mts?.downloads ?? [])
+
+  // MTS cards carry only a thumbnail — pull the mod page's screenshots + file list once
+  useEffect(() => {
+    if (item.sourceType !== 'modthesims' || !item.url) return
+    let dead = false
+    window.api.getMtsDetail?.(item.url).then(r => { if (!dead && r?.ok) setMts(r) })
+    return () => { dead = true }
+  }, [item])
+
+  const gallery = (mts?.images?.length ? mts.images : item.imageUrl ? [item.imageUrl] : [])
+    .map(url => ({ url, title: item.title }))
 
   return (
     <>
@@ -34,8 +47,8 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
           <img
             src={banner}
             alt={item.title}
-            className={`w-full max-h-80 object-cover bg-[#181b2a] ${item.imageUrl ? 'cursor-zoom-in' : ''}`}
-            onClick={() => item.imageUrl && setLightbox(true)}
+            className={`w-full max-h-80 object-cover bg-[#181b2a] ${gallery.length ? 'cursor-zoom-in' : ''}`}
+            onClick={() => gallery.length && setLightbox(0)}
             onError={(e) => { e.currentTarget.src = PLACEHOLDER }}
           />
           <span className={`absolute top-3 left-3 badge ${meta.badge} backdrop-blur-sm`}>
@@ -43,7 +56,7 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
           </span>
           {item.locked ? (
             <span className="absolute top-3 right-12 badge bg-black/70 text-amber-300 backdrop-blur-sm"><LockSimple size={11} weight="fill" /> {t('discover.patronsOnly')}</span>
-          ) : downloads.length > 0 && (
+          ) : isDownloadable(item) && (
             <span className="absolute top-3 right-12 badge bg-emerald-600/80 text-white backdrop-blur-sm"><Gift size={11} weight="fill" /> {t('discover.freeBadge')}</span>
           )}
         </div>
@@ -63,6 +76,22 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
 
           {item.summary && (
             <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">{item.summary}</p>
+          )}
+
+          {gallery.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {gallery.map((g, i) => (
+                <img
+                  key={g.url}
+                  src={g.url}
+                  alt={item.title}
+                  loading="lazy"
+                  onClick={() => setLightbox(i)}
+                  className="h-24 rounded-lg object-cover cursor-zoom-in shrink-0 bg-[#181b2a]"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                />
+              ))}
+            </div>
           )}
 
           {item.tags?.length > 0 && (
@@ -96,7 +125,7 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
           )}
 
           <div className="flex items-center gap-3 pt-1 flex-wrap">
-            {downloads.length > 0 && renderDownload?.(item)}
+            {isDownloadable(item) && renderDownload?.(item)}
             <button onClick={() => window.api.openExternal(item.url)} className="btn-ghost px-4 py-2 text-sm">
               <ArrowUpRight size={16} weight="bold" /> {t('discover.openOriginal')}
             </button>
@@ -104,8 +133,8 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
         </div>
       </Modal>
 
-      {lightbox && item.imageUrl && (
-        <Lightbox images={[{ url: item.imageUrl, title: item.title }]} index={0} onClose={() => setLightbox(false)} />
+      {lightbox != null && gallery.length > 0 && (
+        <Lightbox images={gallery} index={lightbox} onClose={() => setLightbox(null)} />
       )}
     </>
   )

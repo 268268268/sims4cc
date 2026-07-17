@@ -3,9 +3,11 @@ import { Globe, CircleNotch, Check, Warning, Plus, CaretRight, CaretLeft, Sparkl
 import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
+import CategoryFilter from '../components/CategoryFilter'
 import SourceIcon from '../components/SourceIcon'
 import RecentAuthors from '../components/RecentAuthors'
 import { pushAuthor } from '../lib/authorHistory'
+import { isDownloadable } from '../lib/downloadable'
 import { useT } from '../lib/i18n'
 
 // badge tint per source type — the glyph itself comes from SourceIcon (real logos)
@@ -20,6 +22,22 @@ const TYPE_META = {
 function TypeIcon({ type, size = 13, className = '' }) {
   return <SourceIcon type={type} size={size} className={className} />
 }
+
+// mirrors MTS_SORTS / MTS_CATEGORIES in main/services/sources/modthesims.js —
+// can't import across the process boundary without dragging node deps into vite
+const MTS_SORTS = ['new', 'featured', 'picked', 'popular']
+const MTS_CATEGORIES = [
+  { id: 145, label: 'Sims' },
+  { id: 485, label: 'Pets' },
+  { id: 143, label: 'Lots & Housing' },
+  { id: 342, label: 'Body Shop' },
+  { id: 385, label: 'Buy Mode' },
+  { id: 380, label: 'Build Mode' },
+  { id: 414, label: 'Game Mods' },
+  { id: 229, label: 'Careers' },
+  { id: 747, label: 'Traits' },
+  { id: 519, label: 'Miscellaneous' }
+]
 
 const PLACEHOLDER =
   'data:image/svg+xml,' +
@@ -110,6 +128,9 @@ function AddSourceForm({ types, onAdded }) {
           )}
         </p>
       )}
+      {failed.map(f => (
+        <p key={f.input} className="text-red-400/80 text-[11px] font-mono break-all">{f.input} — {f.error}</p>
+      ))}
     </div>
   )
 }
@@ -221,7 +242,7 @@ function DiscoverDownloadButton({ item, installed = false, onDownloaded }) {
         : <><CircleNotch size={14} weight="bold" className="animate-spin" /> {`${multi ? `${progress.fileIndex}/${progress.fileCount} · ` : ''}${pct != null ? `${pct}%` : '…'}`}</>
       : state === 'done' ? <><Check size={14} weight="bold" /> {t('curseforge.installedBadge')}</>
         : state === 'error' ? <><Warning size={14} weight="bold" /> {t('curseforge.failedRetry')}</>
-          : <><DownloadSimple size={14} weight="bold" /> {`${t('discover.download')}${item.downloads.length > 1 ? ` (${item.downloads.length})` : ''}`}</>
+          : <><DownloadSimple size={14} weight="bold" /> {`${t('discover.download')}${(item.downloads?.length ?? 0) > 1 ? ` (${item.downloads.length})` : ''}`}</>
 
   const cls =
     state === 'downloading' ? 'btn-ghost cursor-wait'
@@ -284,7 +305,7 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
 function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor }) {
   const { t } = useT()
   const meta = TYPE_META[item.sourceType] ?? { badge: 'bg-gray-700 text-gray-300' }
-  const canDownload = (item.downloads?.length ?? 0) > 0
+  const canDownload = isDownloadable(item)
   return (
     <div
       onClick={() => onOpen(item)}
@@ -373,8 +394,11 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
   const [suggested, setSuggested] = useState([])
   const [followingAll, setFollowingAll] = useState(false)
   const [downloaded, setDownloaded] = useState(() => ({ ids: new Set(), files: new Set() }))
-  // author view: one creator's full feed, paged independently of the aggregate
-  const [authorView, setAuthorView] = useState(null) // { sourceId, name } | null
+  // author view: one creator's full feed, paged independently of the aggregate.
+  // The MTS tab reuses it as a site browser ({ mts: true }) with sort/category filters.
+  const [authorView, setAuthorView] = useState(null) // { sourceId, name, mts? } | null
+  const [mtsSort, setMtsSort] = useState('new')
+  const [mtsCat, setMtsCat] = useState(null)
   const [authorItems, setAuthorItems] = useState([])
   const [authorCursor, setAuthorCursor] = useState(null)
   const [authorHasMore, setAuthorHasMore] = useState(false)
@@ -489,7 +513,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     return source === 'all' ? merged : merged.filter(i => i.sourceType === source)
   }, [data, source, savedLinks])
 
-  const freeCount = useMemo(() => sourceItems.filter(i => (i.downloads?.length ?? 0) > 0).length, [sourceItems])
+  const freeCount = useMemo(() => sourceItems.filter(i => isDownloadable(i)).length, [sourceItems])
   const paidCount = useMemo(() => sourceItems.filter(i => i.locked).length, [sourceItems])
 
   const visible = useMemo(() => {
@@ -497,7 +521,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     // free = installable files attached; paid = patron-locked. "All" drops empty
     // Patreon news posts, but keeps every post from link-showcase sources like
     // Tumblr/ModTheSims (those never attach files — each post links out to the CC).
-    if (postFilter === 'free') items = items.filter(i => (i.downloads?.length ?? 0) > 0)
+    if (postFilter === 'free') items = items.filter(i => isDownloadable(i))
     else if (postFilter === 'paid') items = items.filter(i => i.locked)
     else items = items.filter(i => i.sourceType !== 'patreon' || i.locked || (i.downloads?.length ?? 0) > 0)
     const q = query.trim().toLowerCase()
@@ -537,14 +561,26 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     return q ? authorItems.filter(i => i.title?.toLowerCase().includes(q) || i.summary?.toLowerCase().includes(q)) : authorItems
   }, [authorItems, query])
 
-  const loadAuthor = useCallback(async (sourceId) => {
+  const loadAuthor = useCallback(async (sourceId, opts = {}) => {
     setAuthorLoading(true)
     try {
-      const res = await window.api.fetchSourceDiscover?.({ sourceId, cursor: null })
+      const res = await window.api.fetchSourceDiscover?.({ sourceId, cursor: null, ...opts })
       if (res?.ok) { setAuthorItems(res.items ?? []); setAuthorCursor(res.nextCursor ?? null); setAuthorHasMore(!!res.nextCursor) }
       else { setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false) }
     } finally { setAuthorLoading(false) }
   }, [])
+
+  // The MTS tab is a dedicated site browser: its own per-source feed (paging it
+  // never re-fetches every followed Patreon/Tumblr source like the aggregate's
+  // "load more" does) plus the site's own sort tabs and category forums.
+  // NB: must stay below the loadAuthor declaration (const — TDZ).
+  useEffect(() => {
+    if (source !== 'modthesims') return
+    setAuthorView({ sourceId: 'builtin-mts', name: 'ModTheSims', mts: true })
+    setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false); setAuthorShown(PAGE)
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
+    loadAuthor('builtin-mts', { sort: mtsSort, cat: mtsCat })
+  }, [source, mtsSort, mtsCat, loadAuthor])
 
   const openAuthor = useCallback((item) => {
     const sourceId = item?.sourceId
@@ -606,7 +642,11 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     if (loadingMore || !authorCursor || !authorView) return
     setLoadingMore(true)
     try {
-      const res = await window.api.fetchSourceDiscover?.({ sourceId: authorView.sourceId, cursor: authorCursor })
+      const res = await window.api.fetchSourceDiscover?.({
+        sourceId: authorView.sourceId,
+        cursor: authorCursor,
+        ...(authorView.mts ? { sort: mtsSort, cat: mtsCat } : {})
+      })
       if (res?.ok) {
         setAuthorItems(prev => {
           const seen = new Set(prev.map(i => i.id))
@@ -616,7 +656,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
         setAuthorHasMore(!!res.nextCursor)
       } else setAuthorHasMore(false)
     } finally { setLoadingMore(false) }
-  }, [loadingMore, authorCursor, authorView])
+  }, [loadingMore, authorCursor, authorView, mtsSort, mtsCat])
 
   // the feed currently on screen — author view or the aggregate — with its own window + paging
   const feed = authorView ? authorVisible : visible
@@ -748,11 +788,34 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
               className="input w-64 pl-9 pr-3 py-2"
             />
           </div>
-          {authorView ? (
+          {authorView?.mts ? (
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              {MTS_SORTS.map(s => (
+                <button key={s} onClick={() => setMtsSort(s)} className={`chip ${mtsSort === s ? 'chip-active' : ''}`}>
+                  {t(`discover.mts${s[0].toUpperCase()}${s.slice(1)}`)}
+                </button>
+              ))}
+              {/* ponytail: CF's multi-select dropdown reused in single-select mode */}
+              <CategoryFilter
+                categories={MTS_CATEGORIES.map(c => ({ id: c.id, name: c.label }))}
+                selectedIds={mtsCat != null ? [mtsCat] : []}
+                onToggle={(id) => setMtsCat(id === mtsCat ? null : id)}
+                onClear={() => setMtsCat(null)}
+              />
+            </div>
+          ) : authorView ? (
             <div className="flex items-center gap-2 min-w-0">
               <button onClick={exitAuthor} className="btn-ghost px-3 py-2 text-sm"><CaretLeft size={15} weight="bold" /> {t('discover.back')}</button>
               <span className="text-white font-semibold truncate">{authorView.name}</span>
               <span className="text-gray-500 text-xs shrink-0">· {authorItems.length}{authorHasMore ? '+' : ''} {t('discover.posts')}</span>
+              {(knownSources ?? []).some(s => s.id === authorView.sourceId && !s.builtin) && (
+                <button
+                  onClick={() => { removeSource(authorView.sourceId); exitAuthor() }}
+                  className="btn-ghost px-2.5 py-1.5 text-xs text-gray-400 hover:!text-red-400 shrink-0"
+                >
+                  <X size={13} weight="bold" /> {t('discover.unfollow')}
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -834,7 +897,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
               {feed.slice(0, feedShown).map(item => (
-                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} onOpenAuthor={openAuthor} />
+                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} onOpenAuthor={authorView?.mts ? undefined : openAuthor} />
               ))}
             </div>
             {/* sentinel: scrolling it into view widens the window / pulls the next page */}

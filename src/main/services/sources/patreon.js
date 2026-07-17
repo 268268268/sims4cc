@@ -45,11 +45,17 @@ async function saveDisk() {
   }
 }
 
-/** "CreatorName" | patreon.com URL → creator slug. */
+/** "CreatorName" | "@name" | patreon.com URL (incl. /c/, /cw/, user?u=id) → creator slug. */
 export function normalizePatreonInput(input) {
   let s = String(input ?? '').trim()
   if (!s) return null
-  s = s.replace(/^https?:\/\/(www\.)?patreon\.com\//i, '').replace(/^c\//i, '').replace(/[/?#].*$/, '')
+  s = s.replace(/^https?:\/\/(www\.)?patreon\.com\//i, '').replace(/^@/, '').replace(/^cw?\//i, '')
+  // legacy id-based creator URLs — keep the query, resolveCampaign scrapes the page anyway
+  const user = s.match(/^user\?u=(\d+)/i)
+  if (user) return `user?u=${user[1]}`
+  s = s.replace(/[/?#].*$/, '')
+  // path segments that are never creator slugs (a pasted post URL yields "posts")
+  if (/^(posts|user|login|signup|home|search|messages|c|cw)$/i.test(s)) return null
   return /^[\w.-]+$/.test(s) ? s : null
 }
 
@@ -139,6 +145,13 @@ export async function fetchPatreon(input, sourceId, opts = {}) {
       .map(r => fileById[r.id])
       .filter(f => f?.url && f?.name && isInstallable(f.name) && !seen.has(f.name) && seen.add(f.name))
       .map(f => ({ name: f.name, url: f.url, via: 'patreon' })) : []
+
+    // Keep only mod posts: free posts must carry an installable file (drops news/
+    // empty announcements); locked posts hide their files when logged-out, so keep
+    // them all — on a CC creator they're the paid mods (the paid side of the mix).
+    // ponytail: locked text-only posts (paywalled polls/news) slip through; add a
+    // title/teaser heuristic if they clutter.
+    if (viewable && downloads.length === 0) continue
 
     items.push({
       id: `patreon:${post.id}`,

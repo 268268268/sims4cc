@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld('api', {
   fetchDiscover: (opts) => ipcRenderer.invoke('discover:fetch', opts),
   fetchMoreDiscover: () => ipcRenderer.invoke('discover:fetchMore'),
   fetchSourceDiscover: (payload) => ipcRenderer.invoke('discover:fetchSource', payload),
+  getMtsDetail: (url) => ipcRenderer.invoke('discover:mtsDetail', url),
   getDownloadedDiscover: () => ipcRenderer.invoke('discover:getDownloaded'),
   getSuggestedSources: () => ipcRenderer.invoke('discover:suggested'),
   followSuggestedSources: (entries) => ipcRenderer.invoke('discover:followSuggested', entries),

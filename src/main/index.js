@@ -18,6 +18,7 @@ import { checkUpdates, updateInstalledMod, invalidateUpdateCache } from './servi
 import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, fetchMoreDiscover, fetchSourceFeed, getDiscoverSnapshot, getSuggested, followSuggested, SOURCE_TYPES } from './services/discover.js'
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { resolveLink } from './services/linkResolver.js'
+import { resolveMtsDetail } from './services/sources/modthesims.js'
 import { listSavedLinks, addSavedLink, removeSavedLink } from './services/savedLinksStore.js'
 import { startDownloadWatch } from './services/downloadWatcher.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
@@ -489,9 +490,9 @@ ipcMain.handle('discover:fetchMore', async () => {
     return { ok: false, items: [], hasMore: false, error: err.message }
   }
 })
-ipcMain.handle('discover:fetchSource', async (_e, { sourceId, cursor } = {}) => {
+ipcMain.handle('discover:fetchSource', async (_e, { sourceId, cursor, sort, cat } = {}) => {
   try {
-    return await fetchSourceFeed(sourceId, cursor ?? null)
+    return await fetchSourceFeed(sourceId, cursor ?? null, { sort, cat })
   } catch (err) {
     return { ok: false, items: [], error: err.message }
   }
@@ -606,13 +607,22 @@ ipcMain.handle('discover:download', async (e, item) => {
         if (fresh?.ok && fresh.downloads?.length) toDownload = { ...item, downloads: fresh.downloads }
       } catch { /* keep the stored URLs */ }
     }
+    // MTS cards carry no download list (resolving needs a per-mod page fetch) —
+    // resolve it here, on click only.
+    if (item?.sourceType === 'modthesims' && !toDownload.downloads?.length && item.url) {
+      const { downloads } = await resolveMtsDetail(item.url)
+      if (!downloads.length) return { ok: false, error: 'No installable files found on this ModTheSims page.' }
+      toDownload = { ...toDownload, downloads }
+    }
     const res = await downloadRemoteItem(toDownload, config.modsFolder, {
       trayFolder,
       onProgress: (p) => { if (!sender.isDestroyed()) sender.send('discover:progress', { itemId: item?.id, ...p }) }
     })
     if (res.ok) {
       onLocalModsChanged()
-      await recordDiscoverDownload(item, res) // remember it so it shows Installed / can't re-download
+      // record the RESOLVED item — MTS/saved-link file names only exist after the
+      // resolve above, and they're what the cross-post "already downloaded" match uses
+      await recordDiscoverDownload(toDownload, res)
     }
     return res
   } catch (err) {
@@ -620,6 +630,15 @@ ipcMain.handle('discover:download', async (e, item) => {
   }
 })
 ipcMain.handle('discover:getDownloaded', () => getDiscoverDownloaded())
+
+// IPC: screenshots + file list of one MTS mod page (detail modal, on demand)
+ipcMain.handle('discover:mtsDetail', async (_e, url) => {
+  try {
+    return { ok: true, ...(await resolveMtsDetail(url)) }
+  } catch (err) {
+    return { ok: false, error: err.message, downloads: [], images: [] }
+  }
+})
 
 // IPC: thumbnail cache maintenance (Settings)
 ipcMain.handle('thumbCache:open', async () => {

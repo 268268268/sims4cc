@@ -294,7 +294,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
         <p className="page-subtitle">{t('settings.subtitle')}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5 max-w-2xl">
+      <div className="flex-1 overflow-y-auto px-6 py-5">
         {/* Mods Folder */}
         <section className="mb-6 fade-in-up">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">

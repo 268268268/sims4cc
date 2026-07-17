@@ -203,13 +203,13 @@ export async function fetchDiscover({ force = false } = {}) {
  * cursor state. Pass the returned nextCursor back to page further (Patreon only).
  * @returns {Promise<{ ok, items, label?, nextCursor?, error? }>}
  */
-export async function fetchSourceFeed(sourceId, cursor = null) {
+export async function fetchSourceFeed(sourceId, cursor = null, opts = {}) {
   const source = [...BUILTINS, ...(await listSources())].find(s => s.id === sourceId)
   if (!source) return { ok: false, error: 'Source not found', items: [] }
   const adapter = ADAPTERS[source.type]
   if (!adapter) return { ok: false, error: 'Unknown source type', items: [] }
   try {
-    const { label, items, nextCursor } = await adapter(source.input, source.id, { cursor })
+    const { label, items, nextCursor } = await adapter(source.input, source.id, { ...opts, cursor })
     return {
       ok: true,
       label: label ?? source.label,
