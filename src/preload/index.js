@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('api', {
   fetchMoreDiscover: () => ipcRenderer.invoke('discover:fetchMore'),
   fetchSourceDiscover: (payload) => ipcRenderer.invoke('discover:fetchSource', payload),
   getMtsDetail: (url) => ipcRenderer.invoke('discover:mtsDetail', url),
+  getTumblrDetail: (links) => ipcRenderer.invoke('discover:tumblrDetail', links),
   getDownloadedDiscover: () => ipcRenderer.invoke('discover:getDownloaded'),
   getSuggestedSources: () => ipcRenderer.invoke('discover:suggested'),
   followSuggestedSources: (entries) => ipcRenderer.invoke('discover:followSuggested', entries),

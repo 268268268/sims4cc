@@ -53,7 +53,7 @@ async function fetchSource(source, force, cursor = null) {
   const adapter = ADAPTERS[source.type]
   let entry
   try {
-    // nextCursor is Patreon-only; other adapters ignore opts and return undefined.
+    // nextCursor: Patreon (page url), Tumblr (post offset), MTS (page number).
     const { label, items, nextCursor } = await adapter(source.input, source.id, { cursor })
     entry = { at: Date.now(), label, items, nextCursor: nextCursor ?? null }
   } catch (err) {

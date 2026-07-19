@@ -29,11 +29,14 @@ export default function DiscoverDetail({ item, onClose, renderDownload, onOpenAu
   const banner = item.imageUrl || PLACEHOLDER
   const downloads = item.downloads?.length ? item.downloads : (mts?.downloads ?? [])
 
-  // MTS cards carry only a thumbnail — pull the mod page's screenshots + file list once
+  // MTS/Tumblr cards carry no file list — resolve it once, when the modal opens
   useEffect(() => {
-    if (item.sourceType !== 'modthesims' || !item.url) return
     let dead = false
-    window.api.getMtsDetail?.(item.url).then(r => { if (!dead && r?.ok) setMts(r) })
+    if (item.sourceType === 'modthesims' && item.url) {
+      window.api.getMtsDetail?.(item.url).then(r => { if (!dead && r?.ok) setMts(r) })
+    } else if (item.sourceType === 'tumblr' && item.links?.length) {
+      window.api.getTumblrDetail?.(item.links).then(r => { if (!dead && r?.ok) setMts(r) })
+    }
     return () => { dead = true }
   }, [item])
 

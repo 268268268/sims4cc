@@ -19,6 +19,7 @@ import { getSources, followSource, followBatch, unfollowSource, fetchDiscover, f
 import { downloadRemoteItem } from './services/remoteDownload.js'
 import { resolveLink } from './services/linkResolver.js'
 import { resolveMtsDetail } from './services/sources/modthesims.js'
+import { resolveTumblrDownloads } from './services/sources/tumblr.js'
 import { listSavedLinks, addSavedLink, removeSavedLink } from './services/savedLinksStore.js'
 import { startDownloadWatch } from './services/downloadWatcher.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
@@ -614,6 +615,12 @@ ipcMain.handle('discover:download', async (e, item) => {
       if (!downloads.length) return { ok: false, error: 'No installable files found on this ModTheSims page.' }
       toDownload = { ...toDownload, downloads }
     }
+    // Tumblr posts carry candidate outbound links, not files — same lazy resolve.
+    if (item?.sourceType === 'tumblr' && !toDownload.downloads?.length && item.links?.length) {
+      const downloads = await resolveTumblrDownloads(item.links)
+      if (!downloads.length) return { ok: false, error: "No installable files found behind this post's links." }
+      toDownload = { ...toDownload, downloads }
+    }
     const res = await downloadRemoteItem(toDownload, config.modsFolder, {
       trayFolder,
       onProgress: (p) => { if (!sender.isDestroyed()) sender.send('discover:progress', { itemId: item?.id, ...p }) }
@@ -630,6 +637,15 @@ ipcMain.handle('discover:download', async (e, item) => {
   }
 })
 ipcMain.handle('discover:getDownloaded', () => getDiscoverDownloaded())
+
+// IPC: resolve a Tumblr post's outbound links to files (detail modal, on demand)
+ipcMain.handle('discover:tumblrDetail', async (_e, links) => {
+  try {
+    return { ok: true, downloads: await resolveTumblrDownloads(links) }
+  } catch (err) {
+    return { ok: false, error: err.message, downloads: [] }
+  }
+})
 
 // IPC: screenshots + file list of one MTS mod page (detail modal, on demand)
 ipcMain.handle('discover:mtsDetail', async (_e, url) => {

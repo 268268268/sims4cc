@@ -10,7 +10,7 @@
     "preview": "electron-vite preview",
     "start": "electron-vite dev",
     "dist": "electron-vite build && electron-builder --win",
-    "test": "node src/main/services/dbpfParser.test.js && node src/main/services/curseForgeFingerprint.test.js && node src/main/services/archiveExtractor.test.js && node src/main/services/nameClean.test.js"
+    "test": "node src/main/services/dbpfParser.test.js && node src/main/services/curseForgeFingerprint.test.js && node src/main/services/archiveExtractor.test.js && node src/main/services/nameClean.test.js && node src/main/services/sources/tumblr.test.js"
   },
   "dependencies": {
     "@fontsource-variable/outfit": "^5.2.8",

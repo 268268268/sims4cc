@@ -66,21 +66,26 @@ async function resolvePatreonPost(url) {
   }
 }
 
+/** Real filename from a download URL's Content-Disposition (headers only, body cancelled). */
+async function probeFilename(dlUrl) {
+  try {
+    const res = await httpFetch(dlUrl, { signal: AbortSignal.timeout(20000) })
+    const cd = res.headers.get('content-disposition') || ''
+    const fn = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i)?.[1]
+    try { res.body?.cancel?.() } catch { /* ignore */ }
+    return fn ? decodeURIComponent(fn.trim()) : null
+  } catch {
+    return null
+  }
+}
+
 /** SimFileShare page → deterministic direct-download URL + real filename. */
 async function resolveSimFileShare(url) {
   const id = url.match(/\/download\/(\d+)/)?.[1]
   if (!id) return fail(url, 'Could not read the SimFileShare id.')
   // /download/<id>/?dl serves the file directly (octet-stream) — no scraping needed
   const dl = `https://simfileshare.net/download/${id}/?dl`
-  // read the real filename from Content-Disposition (headers only, body cancelled)
-  let name = `simfileshare-${id}.zip`
-  try {
-    const res = await httpFetch(dl, { signal: AbortSignal.timeout(20000) })
-    const cd = res.headers.get('content-disposition') || ''
-    const fn = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i)?.[1]
-    if (fn) name = decodeURIComponent(fn.trim())
-    try { res.body?.cancel?.() } catch { /* ignore */ }
-  } catch { /* keep the fallback name */ }
+  const name = (await probeFilename(dl)) ?? `simfileshare-${id}.zip`
   return {
     ok: true,
     id: `resolved:sfs:${id}`,
@@ -88,6 +93,100 @@ async function resolveSimFileShare(url) {
     sourceType: 'simfileshare',
     url,
     via: 'simfileshare',
+    downloads: [{ name, url: dl }]
+  }
+}
+
+/** SimFileShare folder page → all its files, each resolved to a real name. */
+async function resolveSimFileShareFolder(url) {
+  const folderId = url.match(/\/folder\/(\d+)/)?.[1]
+  const html = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
+  // ponytail: cap at 10 files — huge CC folders are a "pick what you want" case, open in browser instead
+  const ids = [...new Set([...html.matchAll(/\/download\/(\d+)/g)].map(m => m[1]))]
+  if (!ids.length) return fail(url, 'This SimFileShare folder has no files (or is private).')
+  if (ids.length > 10) return fail(url, `This SimFileShare folder has ${ids.length} files — pick the ones you want in the browser.`)
+  const downloads = []
+  for (const id of ids) {
+    const r = await resolveSimFileShare(`https://simfileshare.net/download/${id}/`)
+    if (r.ok) downloads.push(...r.downloads)
+  }
+  if (!downloads.length) return fail(url, 'Could not resolve any files in this SimFileShare folder.')
+  return {
+    ok: true,
+    id: `resolved:sfsfolder:${folderId ?? url}`,
+    title: `SimFileShare folder ${folderId ?? ''}`.trim(),
+    sourceType: 'simfileshare',
+    url,
+    via: 'simfileshare',
+    downloads
+  }
+}
+
+/**
+ * Dropbox share link → direct download by forcing ?dl=1 (folder links serve a
+ * zip of the folder the same way). Real filename via Content-Disposition.
+ */
+async function resolveDropbox(url) {
+  const u = new URL(url)
+  u.searchParams.set('dl', '1')
+  const dl = u.href
+  const name = await probeFilename(dl)
+  if (!name) return fail(url, 'Could not reach this Dropbox file (deleted or access-restricted).')
+  if (!isInstallable(name)) return fail(url, `Dropbox link points to "${name}" — not an installable mod file.`)
+  return {
+    ok: true,
+    id: `resolved:dropbox:${u.pathname}`,
+    title: name.replace(/\.[^.]+$/, ''),
+    sourceType: 'dropbox',
+    url,
+    via: 'dropbox',
+    downloads: [{ name, url: dl }]
+  }
+}
+
+/**
+ * Google Drive file link → direct download via the usercontent endpoint
+ * (confirm=t skips the "can't scan for viruses" page on big files).
+ */
+async function resolveGoogleDrive(url) {
+  const id = url.match(/\/file\/d\/([\w-]+)/)?.[1] || new URL(url).searchParams.get('id')
+  if (!id) return fail(url, 'Google Drive folders need picking by hand — opening in your browser.')
+  const dl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`
+  // no Content-Disposition = Drive answered with an HTML page (private / removed file)
+  const name = await probeFilename(dl)
+  if (!name) return fail(url, 'This Google Drive file is not shared publicly — opening in your browser.')
+  if (!isInstallable(name)) return fail(url, `Google Drive link points to "${name}" — not an installable mod file.`)
+  return {
+    ok: true,
+    id: `resolved:gdrive:${id}`,
+    title: name.replace(/\.[^.]+$/, ''),
+    sourceType: 'gdrive',
+    url,
+    via: 'gdrive',
+    downloads: [{ name, url: dl }]
+  }
+}
+
+/** MediaFire file page → the download button's direct URL (plain or scrambled). */
+async function resolveMediaFire(url) {
+  if (/\/folder\//.test(new URL(url).pathname)) return fail(url, 'MediaFire folders need picking by hand — opening in your browser.')
+  const html = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
+  let dl = html.match(/href=["'](https:\/\/download[^"']+\.mediafire\.com\/[^"']+)["']/)?.[1] ?? null
+  if (!dl) {
+    // newer pages hide the URL base64-encoded in data-scrambled-url
+    const scrambled = html.match(/data-scrambled-url=["']([A-Za-z0-9+/=]+)["']/)?.[1]
+    if (scrambled) try { dl = Buffer.from(scrambled, 'base64').toString('utf8') } catch { /* fall through */ }
+  }
+  if (!dl || !/^https:\/\//.test(dl)) return fail(url, 'Could not find the MediaFire download link (file removed?).')
+  const name = decodeURIComponent(dl.split(/[?#]/)[0].split('/').pop() || '')
+  if (!isInstallable(name)) return fail(url, `MediaFire link points to "${name}" — not an installable mod file.`)
+  return {
+    ok: true,
+    id: `resolved:mediafire:${url}`,
+    title: name.replace(/\.[^.]+$/, ''),
+    sourceType: 'mediafire',
+    url,
+    via: 'mediafire',
     downloads: [{ name, url: dl }]
   }
 }
@@ -138,10 +237,17 @@ export async function resolveLink(url, hop = 0) {
 
     if (host.endsWith('patreon.com') && /\/posts\//.test(u.pathname)) return resolvePatreonPost(u.href)
 
-    if (host.endsWith('simfileshare.net')) return resolveSimFileShare(u.href)
+    if (host.endsWith('simfileshare.net')) {
+      return /\/folder\/\d+/.test(u.pathname) ? resolveSimFileShareFolder(u.href) : resolveSimFileShare(u.href)
+    }
+
+    if (host.endsWith('dropbox.com')) return resolveDropbox(u.href)
+    if (host === 'drive.google.com') return resolveGoogleDrive(u.href)
+    if (host.endsWith('mediafire.com')) return resolveMediaFire(u.href)
 
     // known-gated or aggregator hosts → send the user to the browser
     if (host.endsWith('thesimsresource.com')) return fail(u.href, 'The Sims Resource gates downloads behind its own site — opening there.')
+    if (host.endsWith('mega.nz')) return fail(u.href, 'MEGA downloads need their own client-side decryption — opening in your browser.')
     return fail(u.href, `${host} is not a directly-downloadable host — opening in your browser.`)
   } catch (err) {
     return fail(url, err.message)

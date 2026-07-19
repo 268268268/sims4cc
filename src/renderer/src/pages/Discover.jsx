@@ -518,12 +518,17 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
 
   const visible = useMemo(() => {
     let items = sourceItems
-    // free = installable files attached; paid = patron-locked. "All" drops empty
-    // Patreon news posts, but keeps every post from link-showcase sources like
-    // Tumblr/ModTheSims (those never attach files — each post links out to the CC).
+    // free = installable (files attached, or lazily resolvable like MTS/Tumblr);
+    // paid = patron-locked. "All" drops posts with nothing to show: empty Patreon
+    // news posts and reblogged memes on Tumblr. A creator's OWN posts always stay
+    // (their CC may link to hosts we can't auto-download).
     if (postFilter === 'free') items = items.filter(i => isDownloadable(i))
     else if (postFilter === 'paid') items = items.filter(i => i.locked)
-    else items = items.filter(i => i.sourceType !== 'patreon' || i.locked || (i.downloads?.length ?? 0) > 0)
+    else items = items.filter(i => {
+      if (i.sourceType === 'patreon') return i.locked || (i.downloads?.length ?? 0) > 0
+      if (i.sourceType === 'tumblr') return !i.reblog || isDownloadable(i)
+      return true
+    })
     const q = query.trim().toLowerCase()
     if (q) {
       items = items.filter(i =>
