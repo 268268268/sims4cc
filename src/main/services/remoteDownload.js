@@ -46,6 +46,34 @@ async function streamToFile(url, destPath, onProgress) {
   }
 }
 
+/** MEGA public link → decrypting stream via megajs (the AES key rides in the URL). */
+async function streamMegaToFile(url, destPath, onProgress) {
+  const partPath = destPath + '.part'
+  try {
+    const { File } = await import('megajs')
+    const file = File.fromURL(url)
+    await file.loadAttributes()
+    const total = file.size ?? null
+    let bytes = 0
+    let last = 0
+    const stream = file.download({ maxConnections: 4 })
+    stream.on('data', (chunk) => {
+      bytes += chunk.length
+      const now = Date.now()
+      if (onProgress && (now - last > 250 || bytes === total)) {
+        last = now
+        onProgress({ received: bytes, total })
+      }
+    })
+    await pipeline(stream, createWriteStream(partPath))
+    await rename(partPath, destPath)
+    return { ok: true, bytes }
+  } catch (err) {
+    await unlink(partPath).catch(() => {})
+    return { ok: false, error: err?.message ?? String(err) }
+  }
+}
+
 /**
  * Install every downloadable file of a Discover item into the Mods folder.
  * Zips are extracted (tray files routed); loose .package/.ts4script saved as-is.
@@ -65,9 +93,11 @@ export async function downloadRemoteItem(item, modsFolder, { onProgress, trayFol
     const emit = (p) => onProgress?.({ ...p, fileIndex: idx, fileCount: count, phase: 'downloading' })
     const isZip = /\.zip$/i.test(d.name)
 
+    const stream = d.mega ? streamMegaToFile : streamToFile
+
     if (isZip) {
       const tmp = await uniqueFilePath(modsFolder, safeFileName(d.name))
-      const r = await streamToFile(d.url, tmp, emit)
+      const r = await stream(d.url, tmp, emit)
       if (!r.ok) { errors.push(`${d.name}: ${r.error}`); continue }
       onProgress?.({ fileIndex: idx, fileCount: count, phase: 'installing' })
       const ex = await extractModArchive(tmp, modsFolder, d.name.replace(/\.zip$/i, ''), { trayFolder })
@@ -76,7 +106,7 @@ export async function downloadRemoteItem(item, modsFolder, { onProgress, trayFol
       installed.push(...ex.files, ...(ex.trayFiles ?? []))
     } else {
       const dest = await uniqueFilePath(modsFolder, safeFileName(d.name))
-      const r = await streamToFile(d.url, dest, emit)
+      const r = await stream(d.url, dest, emit)
       if (!r.ok) { errors.push(`${d.name}: ${r.error}`); continue }
       installed.push(dest)
     }

@@ -28,7 +28,7 @@ const dbg = (...args) => { if (DEBUG) console.log(...args) }
  * @returns {Promise<{ data: Array, pagination: Object|null, error?: string }>}
  */
 export async function searchMods(params = {}) {
-  const { searchFilter = '', classId, categoryId, categoryIds, authorId, index = 0, pageSize = 50, sortField, sortOrder } = params
+  const { searchFilter = '', classId, categoryId, categoryIds, authorId, slug, index = 0, pageSize = 50, sortField, sortOrder } = params
 
   const apiKey = await getApiKey()
 
@@ -40,6 +40,7 @@ export async function searchMods(params = {}) {
   url.searchParams.set('gameId', SIMS4_GAME_ID)
   if (searchFilter) url.searchParams.set('searchFilter', searchFilter)
   if (authorId != null) url.searchParams.set('authorId', authorId) // all mods by one author
+  if (slug) url.searchParams.set('slug', slug) // exact-match lookup for a site URL
   // classId = top-level site section (Create a Sim, Build/Buy…). categoryIds = leaf
   // filters with AND semantics (a mod must be in ALL of them) — narrows the result.
   if (classId != null) url.searchParams.set('classId', classId)

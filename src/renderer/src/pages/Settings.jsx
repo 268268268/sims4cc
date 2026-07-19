@@ -78,20 +78,20 @@ function LanguageSection() {
   )
 }
 
-function ApiKeySection() {
+function ApiKeySection({ configKey = 'curseForgeApiKey', titleKey = 'settings.apiKey', hintKey = 'settings.apiKeyHint', url = 'https://console.curseforge.com/', urlLabel = 'console.curseforge.com', placeholder = '$2a$10$…' }) {
   const { t } = useT()
   const [key, setKey] = useState('')
   const [show, setShow] = useState(false)
   const [status, setStatus] = useState(null) // null | 'saving' | 'saved'
 
   useEffect(() => {
-    window.api.getConfig().then(cfg => setKey(cfg?.curseForgeApiKey ?? ''))
-  }, [])
+    window.api.getConfig().then(cfg => setKey(cfg?.[configKey] ?? ''))
+  }, [configKey])
 
   const onSave = async () => {
     setStatus('saving')
     try {
-      await window.api.setConfig('curseForgeApiKey', key.trim() || null)
+      await window.api.setConfig(configKey, key.trim() || null)
       setStatus('saved')
       setTimeout(() => setStatus(null), 2500)
     } catch {
@@ -102,16 +102,16 @@ function ApiKeySection() {
   return (
     <section className="mb-6 fade-in-up">
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-        {t('settings.apiKey')}
+        {t(titleKey)}
       </h3>
       <div className="card p-5">
         <p className="text-gray-400 text-sm mb-3 leading-relaxed">
-          {t('settings.apiKeyHint')}{' '}
+          {t(hintKey)}{' '}
           <button
-            onClick={() => window.api.openExternal('https://console.curseforge.com/')}
+            onClick={() => window.api.openExternal(url)}
             className="text-emerald-300 underline hover:text-emerald-200"
           >
-            console.curseforge.com
+            {urlLabel}
           </button>
         </p>
         <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ function ApiKeySection() {
             type={show ? 'text' : 'password'}
             value={key}
             onChange={e => setKey(e.target.value)}
-            placeholder="$2a$10$…"
+            placeholder={placeholder}
             className="input flex-1 px-3 py-2 font-mono text-xs"
           />
           <button onClick={() => setShow(s => !s)} className="btn-ghost px-3 py-2 text-sm" title={show ? t('common.hide') : t('common.show')}>
@@ -331,6 +331,14 @@ export default function Settings({ modsFolder, onFolderChanged }) {
         <LanguageSection />
         <ConnectedAccountsSection />
         <ApiKeySection />
+        <ApiKeySection
+          configKey="tumblrApiKey"
+          titleKey="settings.tumblrApiKey"
+          hintKey="settings.tumblrApiKeyHint"
+          url="https://www.tumblr.com/oauth/apps"
+          urlLabel="tumblr.com/oauth/apps"
+          placeholder="OAuth Consumer Key…"
+        />
         <ThumbCacheSection />
 
         {/* Game Cache */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Globe, CircleNotch, Check, Warning, Plus, CaretRight, CaretLeft, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple } from '@phosphor-icons/react'
+import { Globe, CircleNotch, Check, Warning, Plus, CaretRight, CaretLeft, CaretDown, Sparkle, GearSix, X, MagnifyingGlass, ArrowsClockwise, ArrowUpRight, Clock, LockSimple, Gift, Package, DownloadSimple, Fire } from '@phosphor-icons/react'
 import { formatRelative } from '../lib/format'
 import { markChanged } from '../lib/sessionActivity'
 import DiscoverDetail from '../components/DiscoverDetail'
@@ -16,6 +16,65 @@ const TYPE_META = {
   pinterest: { badge: 'bg-red-600/30 text-red-200', label: 'Pinterest' },
   tumblr: { badge: 'bg-sky-600/30 text-sky-200', label: 'Tumblr' },
   modthesims: { badge: 'bg-emerald-600/30 text-emerald-200', label: 'ModTheSims' }
+}
+
+// Default tag set for the merged Tumblr feed — user-editable, saved in config
+const TUMBLR_TAGS = ['sims 4 cc', 'ts4cc', 'sims 4 cc finds', 'sims 4 custom content']
+
+// Tumblr display categories — keyword buckets over a post's tags + title.
+// ponytail: naive keyword match, upgrade to per-tag counts if buckets feel off
+const TUMBLR_CATS = [
+  { id: 'cas', re: /\b(cas|hair|cloth|dress|outfit|top|skirt|pants|shoes?|skin|makeup|lip|eyes?|brow|lash|nail|accessor|earring|piercing|tattoo)/i },
+  { id: 'build', re: /\b(build|buy|furniture|decor|clutter|object|rug|wall|floor|lot|house|kitchen|bedroom)/i },
+  { id: 'mods', re: /\b(mods?|gameplay|trait|career|preset|slider|pose|animation)/i }
+]
+
+/** Compact dropdown managing the merged feed's tag set — keeps the toolbar clean. */
+function TagSetMenu({ tags, onSave }) {
+  const { t } = useT()
+  const [open, setOpen] = useState(false)
+  const [val, setVal] = useState('')
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [open])
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(o => !o)} className={`chip ${open ? 'chip-active' : ''}`} title={t('discover.tagsTip')}>
+        {t('discover.tagsBtn', { count: tags.length })} <CaretDown size={11} weight="bold" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 z-30 card p-2 w-60 shadow-xl">
+          {tags.map(tg => (
+            <div key={tg} className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-gray-300 rounded hover:bg-white/5">
+              <span className="truncate">#{tg}</span>
+              {tags.length > 1 && (
+                <button onClick={() => onSave(tags.filter(x => x !== tg))} className="text-gray-500 hover:text-red-400 shrink-0" title={t('discover.removeTag')}>
+                  <X size={11} weight="bold" />
+                </button>
+              )}
+            </div>
+          ))}
+          <input
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const tg = val.trim().replace(/^#/, '').toLowerCase()
+                if (tg && !tags.includes(tg)) onSave([...tags, tg])
+                setVal('')
+              } else if (e.key === 'Escape') setOpen(false)
+            }}
+            placeholder={t('discover.addTagPlaceholder')}
+            className="input w-full px-2 py-1.5 text-xs mt-1"
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Inline source-type icon — real brand logo where one exists. */
@@ -389,6 +448,20 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [postFilter, setPostFilter] = useState('all') // all | free | paid — source picked in the sidebar
+  const [tumblrSort, setTumblrSort] = useState('new') // new | popular (by note count) — Tumblr tab only
+  const [tumblrCat, setTumblrCat] = useState(null) // TUMBLR_CATS id | null — Tumblr tab only
+  const [tumblrTags, setTumblrTags] = useState(TUMBLR_TAGS) // tags composing the merged Tumblr feed
+
+  // load the user's saved tag set once; save on every edit
+  useEffect(() => {
+    window.api.getConfig?.().then(c => {
+      if (Array.isArray(c?.tumblrFeedTags) && c.tumblrFeedTags.length) setTumblrTags(c.tumblrFeedTags)
+    })
+  }, [])
+  const saveTumblrTags = useCallback((tags) => {
+    setTumblrTags(tags)
+    window.api.setConfig?.('tumblrFeedTags', tags)
+  }, [])
   const [showManage, setShowManage] = useState(false)
   const [selected, setSelected] = useState(null) // detail modal target
   const [suggested, setSuggested] = useState([])
@@ -549,9 +622,9 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
   const [loadingMore, setLoadingMore] = useState(false)
   const sentinelRef = useRef(null)
 
-  useEffect(() => { setShown(PAGE) }, [query, source, postFilter]) // reset window when the filtered set changes
-  useEffect(() => { setAuthorShown(PAGE) }, [query, authorView]) // reset author window on search / new author
-  useEffect(() => { setPostFilter('all') }, [source]) // Free/Paid don't apply to every source — reset on switch
+  useEffect(() => { setShown(PAGE) }, [query, source, postFilter, tumblrSort, tumblrCat]) // reset window when the filtered set changes
+  useEffect(() => { setAuthorShown(PAGE) }, [query, authorView, tumblrSort, tumblrCat]) // reset author window on search / new author / display filters
+  useEffect(() => { setPostFilter('all'); setTumblrSort('new'); setTumblrCat(null) }, [source]) // per-source filters — reset on switch
   // leave author view when the sidebar source changes — but NOT on first mount,
   // or a cross-tab jump that opens an author on mount would be wiped immediately
   const sourceInitRef = useRef(true)
@@ -560,18 +633,39 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     setAuthorView(null)
   }, [source])
 
-  // author feed, narrowed by the same search box for consistency
+  // author feed, narrowed by the same search box for consistency. The merged
+  // Tumblr feed additionally gets the display filters (categories + popularity).
   const authorVisible = useMemo(() => {
+    let items = authorItems
     const q = query.trim().toLowerCase()
-    return q ? authorItems.filter(i => i.title?.toLowerCase().includes(q) || i.summary?.toLowerCase().includes(q)) : authorItems
-  }, [authorItems, query])
+    if (q) {
+      items = items.filter(i =>
+        i.title?.toLowerCase().includes(q) ||
+        i.author?.toLowerCase().includes(q) ||
+        i.summary?.toLowerCase().includes(q) ||
+        i.tags?.some(tg => tg.toLowerCase().includes(q))
+      )
+    }
+    if (authorView?.ttag) {
+      const cat = TUMBLR_CATS.find(c => c.id === tumblrCat)
+      if (cat) items = items.filter(i => cat.re.test(`${i.title ?? ''} ${(i.tags ?? []).join(' ')}`))
+      if (tumblrSort === 'popular') items = [...items].sort((a, b) => (b.notes ?? 0) - (a.notes ?? 0))
+    }
+    return items
+  }, [authorItems, query, authorView, tumblrSort, tumblrCat])
 
   const loadAuthor = useCallback(async (sourceId, opts = {}) => {
+    emptyLoadsRef.current = 0
     setAuthorLoading(true)
     try {
-      const res = await window.api.fetchSourceDiscover?.({ sourceId, cursor: null, ...opts })
-      if (res?.ok) { setAuthorItems(res.items ?? []); setAuthorCursor(res.nextCursor ?? null); setAuthorHasMore(!!res.nextCursor) }
-      else { setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false) }
+      const res = opts.ttags
+        ? await window.api.fetchTumblrFeed?.({ tags: opts.ttags })
+        : await window.api.fetchSourceDiscover?.({ sourceId, cursor: null, ...opts })
+      if (res?.ok) {
+        setAuthorItems(res.items ?? [])
+        setAuthorCursor(res.cursors ?? res.nextCursor ?? null)
+        setAuthorHasMore(opts.ttags ? !!res.hasMore : !!res.nextCursor)
+      } else { setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false) }
     } finally { setAuthorLoading(false) }
   }, [])
 
@@ -587,9 +681,20 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     loadAuthor('builtin-mts', { sort: mtsSort, cat: mtsCat })
   }, [source, mtsSort, mtsCat, loadAuthor])
 
+  // The Tumblr tab is likewise a site-wide browser: one merged feed across the
+  // user's tag set (v2 API). Search stays a local filter; followed blogs still
+  // feed the "All" tab.
+  useEffect(() => {
+    if (source !== 'tumblr') return
+    setAuthorView({ sourceId: 'tumblr-tag', name: 'Tumblr', ttag: true })
+    setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false); setAuthorShown(PAGE)
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
+    loadAuthor('tumblr-tag', { ttags: tumblrTags })
+  }, [source, tumblrTags, loadAuthor])
+
   const openAuthor = useCallback((item) => {
     const sourceId = item?.sourceId
-    if (!sourceId) return
+    if (!sourceId || sourceId === 'tumblr-tag') return // tag-browse cards have no followable source feed
     preAuthorScrollRef.current = scrollRootRef.current?.scrollTop ?? 0
     setSelected(null)
     const meta = (data?.sources ?? []).find(s => s.id === sourceId)
@@ -614,8 +719,15 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
   const exitAuthor = useCallback(() => {
     restoreAuthorScrollRef.current = preAuthorScrollRef.current
     preAuthorScrollRef.current = null
+    // the Tumblr tab's home is the merged tag feed, not the aggregate feed
+    if (source === 'tumblr') {
+      setAuthorView({ sourceId: 'tumblr-tag', name: 'Tumblr', ttag: true })
+      setAuthorItems([]); setAuthorCursor(null); setAuthorHasMore(false); setAuthorShown(PAGE)
+      loadAuthor('tumblr-tag', { ttags: tumblrTags })
+      return
+    }
     setAuthorView(null)
-  }, [])
+  }, [source, tumblrTags, loadAuthor])
 
   // restore the aggregate feed's scroll once we're back (its `shown` window is intact)
   useEffect(() => {
@@ -625,18 +737,24 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     }
   }, [authorView])
 
+  // A failed page round (network hiccup, rate-limit) returns 0 items but the
+  // server keeps its cursors — retry on further scrolls instead of declaring the
+  // feed over, and only give up after several dry rounds in a row.
+  const emptyLoadsRef = useRef(0)
+
   const loadMore = useCallback(async () => {
     if (loadingMore) return
     setLoadingMore(true)
     try {
       const res = await window.api.fetchMoreDiscover?.()
       setData(d => {
-        if (!d) return d
-        if (!res?.items?.length) return { ...d, hasMore: false }
+        if (!d || !res?.ok) return d
         const seen = new Set(d.items.map(i => i.id))
-        const merged = [...d.items, ...res.items.filter(i => !seen.has(i.id))]
+        const fresh = (res.items ?? []).filter(i => !seen.has(i.id))
+        emptyLoadsRef.current = fresh.length ? 0 : emptyLoadsRef.current + 1
+        const merged = [...d.items, ...fresh]
         merged.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
-        return { ...d, items: merged, hasMore: res.hasMore }
+        return { ...d, items: merged, hasMore: res.hasMore && emptyLoadsRef.current < 3 }
       })
     } finally {
       setLoadingMore(false)
@@ -647,21 +765,24 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
     if (loadingMore || !authorCursor || !authorView) return
     setLoadingMore(true)
     try {
-      const res = await window.api.fetchSourceDiscover?.({
-        sourceId: authorView.sourceId,
-        cursor: authorCursor,
-        ...(authorView.mts ? { sort: mtsSort, cat: mtsCat } : {})
-      })
+      const res = authorView.ttag
+        ? await window.api.fetchTumblrFeed?.({ tags: tumblrTags, cursors: authorCursor })
+        : await window.api.fetchSourceDiscover?.({
+            sourceId: authorView.sourceId,
+            cursor: authorCursor,
+            ...(authorView.mts ? { sort: mtsSort, cat: mtsCat } : {})
+          })
       if (res?.ok) {
+        emptyLoadsRef.current = 0
         setAuthorItems(prev => {
           const seen = new Set(prev.map(i => i.id))
           return [...prev, ...(res.items ?? []).filter(i => !seen.has(i.id))]
         })
-        setAuthorCursor(res.nextCursor ?? null)
-        setAuthorHasMore(!!res.nextCursor)
-      } else setAuthorHasMore(false)
+        setAuthorCursor(res.cursors ?? res.nextCursor ?? null)
+        setAuthorHasMore(authorView.ttag ? !!res.hasMore : !!res.nextCursor)
+      } else if (++emptyLoadsRef.current >= 3) setAuthorHasMore(false) // keep the cursor — retry on next scroll
     } finally { setLoadingMore(false) }
-  }, [loadingMore, authorCursor, authorView, mtsSort, mtsCat])
+  }, [loadingMore, authorCursor, authorView, mtsSort, mtsCat, tumblrTags])
 
   // the feed currently on screen — author view or the aggregate — with its own window + paging
   const feed = authorView ? authorVisible : visible
@@ -793,7 +914,24 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
               className="input w-64 pl-9 pr-3 py-2"
             />
           </div>
-          {authorView?.mts ? (
+          {authorView?.ttag ? (
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <TagSetMenu tags={tumblrTags} onSave={saveTumblrTags} />
+              <span className="w-px h-4 bg-white/10 mx-1" />
+              <button onClick={() => setTumblrSort('new')} className={`chip ${tumblrSort === 'new' ? 'chip-active' : ''}`}>
+                <Clock size={13} weight="bold" /> {t('discover.sortNew')}
+              </button>
+              <button onClick={() => setTumblrSort('popular')} className={`chip ${tumblrSort === 'popular' ? 'chip-active' : ''}`} title={t('discover.sortPopularTip')}>
+                <Fire size={13} weight="fill" /> {t('discover.sortPopular')}
+              </button>
+              <span className="w-px h-4 bg-white/10 mx-1" />
+              {TUMBLR_CATS.map(c => (
+                <button key={c.id} onClick={() => setTumblrCat(cur => (cur === c.id ? null : c.id))} className={`chip ${tumblrCat === c.id ? 'chip-active' : ''}`}>
+                  {t(`discover.cat_${c.id}`)}
+                </button>
+              ))}
+            </div>
+          ) : authorView?.mts ? (
             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               {MTS_SORTS.map(s => (
                 <button key={s} onClick={() => setMtsSort(s)} className={`chip ${mtsSort === s ? 'chip-active' : ''}`}>
@@ -902,7 +1040,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
             </p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
               {feed.slice(0, feedShown).map(item => (
-                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} onOpenAuthor={authorView?.mts ? undefined : openAuthor} />
+                <ItemCard key={item.id} item={item} onOpen={setSelected} installed={isInstalled(item)} onDownloaded={markDownloaded} onOpenAuthor={authorView?.mts || authorView?.ttag ? undefined : openAuthor} />
               ))}
             </div>
             {/* sentinel: scrolling it into view widens the window / pulls the next page */}

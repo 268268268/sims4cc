@@ -9,7 +9,8 @@ assert.equal(
   tumblrPostKey('cc.tumblr.com', 'https://cc.tumblr.com/post/123'),
   tumblrPostKey('cc.tumblr.com', 'https://cc.tumblr.com/post/123/cute-hair')
 )
-assert.equal(tumblrPostKey('cc.tumblr.com', 'https://cc.tumblr.com/post/123'), 'tumblr:cc.tumblr.com:123')
+// short blog name in the key — must match what the v2 tag API produces
+assert.equal(tumblrPostKey('cc.tumblr.com', 'https://cc.tumblr.com/post/123'), 'tumblr:cc:123')
 // no post id in the url → fall back to the url itself
 assert.equal(tumblrPostKey('cc.tumblr.com', 'https://cc.tumblr.com/whatever'), 'tumblr:https://cc.tumblr.com/whatever')
 
@@ -20,10 +21,26 @@ assert.equal(normalizeTumblrInput('cc.example.com'), 'cc.example.com')
 assert.equal(normalizeTumblrInput('not a blog!!'), null)
 
 // --- extractCcLinks ----------------------------------------------------------
-// resolvable hosts pass; random hosts don't
+// known hosts pass; unknown pages pass too (generic one-hop resolver mines them)
 assert.deepEqual(
   extractCcLinks('<a href="https://simfileshare.net/download/12345/">DL</a> <a href="https://example.com/page">credit</a>'),
-  ['https://simfileshare.net/download/12345/']
+  ['https://simfileshare.net/download/12345/', 'https://example.com/page']
+)
+// noise never passes: socials, tumblr-internal, gated sites
+assert.deepEqual(
+  extractCcLinks(
+    '<a href="https://www.instagram.com/someone">ig</a>' +
+    '<a href="https://ko-fi.com/someone">kofi</a>' +
+    '<a href="https://www.tumblr.com/tagged/ts4cc">tag</a>' +
+    '<a href="https://www.thesimsresource.com/downloads/123">tsr</a>' +
+    '<a href="https://www.modcollective.gg/sims4/details/collection/x">mc</a>'
+  ),
+  []
+)
+// tmblr.co short links and CurseForge mod pages are kept
+assert.deepEqual(
+  extractCcLinks('<a href="https://tmblr.co/AbCdEf123">dl post</a> <a href="https://www.curseforge.com/sims4/build-buy/romantic-bedroom-package">cf</a>'),
+  ['https://tmblr.co/AbCdEf123', 'https://www.curseforge.com/sims4/build-buy/romantic-bedroom-package']
 )
 // direct file links by extension, any host
 assert.deepEqual(
@@ -45,20 +62,25 @@ assert.deepEqual(
   extractCcLinks('<a href="https://href.li/?https://simfileshare.net/download/7/">DL</a>'),
   ['https://simfileshare.net/download/7/']
 )
-// one-click hosts: mediafire / dropbox / google drive files pass, their folder links don't
+// one-click hosts: files AND folders (mediafire/drive), boosty posts, mega files
 assert.deepEqual(
   extractCcLinks(
     '<a href="https://www.mediafire.com/file/abc/hair.zip/file">a</a>' +
     '<a href="https://www.mediafire.com/folder/xyz/stuff">b</a>' +
-    '<a href="https://www.dropbox.com/scl/fi/abc/hair.zip?rlkey=k&dl=0">c</a>' +
-    '<a href="https://drive.google.com/file/d/FILE_ID/view?usp=sharing">d</a>' +
-    '<a href="https://drive.google.com/drive/folders/FOLDER_ID">e</a>'
+    '<a href="https://drive.google.com/drive/folders/FOLDER_ID">c</a>' +
+    '<a href="https://boosty.to/creator/posts/abc-123">d</a>'
   ),
   [
     'https://www.mediafire.com/file/abc/hair.zip/file',
-    'https://www.dropbox.com/scl/fi/abc/hair.zip?rlkey=k&dl=0',
-    'https://drive.google.com/file/d/FILE_ID/view?usp=sharing'
+    'https://www.mediafire.com/folder/xyz/stuff',
+    'https://drive.google.com/drive/folders/FOLDER_ID',
+    'https://boosty.to/creator/posts/abc-123'
   ]
+)
+// mega file links pass, mega folders don't (per-child key derivation)
+assert.deepEqual(
+  extractCcLinks('<a href="https://mega.nz/file/AbC#keykey">f</a> <a href="https://mega.nz/folder/XyZ#kk">dir</a>'),
+  ['https://mega.nz/file/AbC#keykey']
 )
 
 // dedupe + cap at 4

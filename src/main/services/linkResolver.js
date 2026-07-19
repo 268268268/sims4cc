@@ -8,6 +8,48 @@ import { isInstallable } from './sources/patreon.js'
 
 const MAX_HOPS = 3
 
+// Hosts where a download can never come from: socials, donations, streaming.
+// Shared with the Tumblr link extractor so cards don't grow dead download buttons.
+const BORING_HOSTS = [
+  'instagram.com', 'facebook.com', 'twitter.com', 'x.com', 'youtube.com', 'youtu.be',
+  'tiktok.com', 'discord.gg', 'discord.com', 'twitch.tv', 'spotify.com', 'reddit.com',
+  'ko-fi.com', 'paypal.com', 'paypal.me', 'buymeacoffee.com', 'throne.com'
+]
+export function isBoringHost(host) {
+  host = String(host ?? '').toLowerCase()
+  return BORING_HOSTS.some(b => host === b || host.endsWith('.' + b))
+}
+
+/**
+ * Mine raw HTML/JSON text for links on hosts we know how to resolve. Regex over
+ * the raw text (not just <a href>) so JSON-embedded links (Next.js/Linktree
+ * payloads) are found too. Deduped, capped.
+ */
+export function findKnownLinks(html) {
+  const text = String(html ?? '').replace(/\\\//g, '/').replace(/&amp;/g, '&')
+  const RES = [
+    /https?:\/\/(?:[\w.-]+\.)?simfileshare\.net\/(?:download|folder)\/\d+[^\s"'<>\\)]*/gi,
+    /https?:\/\/simfil\.es\/\w+[^\s"'<>\\)]*/gi,
+    /https?:\/\/(?:[\w.-]+\.)?mediafire\.com\/[^\s"'<>\\)]+/gi,
+    /https?:\/\/(?:[\w.-]+\.)?dropbox\.com\/[^\s"'<>\\)]+/gi,
+    /https?:\/\/drive\.google\.com\/(?:file\/d\/|drive\/folders\/)[\w-]+[^\s"'<>\\)]*/gi,
+    /https?:\/\/(?:www\.)?patreon\.com\/(?:[\w-]+\/)?posts\/[\w-]+[^\s"'<>\\)]*/gi,
+    /https?:\/\/boosty\.to\/[\w.-]+\/posts\/[\w-]+[^\s"'<>\\)]*/gi,
+    /https?:\/\/mega\.nz\/(?:file|folder)\/[^\s"'<>\\)]+/gi,
+    /https?:\/\/(?:www\.|legacy\.)?curseforge\.com\/sims4\/[\w-]+\/[\w-]+[^\s"'<>\\)]*/gi,
+    /https?:\/\/[^\s"'<>\\)]+\.(?:zip|package|ts4script)(?:\?[^\s"'<>\\)]*)?/gi
+  ]
+  const out = []
+  for (const re of RES) {
+    for (const m of text.matchAll(re)) {
+      const link = m[0].replace(/[.,)]+$/, '')
+      if (!out.includes(link)) out.push(link)
+      if (out.length >= 6) return out
+    }
+  }
+  return out
+}
+
 function fail(url, reason) {
   return { ok: false, openUrl: url, reason }
 }
@@ -191,6 +233,217 @@ async function resolveMediaFire(url) {
   }
 }
 
+/**
+ * CurseForge mod page URL → newest file via the CF API (slug lookup). Reuses the
+ * app's CF key; distribution-blocked mods fall back to the browser like the CF tab.
+ */
+async function resolveCurseForge(url) {
+  const slug = url.match(/curseforge\.com\/sims4\/[\w-]+\/([\w-]+)/i)?.[1]
+  if (!slug) return fail(url, 'Could not read the CurseForge mod slug.')
+  const { searchMods, pickLatestFile } = await import('./curseForgeClient.js')
+  const { data, error } = await searchMods({ slug, pageSize: 5 })
+  if (error) return fail(url, error)
+  const mod = data.find(m => m.slug === slug) ?? data[0]
+  if (!mod) return fail(url, 'Mod not found on CurseForge.')
+  const file = pickLatestFile(mod)
+  if (!file?.downloadUrl) return fail(url, 'This creator disabled downloads outside CurseForge — opening there.')
+  return {
+    ok: true,
+    id: `cf:${mod.id}`, // matches the CF feed/browser id space
+    title: mod.name,
+    author: mod.authors?.[0]?.name ?? null,
+    sourceType: 'curseforge',
+    url,
+    via: 'curseforge',
+    imageUrl: mod.logo?.thumbnailUrl ?? null,
+    // enough mod context for the CF store, so the CF tab shows "Installed"
+    // and tracks updates for mods downloaded through links
+    cfMod: { id: mod.id, name: mod.name, latestFiles: [file] },
+    downloads: [{ name: file.fileName, url: file.downloadUrl }]
+  }
+}
+
+/** simfil.es serves the file at the page URL itself — sniff the type for a name. */
+async function resolveSimfiles(url) {
+  const id = url.match(/simfil\.es\/(\w+)/)?.[1] ?? 'file'
+  let ext = null
+  let name = null
+  try {
+    const res = await httpFetch(url, { signal: AbortSignal.timeout(20000) })
+    const cd = res.headers.get('content-disposition') || ''
+    const fn = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i)?.[1]
+    if (fn) name = decodeURIComponent(fn.trim())
+    const reader = res.body.getReader()
+    const { value } = await reader.read()
+    reader.cancel().catch(() => {}) // stream is locked to the reader — cancel via it
+    const head = Buffer.from(value ?? []).subarray(0, 4).toString('latin1')
+    ext = head.startsWith('DBPF') ? 'package' : head.startsWith('PK') ? 'zip' : null
+  } catch { /* fall through */ }
+  if (!name && !ext) return fail(url, 'This simfil.es link does not serve a mod file.')
+  name ??= `simfiles-${id}.${ext}`
+  return {
+    ok: true,
+    id: `resolved:simfiles:${id}`,
+    title: name.replace(/\.[^.]+$/, ''),
+    sourceType: 'simfileshare',
+    url,
+    via: 'simfiles',
+    downloads: [{ name, url }]
+  }
+}
+
+/** Boosty post → files of a FREE post via their public API (paid = lock, like Patreon). */
+async function resolveBoosty(url) {
+  const m = url.match(/boosty\.to\/([\w.-]+)\/posts\/([\w-]+)/i)
+  if (!m) return fail(url, 'This is a Boosty profile, not a post — opening in your browser.')
+  const j = await httpFetch(`https://api.boosty.to/v1/blog/${m[1]}/post/${m[2]}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) }).then(r => r.json())
+  if (!j?.hasAccess) {
+    return { ok: false, openUrl: url, reason: 'This Boosty post is for subscribers only — opening in your browser.', locked: true }
+  }
+  // Boosty's CDN only serves files with a signed query, and anonymous sessions
+  // get an empty one — the post is readable but its files are login-gated.
+  if (!j.signedQuery) {
+    return { ok: false, openUrl: url, reason: 'Boosty serves files to signed-in users only — opening in your browser.', locked: true }
+  }
+  const downloads = (j.data ?? [])
+    .filter(d => d.type === 'file' && d.url && isInstallable(d.title))
+    .slice(0, 10)
+    .map(d => ({ name: d.title, url: d.url + j.signedQuery }))
+  if (!downloads.length) return fail(url, 'This Boosty post has no installable files.')
+  return {
+    ok: true,
+    id: `resolved:boosty:${m[2]}`,
+    title: j.title || 'Boosty post',
+    author: m[1],
+    sourceType: 'boosty',
+    url,
+    via: 'boosty',
+    downloads
+  }
+}
+
+/**
+ * MEGA public file link → name via megajs (the AES key rides in the URL).
+ * The download itself needs on-the-fly decryption, so the entry is flagged
+ * `mega: true` and remoteDownload streams it through megajs instead of fetch.
+ */
+async function resolveMega(url) {
+  // ponytail: file links only — folder links need per-child key derivation, browser for now
+  if (/\/folder\/|#F!/.test(url)) return fail(url, 'MEGA folders need picking by hand — opening in your browser.')
+  try {
+    const { File } = await import('megajs')
+    const file = File.fromURL(url)
+    await Promise.race([
+      file.loadAttributes(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), 20000))
+    ])
+    const name = file.name
+    if (!isInstallable(name)) return fail(url, `MEGA link points to "${name}" — not an installable mod file.`)
+    return {
+      ok: true,
+      id: `resolved:mega:${file.downloadId ?? url}`,
+      title: name.replace(/\.[^.]+$/, ''),
+      sourceType: 'mega',
+      url,
+      via: 'mega',
+      downloads: [{ name, url, mega: true }]
+    }
+  } catch (err) {
+    return fail(url, `Could not read this MEGA link (${err.message}).`)
+  }
+}
+
+/** Public MediaFire folder → its installable files via MediaFire's open folder API. */
+async function resolveMediaFireFolder(url) {
+  const key = url.match(/\/folder\/([a-z0-9]+)/i)?.[1]
+  if (!key) return fail(url, 'Could not read the MediaFire folder key.')
+  const api = `https://www.mediafire.com/api/1.4/folder/get_content.php?folder_key=${key}&content_type=files&chunk=1&response_format=json`
+  const j = await httpFetch(api, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) }).then(r => r.json())
+  const files = (j?.response?.folder_content?.files ?? []).filter(f => isInstallable(f.filename)).slice(0, 10)
+  if (!files.length) return fail(url, 'No installable files in this MediaFire folder (or it is private).')
+  const downloads = []
+  for (const f of files) {
+    const page = f.links?.normal_download
+    if (!page) continue
+    const r = await resolveMediaFire(page)
+    if (r.ok) downloads.push(...r.downloads)
+  }
+  if (!downloads.length) return fail(url, 'Could not resolve any files in this MediaFire folder.')
+  return {
+    ok: true,
+    id: `resolved:mffolder:${key}`,
+    title: `MediaFire folder ${j?.response?.folder_content?.name ?? key}`.trim(),
+    sourceType: 'mediafire',
+    url,
+    via: 'mediafire',
+    downloads
+  }
+}
+
+/**
+ * Public Google Drive folder → installable files via the keyless embedded
+ * folder view (names come from the listing, so no per-file probing needed).
+ */
+async function resolveGoogleDriveFolder(url) {
+  const id = url.match(/\/folders\/([\w-]+)/)?.[1]
+  if (!id) return fail(url, 'Could not read the Google Drive folder id.')
+  const html = await httpFetch(`https://drive.google.com/embeddedfolderview?id=${id}`, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
+  const entries = [...html.matchAll(/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g)]
+    .map(m => ({ id: m[1], name: decodeEntitiesLite(m[2].trim()) }))
+  const files = entries.filter(e => isInstallable(e.name)).slice(0, 10)
+  if (!files.length) return fail(url, 'No installable files in this Google Drive folder (or it is not shared publicly).')
+  return {
+    ok: true,
+    id: `resolved:gdrivefolder:${id}`,
+    title: `Google Drive folder`,
+    sourceType: 'gdrive',
+    url,
+    via: 'gdrive',
+    downloads: files.map(f => ({
+      name: f.name,
+      url: `https://drive.usercontent.google.com/download?id=${f.id}&export=download&confirm=t`
+    }))
+  }
+}
+
+/**
+ * Unknown host → ONE bounded hop: fetch the page and mine it for known CC hosts
+ * (the classic "post → landing page → Patreon/SFS link" chain, incl. tmblr.co
+ * short links and Linktree-style JSON payloads).
+ */
+async function resolveGenericPage(url, hop) {
+  const res = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(15000) })
+  const finalUrl = res.url || url
+  if (!res.ok) return fail(finalUrl, `Page returned HTTP ${res.status}.`)
+  const html = (await res.text()).slice(0, 1_500_000)
+  const title = decodeEntitiesLite(html.match(/<title[^>]*>([^<]{1,90})/i)?.[1]?.trim())
+  const downloads = []
+  const seen = new Set()
+  for (const link of findKnownLinks(html).filter(l => l !== url && l !== finalUrl).slice(0, 3)) {
+    const r = await resolveLink(link, hop + 1)
+    for (const d of r?.ok ? r.downloads : []) {
+      if (seen.has(d.url)) continue
+      seen.add(d.url)
+      downloads.push(r.cfMod ? { ...d, cfMod: r.cfMod } : d)
+    }
+    if (downloads.length >= 10) break
+  }
+  if (!downloads.length) return fail(finalUrl, 'No downloadable files found behind this link — opening in your browser.')
+  return {
+    ok: true,
+    id: `resolved:page:${finalUrl}`,
+    title: title || finalUrl,
+    sourceType: 'web',
+    url: finalUrl,
+    via: 'page',
+    downloads
+  }
+}
+
+function decodeEntitiesLite(s) {
+  return s?.replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+}
+
 /** Direct file URL → download as-is. */
 function resolveDirectFile(url) {
   const name = decodeURIComponent(url.split(/[?#]/)[0].split('/').pop() || 'download')
@@ -242,12 +495,26 @@ export async function resolveLink(url, hop = 0) {
     }
 
     if (host.endsWith('dropbox.com')) return resolveDropbox(u.href)
-    if (host === 'drive.google.com') return resolveGoogleDrive(u.href)
-    if (host.endsWith('mediafire.com')) return resolveMediaFire(u.href)
+    if (host === 'drive.google.com') {
+      return /\/folders\//.test(u.pathname) ? resolveGoogleDriveFolder(u.href) : resolveGoogleDrive(u.href)
+    }
+    if (host.endsWith('mediafire.com')) {
+      return /\/folder\//.test(u.pathname) ? resolveMediaFireFolder(u.href) : resolveMediaFire(u.href)
+    }
+    if (host.endsWith('curseforge.com')) return resolveCurseForge(u.href)
+    if (host === 'simfil.es') return resolveSimfiles(u.href)
+    if (host.endsWith('boosty.to')) return resolveBoosty(u.href)
+    if (host.endsWith('mega.nz')) return resolveMega(u.href)
 
     // known-gated or aggregator hosts → send the user to the browser
     if (host.endsWith('thesimsresource.com')) return fail(u.href, 'The Sims Resource gates downloads behind its own site — opening there.')
-    if (host.endsWith('mega.nz')) return fail(u.href, 'MEGA downloads need their own client-side decryption — opening in your browser.')
+    if (host.endsWith('modcollective.gg')) return fail(u.href, 'Mod Collective requires signing in on their site — opening there.')
+    if (host.endsWith('patreon.com')) return fail(u.href, 'This is a Patreon profile, not a post — opening in your browser.')
+    if (isBoringHost(host)) return fail(u.href, `${host} is not a downloadable host — opening in your browser.`)
+
+    // anything else: one bounded hop through the page (landing sites, tmblr.co
+    // short links, blogs that host the real download link)
+    if (hop < 2) return resolveGenericPage(u.href, hop)
     return fail(u.href, `${host} is not a directly-downloadable host — opening in your browser.`)
   } catch (err) {
     return fail(url, err.message)

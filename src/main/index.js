@@ -20,6 +20,7 @@ import { downloadRemoteItem } from './services/remoteDownload.js'
 import { resolveLink } from './services/linkResolver.js'
 import { resolveMtsDetail } from './services/sources/modthesims.js'
 import { resolveTumblrDownloads } from './services/sources/tumblr.js'
+import { fetchTumblrFeed } from './services/sources/tumblrTag.js'
 import { listSavedLinks, addSavedLink, removeSavedLink } from './services/savedLinksStore.js'
 import { startDownloadWatch } from './services/downloadWatcher.js'
 import { installSessionFetch, authStatus, connect as authConnect, disconnect as authDisconnect } from './services/sessionManager.js'
@@ -630,6 +631,12 @@ ipcMain.handle('discover:download', async (e, item) => {
       // record the RESOLVED item — MTS/saved-link file names only exist after the
       // resolve above, and they're what the cross-post "already downloaded" match uses
       await recordDiscoverDownload(toDownload, res)
+      // CF mods reached through links also land in the CF store, so the CurseForge
+      // tab shows them as Installed and includes them in update checks
+      const cfMods = [toDownload.cfMod, ...(toDownload.downloads ?? []).map(d => d.cfMod)].filter(Boolean)
+      for (const mod of new Map(cfMods.map(m => [m.id, m])).values()) {
+        await recordDownload(mod, { path: res.installed?.[0] ?? null }).catch(() => {})
+      }
     }
     return res
   } catch (err) {
@@ -637,6 +644,15 @@ ipcMain.handle('discover:download', async (e, item) => {
   }
 })
 ipcMain.handle('discover:getDownloaded', () => getDiscoverDownloaded())
+
+// IPC: Tumblr-wide merged tag feed (v2 API) — cursors is a per-tag timestamp map
+ipcMain.handle('discover:tumblrFeed', async (_e, { tags, cursors } = {}) => {
+  try {
+    return { ok: true, ...(await fetchTumblrFeed(tags, cursors)) }
+  } catch (err) {
+    return { ok: false, error: err.message, items: [], cursors: null, hasMore: false }
+  }
+})
 
 // IPC: resolve a Tumblr post's outbound links to files (detail modal, on demand)
 ipcMain.handle('discover:tumblrDetail', async (_e, links) => {

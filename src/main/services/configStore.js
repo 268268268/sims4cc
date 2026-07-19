@@ -13,7 +13,7 @@ function configPath() {
 // Fields encrypted at rest with the OS keychain (DPAPI on Windows) so config.json
 // never carries a readable CurseForge key. In memory we keep the plaintext, so
 // every caller — and the Settings UI — stays unchanged.
-const SECRET_KEYS = ['curseForgeApiKey']
+const SECRET_KEYS = ['curseForgeApiKey', 'tumblrApiKey']
 const ENC_PREFIX = 'enc:v1:'
 
 function canEncrypt() {

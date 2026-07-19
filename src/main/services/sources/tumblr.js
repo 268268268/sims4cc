@@ -1,5 +1,5 @@
 import { fetchText, parseRss, firstImage, stripHtml, decodeEntities, toIso } from './feedUtils.js'
-import { resolveLink } from '../linkResolver.js'
+import { resolveLink, isBoringHost } from '../linkResolver.js'
 
 /** "blogname" | "blogname.tumblr.com" | full URL → canonical blog host. */
 export function normalizeTumblrInput(input) {
@@ -19,7 +19,10 @@ const FILE_RE = /\.(zip|package|ts4script)(\?|#|$)/i
  */
 export function tumblrPostKey(host, url) {
   const m = String(url ?? '').match(/\/post\/(\d+)/)
-  return `tumblr:${m ? `${host}:${m[1]}` : url}`
+  // short blog name, not host — the v2 tag API only knows blog names, and the
+  // "already downloaded" marker must match across both feeds
+  const blog = String(host ?? '').replace(/\.tumblr\.com$/, '')
+  return `tumblr:${m ? `${blog}:${m[1]}` : url}`
 }
 
 /** Unwrap Tumblr's outbound-link redirectors (t.umblr.com/redirect?z=…, href.li/?…). */
@@ -43,15 +46,20 @@ export function extractCcLinks(html) {
     if (!href) continue
     let u
     try { u = new URL(href) } catch { continue }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') continue
     const host = u.hostname.toLowerCase()
-    // keep in sync with the hosts resolveLink() can turn into files
+    // Candidates = anything resolveLink() has a real shot at: known hosts plus
+    // ANY external page (the generic one-hop resolver mines those for CC links).
+    // Excluded: socials/donations, known-gated sites, Patreon profiles, and
+    // tumblr-internal links (reblog chains / tag pages — pure noise). tmblr.co
+    // short links stay: they redirect to the creator's download post.
+    const gated = host.endsWith('thesimsresource.com') || host.endsWith('modcollective.gg')
+    const tumblrInternal = host.endsWith('tumblr.com') || host === 'tumblr.com'
+    const patreonProfile = host.endsWith('patreon.com') && !/\/posts\//.test(u.pathname)
+    const megaFolder = host.endsWith('mega.nz') && /\/folder\/|#F!/.test(href) // needs per-child keys — browser
     const resolvable =
       FILE_RE.test(u.pathname) ||
-      host.endsWith('simfileshare.net') ||
-      (host.endsWith('patreon.com') && /\/posts\//.test(u.pathname)) ||
-      (host.endsWith('mediafire.com') && !/\/folder\//.test(u.pathname)) ||
-      host.endsWith('dropbox.com') ||
-      (host === 'drive.google.com' && !/\/folders\//.test(u.pathname))
+      (!gated && !tumblrInternal && !patreonProfile && !megaFolder && !isBoringHost(host))
     if (resolvable && !out.includes(href)) out.push(href)
     if (out.length >= 4) break // ponytail: reblog chains repeat the same links — 4 candidates is plenty
   }
@@ -71,7 +79,8 @@ export async function resolveTumblrDownloads(links) {
     for (const d of res?.ok ? res.downloads : []) {
       if (seen.has(d.url)) continue
       seen.add(d.url)
-      downloads.push({ name: d.name, url: d.url, via: res.via ?? 'tumblr' })
+      // keep per-download flags: mega (decrypting stream) and cfMod (CF-store record)
+      downloads.push({ ...d, via: res.via ?? 'tumblr', ...(res.cfMod ? { cfMod: res.cfMod } : {}) })
     }
   }
   return downloads
@@ -94,8 +103,13 @@ async function fetchViaApi(host, sourceId, start) {
     const html =
       p['regular-body'] || p['photo-caption'] || p['video-caption'] || p['caption'] ||
       p['answer'] || p['quote-text'] || p['link-description'] || ''
+    // reblogs key on the ROOT post (same as the tag browser) so one CC reblogged
+    // by several followed blogs collapses to one card in the aggregate feed
+    let id = null
+    const rootUrl = p['reblogged-root-url']
+    if (rootUrl) { try { id = tumblrPostKey(new URL(rootUrl).hostname, rootUrl) } catch { /* fall back */ } }
     items.push({
-      id: tumblrPostKey(host, p.url),
+      id: id ?? tumblrPostKey(host, p.url),
       sourceId,
       sourceType: 'tumblr',
       title: decodeEntities(p['regular-title'] || p['question'] || '') || (await stripHtml(html, 80)) || 'Untitled post',
@@ -105,6 +119,7 @@ async function fetchViaApi(host, sourceId, start) {
       author,
       date: toIso(p['date-gmt']),
       locked: false,
+      notes: Number(p['note-count']) || 0, // likes+reblogs — powers the "Popular" sort
       tags: p.tags?.slice(0, 6) ?? [],
       links: extractCcLinks(html),
       // someone else's post reblogged here (self-reblogs count as own posts) —
