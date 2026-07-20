@@ -2,7 +2,7 @@ import { rename, unlink } from 'fs/promises'
 import { createWriteStream } from 'fs'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
-import { extractModArchive, uniqueFilePath, safeFileName } from './archiveExtractor.js'
+import { extractModArchive, uniqueFilePath, safeFileName, ARCHIVE_RE } from './archiveExtractor.js'
 import { httpFetch } from './sources/http.js'
 
 const IDLE_TIMEOUT_MS = 30000
@@ -91,7 +91,7 @@ export async function downloadRemoteItem(item, modsFolder, { onProgress, trayFol
   for (const d of downloads) {
     idx++
     const emit = (p) => onProgress?.({ ...p, fileIndex: idx, fileCount: count, phase: 'downloading' })
-    const isZip = /\.zip$/i.test(d.name)
+    const isZip = ARCHIVE_RE.test(d.name)
 
     const stream = d.mega ? streamMegaToFile : streamToFile
 
@@ -100,7 +100,7 @@ export async function downloadRemoteItem(item, modsFolder, { onProgress, trayFol
       const r = await stream(d.url, tmp, emit)
       if (!r.ok) { errors.push(`${d.name}: ${r.error}`); continue }
       onProgress?.({ fileIndex: idx, fileCount: count, phase: 'installing' })
-      const ex = await extractModArchive(tmp, modsFolder, d.name.replace(/\.zip$/i, ''), { trayFolder })
+      const ex = await extractModArchive(tmp, modsFolder, d.name.replace(ARCHIVE_RE, ''), { trayFolder })
       await unlink(tmp).catch(() => {})
       if (!ex.ok) { errors.push(`${d.name}: ${ex.error}`); continue }
       installed.push(...ex.files, ...(ex.trayFiles ?? []))

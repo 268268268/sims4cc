@@ -1,5 +1,6 @@
 import { httpFetch } from './sources/http.js'
 import { isInstallable } from './sources/patreon.js'
+import { msg } from './messages.js'
 
 // Resolve an arbitrary URL (a Pinterest pin, a Patreon post, a SimFileShare
 // page, or a direct file) down to installable mod files — WITHOUT crawling a
@@ -76,7 +77,7 @@ async function pinInfo(url) {
 /** Patreon post URL → free-post installable files (media + attachments). */
 async function resolvePatreonPost(url) {
   const id = url.match(/posts\/[^/?#]*-(\d+)/)?.[1] || url.match(/posts\/(\d+)/)?.[1]
-  if (!id) return fail(url, 'Could not read the Patreon post id.')
+  if (!id) return fail(url, msg('patreonNoId'))
   const api =
     `https://www.patreon.com/api/posts/${id}` +
     '?json-api-version=1.0&json-api-use-default-includes=false&include=attachments,media,campaign' +
@@ -85,7 +86,7 @@ async function resolvePatreonPost(url) {
   const j = await httpFetch(api, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) }).then(r => r.json())
   const a = j.data?.attributes ?? {}
   if (a.current_user_can_view === false) {
-    return { ok: false, openUrl: a.url || url, reason: 'This Patreon post is patron-only. Connect your Patreon account (Settings) if you back this creator.', locked: true }
+    return { ok: false, openUrl: a.url || url, reason: msg('patreonLocked'), locked: true }
   }
   const inc = j.included ?? []
   const creator = inc.find(x => x.type === 'campaign')?.attributes?.name ?? null
@@ -95,7 +96,7 @@ async function resolvePatreonPost(url) {
     ...inc.filter(x => x.type === 'attachment' && x.attributes?.url && isInstallable(x.attributes.name))
       .map(x => ({ name: x.attributes.name, url: x.attributes.url }))
   ]
-  if (!downloads.length) return fail(a.url || url, 'This post has no directly-installable files (it may link out to another host).')
+  if (!downloads.length) return fail(a.url || url, msg('patreonNoFiles'))
   return {
     ok: true,
     id: `resolved:patreon:${id}`,
@@ -124,7 +125,7 @@ async function probeFilename(dlUrl) {
 /** SimFileShare page → deterministic direct-download URL + real filename. */
 async function resolveSimFileShare(url) {
   const id = url.match(/\/download\/(\d+)/)?.[1]
-  if (!id) return fail(url, 'Could not read the SimFileShare id.')
+  if (!id) return fail(url, msg('cantRead', { what: 'SimFileShare id' }))
   // /download/<id>/?dl serves the file directly (octet-stream) — no scraping needed
   const dl = `https://simfileshare.net/download/${id}/?dl`
   const name = (await probeFilename(dl)) ?? `simfileshare-${id}.zip`
@@ -145,14 +146,14 @@ async function resolveSimFileShareFolder(url) {
   const html = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
   // ponytail: cap at 10 files — huge CC folders are a "pick what you want" case, open in browser instead
   const ids = [...new Set([...html.matchAll(/\/download\/(\d+)/g)].map(m => m[1]))]
-  if (!ids.length) return fail(url, 'This SimFileShare folder has no files (or is private).')
-  if (ids.length > 10) return fail(url, `This SimFileShare folder has ${ids.length} files — pick the ones you want in the browser.`)
+  if (!ids.length) return fail(url, msg('emptyFolder', { host: 'SimFileShare' }))
+  if (ids.length > 10) return fail(url, msg('sfsBig', { count: ids.length }))
   const downloads = []
   for (const id of ids) {
     const r = await resolveSimFileShare(`https://simfileshare.net/download/${id}/`)
     if (r.ok) downloads.push(...r.downloads)
   }
-  if (!downloads.length) return fail(url, 'Could not resolve any files in this SimFileShare folder.')
+  if (!downloads.length) return fail(url, msg('folderResolveFailed', { host: 'SimFileShare' }))
   return {
     ok: true,
     id: `resolved:sfsfolder:${folderId ?? url}`,
@@ -173,8 +174,8 @@ async function resolveDropbox(url) {
   u.searchParams.set('dl', '1')
   const dl = u.href
   const name = await probeFilename(dl)
-  if (!name) return fail(url, 'Could not reach this Dropbox file (deleted or access-restricted).')
-  if (!isInstallable(name)) return fail(url, `Dropbox link points to "${name}" — not an installable mod file.`)
+  if (!name) return fail(url, msg('dropboxGone'))
+  if (!isInstallable(name)) return fail(url, msg('notAFile', { host: 'Dropbox', name }))
   return {
     ok: true,
     id: `resolved:dropbox:${u.pathname}`,
@@ -192,12 +193,12 @@ async function resolveDropbox(url) {
  */
 async function resolveGoogleDrive(url) {
   const id = url.match(/\/file\/d\/([\w-]+)/)?.[1] || new URL(url).searchParams.get('id')
-  if (!id) return fail(url, 'Google Drive folders need picking by hand — opening in your browser.')
+  if (!id) return fail(url, msg('cantRead', { what: 'Google Drive file id' }))
   const dl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`
   // no Content-Disposition = Drive answered with an HTML page (private / removed file)
   const name = await probeFilename(dl)
-  if (!name) return fail(url, 'This Google Drive file is not shared publicly — opening in your browser.')
-  if (!isInstallable(name)) return fail(url, `Google Drive link points to "${name}" — not an installable mod file.`)
+  if (!name) return fail(url, msg('drivePrivate'))
+  if (!isInstallable(name)) return fail(url, msg('notAFile', { host: 'Google Drive', name }))
   return {
     ok: true,
     id: `resolved:gdrive:${id}`,
@@ -211,7 +212,7 @@ async function resolveGoogleDrive(url) {
 
 /** MediaFire file page → the download button's direct URL (plain or scrambled). */
 async function resolveMediaFire(url) {
-  if (/\/folder\//.test(new URL(url).pathname)) return fail(url, 'MediaFire folders need picking by hand — opening in your browser.')
+  if (/\/folder\//.test(new URL(url).pathname)) return fail(url, msg('mfFolderByHand'))
   const html = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
   let dl = html.match(/href=["'](https:\/\/download[^"']+\.mediafire\.com\/[^"']+)["']/)?.[1] ?? null
   if (!dl) {
@@ -219,9 +220,9 @@ async function resolveMediaFire(url) {
     const scrambled = html.match(/data-scrambled-url=["']([A-Za-z0-9+/=]+)["']/)?.[1]
     if (scrambled) try { dl = Buffer.from(scrambled, 'base64').toString('utf8') } catch { /* fall through */ }
   }
-  if (!dl || !/^https:\/\//.test(dl)) return fail(url, 'Could not find the MediaFire download link (file removed?).')
+  if (!dl || !/^https:\/\//.test(dl)) return fail(url, msg('mfNoLink'))
   const name = decodeURIComponent(dl.split(/[?#]/)[0].split('/').pop() || '')
-  if (!isInstallable(name)) return fail(url, `MediaFire link points to "${name}" — not an installable mod file.`)
+  if (!isInstallable(name)) return fail(url, msg('notAFile', { host: 'MediaFire', name }))
   return {
     ok: true,
     id: `resolved:mediafire:${url}`,
@@ -239,14 +240,14 @@ async function resolveMediaFire(url) {
  */
 async function resolveCurseForge(url) {
   const slug = url.match(/curseforge\.com\/sims4\/[\w-]+\/([\w-]+)/i)?.[1]
-  if (!slug) return fail(url, 'Could not read the CurseForge mod slug.')
+  if (!slug) return fail(url, msg('cantRead', { what: 'CurseForge mod slug' }))
   const { searchMods, pickLatestFile } = await import('./curseForgeClient.js')
   const { data, error } = await searchMods({ slug, pageSize: 5 })
   if (error) return fail(url, error)
   const mod = data.find(m => m.slug === slug) ?? data[0]
-  if (!mod) return fail(url, 'Mod not found on CurseForge.')
+  if (!mod) return fail(url, msg('cfNotFound'))
   const file = pickLatestFile(mod)
-  if (!file?.downloadUrl) return fail(url, 'This creator disabled downloads outside CurseForge — opening there.')
+  if (!file?.downloadUrl) return fail(url, msg('cfBlocked'))
   return {
     ok: true,
     id: `cf:${mod.id}`, // matches the CF feed/browser id space
@@ -279,7 +280,7 @@ async function resolveSimfiles(url) {
     const head = Buffer.from(value ?? []).subarray(0, 4).toString('latin1')
     ext = head.startsWith('DBPF') ? 'package' : head.startsWith('PK') ? 'zip' : null
   } catch { /* fall through */ }
-  if (!name && !ext) return fail(url, 'This simfil.es link does not serve a mod file.')
+  if (!name && !ext) return fail(url, msg('simfilesNotFile'))
   name ??= `simfiles-${id}.${ext}`
   return {
     ok: true,
@@ -295,21 +296,21 @@ async function resolveSimfiles(url) {
 /** Boosty post → files of a FREE post via their public API (paid = lock, like Patreon). */
 async function resolveBoosty(url) {
   const m = url.match(/boosty\.to\/([\w.-]+)\/posts\/([\w-]+)/i)
-  if (!m) return fail(url, 'This is a Boosty profile, not a post — opening in your browser.')
+  if (!m) return fail(url, msg('boostyProfile'))
   const j = await httpFetch(`https://api.boosty.to/v1/blog/${m[1]}/post/${m[2]}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) }).then(r => r.json())
   if (!j?.hasAccess) {
-    return { ok: false, openUrl: url, reason: 'This Boosty post is for subscribers only — opening in your browser.', locked: true }
+    return { ok: false, openUrl: url, reason: msg('boostySubs'), locked: true }
   }
   // Boosty's CDN only serves files with a signed query, and anonymous sessions
   // get an empty one — the post is readable but its files are login-gated.
   if (!j.signedQuery) {
-    return { ok: false, openUrl: url, reason: 'Boosty serves files to signed-in users only — opening in your browser.', locked: true }
+    return { ok: false, openUrl: url, reason: msg('boostyLogin'), locked: true }
   }
   const downloads = (j.data ?? [])
     .filter(d => d.type === 'file' && d.url && isInstallable(d.title))
     .slice(0, 10)
     .map(d => ({ name: d.title, url: d.url + j.signedQuery }))
-  if (!downloads.length) return fail(url, 'This Boosty post has no installable files.')
+  if (!downloads.length) return fail(url, msg('boostyNoFiles'))
   return {
     ok: true,
     id: `resolved:boosty:${m[2]}`,
@@ -329,7 +330,7 @@ async function resolveBoosty(url) {
  */
 async function resolveMega(url) {
   // ponytail: file links only — folder links need per-child key derivation, browser for now
-  if (/\/folder\/|#F!/.test(url)) return fail(url, 'MEGA folders need picking by hand — opening in your browser.')
+  if (/\/folder\/|#F!/.test(url)) return fail(url, msg('megaFolder'))
   try {
     const { File } = await import('megajs')
     const file = File.fromURL(url)
@@ -338,7 +339,7 @@ async function resolveMega(url) {
       new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), 20000))
     ])
     const name = file.name
-    if (!isInstallable(name)) return fail(url, `MEGA link points to "${name}" — not an installable mod file.`)
+    if (!isInstallable(name)) return fail(url, msg('notAFile', { host: 'MEGA', name }))
     return {
       ok: true,
       id: `resolved:mega:${file.downloadId ?? url}`,
@@ -349,18 +350,18 @@ async function resolveMega(url) {
       downloads: [{ name, url, mega: true }]
     }
   } catch (err) {
-    return fail(url, `Could not read this MEGA link (${err.message}).`)
+    return fail(url, msg('megaBad', { error: err.message }))
   }
 }
 
 /** Public MediaFire folder → its installable files via MediaFire's open folder API. */
 async function resolveMediaFireFolder(url) {
   const key = url.match(/\/folder\/([a-z0-9]+)/i)?.[1]
-  if (!key) return fail(url, 'Could not read the MediaFire folder key.')
+  if (!key) return fail(url, msg('cantRead', { what: 'MediaFire folder key' }))
   const api = `https://www.mediafire.com/api/1.4/folder/get_content.php?folder_key=${key}&content_type=files&chunk=1&response_format=json`
   const j = await httpFetch(api, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) }).then(r => r.json())
   const files = (j?.response?.folder_content?.files ?? []).filter(f => isInstallable(f.filename)).slice(0, 10)
-  if (!files.length) return fail(url, 'No installable files in this MediaFire folder (or it is private).')
+  if (!files.length) return fail(url, msg('emptyFolder', { host: 'MediaFire' }))
   const downloads = []
   for (const f of files) {
     const page = f.links?.normal_download
@@ -368,7 +369,7 @@ async function resolveMediaFireFolder(url) {
     const r = await resolveMediaFire(page)
     if (r.ok) downloads.push(...r.downloads)
   }
-  if (!downloads.length) return fail(url, 'Could not resolve any files in this MediaFire folder.')
+  if (!downloads.length) return fail(url, msg('folderResolveFailed', { host: 'MediaFire' }))
   return {
     ok: true,
     id: `resolved:mffolder:${key}`,
@@ -386,12 +387,12 @@ async function resolveMediaFireFolder(url) {
  */
 async function resolveGoogleDriveFolder(url) {
   const id = url.match(/\/folders\/([\w-]+)/)?.[1]
-  if (!id) return fail(url, 'Could not read the Google Drive folder id.')
+  if (!id) return fail(url, msg('cantRead', { what: 'Google Drive folder id' }))
   const html = await httpFetch(`https://drive.google.com/embeddedfolderview?id=${id}`, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(20000) }).then(r => r.text())
   const entries = [...html.matchAll(/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g)]
     .map(m => ({ id: m[1], name: decodeEntitiesLite(m[2].trim()) }))
   const files = entries.filter(e => isInstallable(e.name)).slice(0, 10)
-  if (!files.length) return fail(url, 'No installable files in this Google Drive folder (or it is not shared publicly).')
+  if (!files.length) return fail(url, msg('emptyFolder', { host: 'Google Drive' }))
   return {
     ok: true,
     id: `resolved:gdrivefolder:${id}`,
@@ -414,7 +415,7 @@ async function resolveGoogleDriveFolder(url) {
 async function resolveGenericPage(url, hop) {
   const res = await httpFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(15000) })
   const finalUrl = res.url || url
-  if (!res.ok) return fail(finalUrl, `Page returned HTTP ${res.status}.`)
+  if (!res.ok) return fail(finalUrl, msg('pageHttp', { status: res.status }))
   const html = (await res.text()).slice(0, 1_500_000)
   const title = decodeEntitiesLite(html.match(/<title[^>]*>([^<]{1,90})/i)?.[1]?.trim())
   const downloads = []
@@ -428,7 +429,7 @@ async function resolveGenericPage(url, hop) {
     }
     if (downloads.length >= 10) break
   }
-  if (!downloads.length) return fail(finalUrl, 'No downloadable files found behind this link — opening in your browser.')
+  if (!downloads.length) return fail(finalUrl, msg('pageNoFiles'))
   return {
     ok: true,
     id: `resolved:page:${finalUrl}`,
@@ -464,14 +465,14 @@ function resolveDirectFile(url) {
  */
 export async function resolveLink(url, hop = 0) {
   let u
-  try { u = new URL(url.trim()) } catch { return fail(url, 'That does not look like a URL.') }
+  try { u = new URL(url.trim()) } catch { return fail(url, msg('badUrl')) }
   // only follow web links — never file://, and never internal/loopback hosts
   // (net.fetch would otherwise read local files or SSRF through the login session)
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return fail(url, 'Only http(s) links are supported.')
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return fail(url, msg('httpOnly'))
   const host = u.hostname.toLowerCase()
   if (/^(localhost|127\.|0\.0\.0\.0|\[?::1\]?|10\.|192\.168\.|169\.254\.)/.test(host) ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
-    return fail(url, 'Local/private addresses are not allowed.')
+    return fail(url, msg('localBlocked'))
   }
 
   try {
@@ -479,9 +480,9 @@ export async function resolveLink(url, hop = 0) {
     if (/\.(zip|package|ts4script)(\?|#|$)/i.test(u.pathname)) return resolveDirectFile(u.href)
 
     if (host.endsWith('pinterest.com') || host === 'pin.it') {
-      if (hop >= MAX_HOPS) return fail(u.href, 'Too many redirects to follow.')
+      if (hop >= MAX_HOPS) return fail(u.href, msg('tooManyHops'))
       const { out, image } = await pinInfo(u.href)
-      if (!out) return fail(u.href, 'This pin has no outbound link (image only).')
+      if (!out) return fail(u.href, msg('pinNoLink'))
       const sub = await resolveLink(out, hop + 1)
       // carry the pin's own image down so the card/modal shows a real preview
       if (sub?.ok && !sub.imageUrl && image) sub.imageUrl = image
@@ -507,15 +508,15 @@ export async function resolveLink(url, hop = 0) {
     if (host.endsWith('mega.nz')) return resolveMega(u.href)
 
     // known-gated or aggregator hosts → send the user to the browser
-    if (host.endsWith('thesimsresource.com')) return fail(u.href, 'The Sims Resource gates downloads behind its own site — opening there.')
-    if (host.endsWith('modcollective.gg')) return fail(u.href, 'Mod Collective requires signing in on their site — opening there.')
-    if (host.endsWith('patreon.com')) return fail(u.href, 'This is a Patreon profile, not a post — opening in your browser.')
-    if (isBoringHost(host)) return fail(u.href, `${host} is not a downloadable host — opening in your browser.`)
+    if (host.endsWith('thesimsresource.com')) return fail(u.href, msg('tsr'))
+    if (host.endsWith('modcollective.gg')) return fail(u.href, msg('modcollective'))
+    if (host.endsWith('patreon.com')) return fail(u.href, msg('patreonProfile'))
+    if (isBoringHost(host)) return fail(u.href, msg('notDownloadable', { host }))
 
     // anything else: one bounded hop through the page (landing sites, tmblr.co
     // short links, blogs that host the real download link)
     if (hop < 2) return resolveGenericPage(u.href, hop)
-    return fail(u.href, `${host} is not a directly-downloadable host — opening in your browser.`)
+    return fail(u.href, msg('notDownloadable', { host }))
   } catch (err) {
     return fail(url, err.message)
   }

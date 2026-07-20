@@ -1,5 +1,6 @@
 import { fetchText, parseRss, firstImage, stripHtml, decodeEntities, toIso } from './feedUtils.js'
 import { resolveLink, isBoringHost } from '../linkResolver.js'
+import { msg } from '../messages.js'
 
 /** "blogname" | "blogname.tumblr.com" | full URL → canonical blog host. */
 export function normalizeTumblrInput(input) {
@@ -10,7 +11,7 @@ export function normalizeTumblrInput(input) {
   return /^[\w-]+(\.[\w-]+)+$/.test(s) ? s : null
 }
 
-const FILE_RE = /\.(zip|package|ts4script)(\?|#|$)/i
+const FILE_RE = /\.(zip|rar|7z|package|ts4script)(\?|#|$)/i
 
 /**
  * Stable per-post item id. API and RSS render the same post's URL differently
@@ -166,7 +167,7 @@ async function fetchViaRss(host, sourceId) {
  */
 export async function fetchTumblr(input, sourceId, opts = {}) {
   const host = normalizeTumblrInput(input)
-  if (!host) throw new Error('Not a valid Tumblr blog name or URL.')
+  if (!host) throw new Error(msg('invalidTumblrInput'))
   const start = Number(opts.cursor) || 0
   try {
     return await fetchViaApi(host, sourceId, start)

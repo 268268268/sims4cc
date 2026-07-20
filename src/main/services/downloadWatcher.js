@@ -11,10 +11,9 @@ import { join, extname, basename } from 'path'
 // download itself is the user's own browser action, and nothing installs without
 // their confirmation. This respects the author's opt-out (no API/site scraping).
 
-// Only extensions importFiles can actually install: .zip is extracted, .package
-// and .ts4script are copied. .rar/.7z are deliberately NOT here — the installer
-// can't unpack them, so offering to "install" one would only ever fail.
-const MOD_EXT = new Set(['.zip', '.package', '.ts4script'])
+// Only extensions importFiles can actually install: archives (.zip/.rar/.7z)
+// are extracted, .package and .ts4script are copied.
+const MOD_EXT = new Set(['.zip', '.rar', '.7z', '.package', '.ts4script'])
 // Generous: the user still has to find the download button on the CurseForge page,
 // clear its ad/Cloudflare gate and wait for a possibly large file. 5 min was too
 // tight for a real visit; the watch is still bounded and extension-filtered.

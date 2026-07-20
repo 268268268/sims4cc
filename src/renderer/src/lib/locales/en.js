@@ -254,6 +254,7 @@ export default {
     sortNew: 'Newest',
     sortPopular: 'Popular',
     sortPopularTip: 'Most liked & reblogged posts first',
+    notesTip: '{count} likes & reblogs on Tumblr',
     cat_cas: 'CAS',
     cat_build: 'Build/Buy',
     cat_mods: 'Mods & Poses',

@@ -28,6 +28,7 @@ import { installSessionFetch, authStatus, connect as authConnect, disconnect as 
 import { toggleLocalModEnabled } from './services/localModActions.js'
 import { fetchAndCacheCatalog } from './services/catalogStore.js'
 import { readConfig, writeConfig } from './services/configStore.js'
+import { msg, setMsgLang } from './services/messages.js'
 import { listProfiles, getProfile, saveProfile, renameProfile, deleteProfile, setActiveProfile, addImportedProfile, modStableKey } from './services/profileStore.js'
 
 /** dirname(modsFolder)/Tray, but only when it actually exists. */
@@ -138,6 +139,7 @@ ipcMain.handle('get-config', async () => {
 ipcMain.handle('set-config', async (_e, key, value) => {
   const config = await readConfig()
   config[key] = value
+  if (key === 'language') setMsgLang(value) // main-process messages follow the UI language
   await writeConfig(config)
 })
 
@@ -613,13 +615,13 @@ ipcMain.handle('discover:download', async (e, item) => {
     // resolve it here, on click only.
     if (item?.sourceType === 'modthesims' && !toDownload.downloads?.length && item.url) {
       const { downloads } = await resolveMtsDetail(item.url)
-      if (!downloads.length) return { ok: false, error: 'No installable files found on this ModTheSims page.' }
+      if (!downloads.length) return { ok: false, error: msg('mtsNoFiles') }
       toDownload = { ...toDownload, downloads }
     }
     // Tumblr posts carry candidate outbound links, not files — same lazy resolve.
     if (item?.sourceType === 'tumblr' && !toDownload.downloads?.length && item.links?.length) {
       const downloads = await resolveTumblrDownloads(item.links)
-      if (!downloads.length) return { ok: false, error: "No installable files found behind this post's links." }
+      if (!downloads.length) return { ok: false, error: msg('tumblrNoFiles') }
       toDownload = { ...toDownload, downloads }
     }
     const res = await downloadRemoteItem(toDownload, config.modsFolder, {
@@ -814,6 +816,7 @@ ipcMain.handle('clear-game-cache', async () => {
 })
 
 app.whenReady().then(() => {
+  readConfig().then(c => setMsgLang(c.language)).catch(() => {})
   // route all external-source HTTP through the logged-in session (net.fetch)
   installSessionFetch()
 

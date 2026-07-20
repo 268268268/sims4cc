@@ -1,6 +1,6 @@
 import { stat, copyFile } from 'fs/promises'
 import { join, basename, extname, resolve, sep } from 'path'
-import { extractModArchive, uniqueFilePath, safeFileName, TRAY_EXTS } from './archiveExtractor.js'
+import { extractModArchive, uniqueFilePath, safeFileName, TRAY_EXTS, ARCHIVE_RE } from './archiveExtractor.js'
 
 const MOD_EXTS = new Set(['.package', '.ts4script'])
 
@@ -29,7 +29,7 @@ export async function importFiles({ paths, modsFolder, trayFolder }) {
         continue
       }
 
-      if (ext === '.zip') {
+      if (ARCHIVE_RE.test(name)) {
         const res = await extractModArchive(source, absFolder, name, { trayFolder })
         results.push(res.ok
           ? { source, kind: 'zip', ok: true, folder: res.folder, files: res.files, trayFiles: res.trayFiles }

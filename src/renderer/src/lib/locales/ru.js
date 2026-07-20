@@ -254,6 +254,7 @@ export default {
     sortNew: 'Новые',
     sortPopular: 'Популярные',
     sortPopularTip: 'Сначала посты с наибольшим числом лайков и реблогов',
+    notesTip: '{count} лайков и реблогов на Tumblr',
     cat_cas: 'CAS',
     cat_build: 'Стройка',
     cat_mods: 'Моды и позы',

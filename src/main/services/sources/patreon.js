@@ -173,5 +173,5 @@ export async function fetchPatreon(input, sourceId, opts = {}) {
 
 /** Installable in-game files we know how to place. */
 export function isInstallable(name) {
-  return /\.(zip|package|ts4script)$/i.test(String(name ?? ''))
+  return /\.(zip|rar|7z|package|ts4script)$/i.test(String(name ?? ''))
 }

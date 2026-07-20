@@ -1,6 +1,14 @@
 import AdmZip from 'adm-zip'
 import { join, basename, extname, dirname } from 'path'
-import { mkdir, writeFile, readdir, unlink, rmdir, access } from 'fs/promises'
+import { mkdir, writeFile, readdir, unlink, rmdir, access, mkdtemp, rm, rename, copyFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
+
+/** Archive extensions extractModArchive can unpack. */
+export const ARCHIVE_RE = /\.(zip|rar|7z)$/i
 
 // lot/household files that belong in <Sims 4>/Tray, not in Mods
 export const TRAY_EXTS = new Set(['.trayitem', '.householdbinary', '.blueprint', '.room', '.bpi', '.hhi', '.sgi'])
@@ -61,6 +69,26 @@ async function pickTargetFolder(modsFolder, baseName) {
   }
 }
 
+// Flatten: target name is the entry's sanitized basename; on collision inside
+// the archive, prefix with its parent dir so both variants survive.
+function makeFlattener() {
+  const used = new Set()
+  return (entryName) => {
+    const base = safeFileName(basename(entryName))
+    if (!used.has(base.toLowerCase())) {
+      used.add(base.toLowerCase())
+      return base
+    }
+    const parent = basename(dirname(entryName))
+    const prefixed = parent && parent !== '.' ? `${safeFolderName(parent)}_${base}` : base
+    let candidate = prefixed
+    let i = 2
+    while (used.has(candidate.toLowerCase())) candidate = `${i++}_${prefixed}`
+    used.add(candidate.toLowerCase())
+    return candidate
+  }
+}
+
 /**
  * Extract a downloaded mod archive into a fresh `modsFolder/<folderName>/`.
  *
@@ -81,6 +109,12 @@ async function pickTargetFolder(modsFolder, baseName) {
  */
 export async function extractModArchive(zipPath, modsFolder, nameHint, opts = {}) {
   const trayFolder = opts.trayFolder ?? null
+
+  // .rar/.7z can't be read in-memory by adm-zip — unpack to a temp dir first,
+  // then install through the same flatten/tray logic.
+  const ext = extname(zipPath).toLowerCase()
+  if (ext === '.rar' || ext === '.7z') return extractViaTemp(zipPath, ext, modsFolder, nameHint, trayFolder)
+
   let zip
   try {
     zip = new AdmZip(zipPath)
@@ -116,23 +150,7 @@ export async function extractModArchive(zipPath, modsFolder, nameHint, opts = {}
     return { ok: false, error: `Could not create mod folder: ${err.message}` }
   }
 
-  // Flatten: target name is the entry's sanitized basename; on collision inside
-  // the archive, prefix with its parent dir so both variants survive.
-  const used = new Set()
-  const targetNameFor = (entryName) => {
-    const base = safeFileName(basename(entryName))
-    if (!used.has(base.toLowerCase())) {
-      used.add(base.toLowerCase())
-      return base
-    }
-    const parent = basename(dirname(entryName))
-    const prefixed = parent && parent !== '.' ? `${safeFolderName(parent)}_${base}` : base
-    let candidate = prefixed
-    let i = 2
-    while (used.has(candidate.toLowerCase())) candidate = `${i++}_${prefixed}`
-    used.add(candidate.toLowerCase())
-    return candidate
-  }
+  const targetNameFor = makeFlattener()
 
   const files = []
   const trayFiles = []
@@ -160,4 +178,80 @@ export async function extractModArchive(zipPath, modsFolder, nameHint, opts = {}
 
   console.log(`[archiveExtractor] Extracted ${files.length} file(s) from ${basename(zipPath)} → ${folder}${trayFiles.length ? ` + ${trayFiles.length} tray file(s)` : ''}`)
   return { ok: true, folder, files, trayFiles }
+}
+
+/** All files under dir, as paths relative to dir. */
+async function listFilesRecursive(dir, prefix = '') {
+  const out = []
+  for (const e of await readdir(dir, { withFileTypes: true })) {
+    const rel = prefix ? join(prefix, e.name) : e.name
+    if (e.isDirectory()) out.push(...(await listFilesRecursive(join(dir, e.name), rel)))
+    else out.push(rel)
+  }
+  return out
+}
+
+/** rename() with a copy fallback — temp dir and Mods may sit on different drives. */
+async function moveFile(from, to) {
+  try {
+    await rename(from, to)
+  } catch {
+    await copyFile(from, to)
+    await unlink(from).catch(() => {})
+  }
+}
+
+/**
+ * .rar/.7z path: unpack into a temp dir (unrar-wasm / bundled 7za), then install
+ * through the same flatten + tray-routing rules as the zip path.
+ */
+async function extractViaTemp(archivePath, ext, modsFolder, nameHint, trayFolder) {
+  let tmp
+  try {
+    tmp = await mkdtemp(join(tmpdir(), 's4cc-'))
+  } catch (err) {
+    return { ok: false, error: `Could not create a temp folder: ${err.message}` }
+  }
+  const files = []
+  const trayFiles = []
+  let folder = null
+  try {
+    if (ext === '.rar') {
+      const { createExtractorFromFile } = await import('node-unrar-js')
+      const extractor = await createExtractorFromFile({ filepath: archivePath, targetPath: tmp })
+      void [...extractor.extract().files] // the generator is lazy — consuming it writes the files
+    } else {
+      const { path7za } = await import('7zip-bin')
+      const bin = path7za.replace('app.asar', 'app.asar.unpacked') // binary can't run from inside the asar
+      await execFileAsync(bin, ['x', archivePath, `-o${tmp}`, '-y'], { windowsHide: true, timeout: 120000 })
+    }
+
+    const all = (await listFilesRecursive(tmp)).filter(r => !JUNK_RE.test(r))
+    if (!all.length) return { ok: false, error: 'Archive is empty — nothing to extract.' }
+    const trayEntries = trayFolder ? all.filter(r => TRAY_EXTS.has(extname(r).toLowerCase())) : []
+    const modEntries = trayFolder ? all.filter(r => !TRAY_EXTS.has(extname(r).toLowerCase())) : all
+
+    folder = await pickTargetFolder(modsFolder, safeFolderName(nameHint || basename(archivePath)))
+    await mkdir(folder, { recursive: true })
+    const targetNameFor = makeFlattener()
+    for (const rel of modEntries) {
+      const target = join(folder, targetNameFor(rel))
+      await moveFile(join(tmp, rel), target)
+      files.push(target)
+    }
+    for (const rel of trayEntries) {
+      const target = await uniqueFilePath(trayFolder, safeFileName(basename(rel)))
+      await moveFile(join(tmp, rel), target)
+      trayFiles.push(target)
+    }
+    console.log(`[archiveExtractor] Extracted ${files.length} file(s) from ${basename(archivePath)} → ${folder}${trayFiles.length ? ` + ${trayFiles.length} tray file(s)` : ''}`)
+    return { ok: true, folder, files, trayFiles }
+  } catch (err) {
+    // never leave a half-installed mod behind
+    for (const f of [...files, ...trayFiles]) await unlink(f).catch(() => {})
+    if (folder) await rmdir(folder).catch(() => {})
+    return { ok: false, error: `Could not unpack ${ext} archive: ${err.message}` }
+  } finally {
+    await rm(tmp, { recursive: true, force: true }).catch(() => {})
+  }
 }

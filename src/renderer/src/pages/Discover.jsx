@@ -416,6 +416,11 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor 
         )}
         <div className="flex items-center gap-2 mt-auto pt-1.5 text-gray-600 text-[11px]">
           {item.date && <span className="inline-flex items-center gap-1"><Clock size={12} weight="regular" /> {formatRelative(item.date)}</span>}
+          {item.notes > 0 && (
+            <span className="inline-flex items-center gap-1 text-orange-400/80" title={t('discover.notesTip', { count: item.notes.toLocaleString() })}>
+              <Fire size={12} weight="fill" /> {item.notes >= 1000 ? `${(item.notes / 1000).toFixed(1)}k` : item.notes}
+            </span>
+          )}
           <span
             className="ml-auto text-gray-400 inline-flex items-center gap-1"
             title={t('discover.openOn', { source: meta.label ?? item.sourceType })}

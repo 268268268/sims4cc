@@ -3,6 +3,9 @@ productName: Sims 4 Mod Manager
 directories:
   buildResources: build
   output: dist
+# 7za.exe must live outside the asar to be spawnable
+asarUnpack:
+  - 'node_modules/7zip-bin/**'
 files:
   - '!**/.vscode/*'
   - '!src/*'

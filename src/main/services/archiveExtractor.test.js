@@ -63,6 +63,27 @@ check('tray file routed to Tray', res.ok && res.trayFiles?.length === 1 &&
 const u1 = await uniqueFilePath(res.folder, 'good.package') // already exists → " (2)"
 check('uniqueFilePath suffixes existing', basename(u1) === 'good (2).package', basename(u1))
 
+// --- .7z path (rar shares everything except the unpack call itself) ---
+{
+  const { execFile } = await import('child_process')
+  const { promisify } = await import('util')
+  const { writeFile } = await import('fs/promises')
+  const { path7za } = await import('7zip-bin')
+  const srcDir = join(root, '7zsrc')
+  await mkdir(join(srcDir, 'nested'), { recursive: true })
+  await writeFile(join(srcDir, 'seven.package'), 'DBPF-7z')
+  await writeFile(join(srcDir, 'nested', 'deep.package'), 'DBPF-7z-deep')
+  await writeFile(join(srcDir, 'lot.trayitem'), 'tray-7z')
+  const sevenPath = join(root, 'Seven Mod.7z')
+  await promisify(execFile)(path7za, ['a', sevenPath, join(srcDir, '*')], { windowsHide: true })
+
+  const r7 = await extractModArchive(sevenPath, modsDir, 'Seven Mod', { trayFolder: trayDir })
+  check('7z extract ok', r7.ok === true, JSON.stringify(r7).slice(0, 120))
+  const f7 = r7.ok ? (await readdir(r7.folder)).sort() : []
+  check('7z flattened files present', f7.includes('seven.package') && f7.includes('deep.package'), f7.join(','))
+  check('7z tray routed', r7.ok && r7.trayFiles?.length === 1 && basename(r7.trayFiles[0]) === 'lot.trayitem')
+}
+
 await rm(root, { recursive: true, force: true }).catch(() => {})
 
 if (failures) process.exit(1)

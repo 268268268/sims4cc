@@ -1,6 +1,7 @@
 import { firstImage, stripHtml, decodeEntities } from './feedUtils.js'
 import { httpFetch } from './http.js'
 import { extractCcLinks } from './tumblr.js'
+import { msg } from '../messages.js'
 
 // Tumblr-wide tag browse via the official v2 API. The shared key's limits
 // (1000/hr, 5000/day across all users) are the scarce resource here — hence the
@@ -75,9 +76,7 @@ export async function fetchTumblrTag(tag, cursor = null) {
     `&api_key=${await apiKey()}&limit=20${cursor ? `&before=${cursor}` : ''}`
   const res = await httpFetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) })
   if (!res.ok) {
-    throw new Error(res.status === 429
-      ? 'Tumblr rate limit reached — try again in a minute (or set your own API key in Settings).'
-      : `Tumblr API error (HTTP ${res.status}).`)
+    throw new Error(res.status === 429 ? msg('rateLimited') : `Tumblr API error (HTTP ${res.status}).`)
   }
   const posts = (await res.json()).response
   if (!Array.isArray(posts)) throw new Error('Unexpected Tumblr API response.')
