@@ -132,7 +132,7 @@ export default function AppUpdatesSection() {
               <div>
                 <div className="text-sm font-semibold text-emerald-300 flex items-center gap-1.5">
                   <Sparkle size={15} weight="fill" className="text-emerald-400" />
-                  <span>{updateInfo.releaseName || `Sims 4 Mod Manager v${updateInfo.latestVersion}`}</span>
+                  <span>{updateInfo.releaseName || `Sims 4 CC Manager v${updateInfo.latestVersion}`}</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
                   {updateInfo.assetSize > 0 && (

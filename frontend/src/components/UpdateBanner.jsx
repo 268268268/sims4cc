@@ -28,7 +28,7 @@ export default function UpdateBanner({ onNavigate }) {
             <span>{t('updates.bannerNotice', { version: `v${version}` })}</span>
           </div>
           <p className="text-xs text-gray-400 truncate mt-0.5">
-            {updateInfo.releaseName || `Sims 4 Mod Manager ${version}`}
+            {updateInfo.releaseName || `Sims 4 CC Manager ${version}`}
           </p>
         </div>
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "sims4cc-wails",
-  "outputfilename": "sims4-mod-manager",
+  "outputfilename": "sims4-cc-manager",
   "frontend:dir": "frontend",
   "frontend:install": "",
   "frontend:build": "npm run build",
@@ -11,10 +11,10 @@
     "name": "PoZi268"
   },
   "info": {
-    "companyName": "Sims 4 Mod Manager",
-    "productName": "Sims 4 Mod Manager",
+    "companyName": "Sims 4 CC Manager",
+    "productName": "Sims 4 CC Manager",
     "productVersion": "1.2.0",
     "copyright": "Copyright 2026",
-    "comments": "Sims 4 Mod Manager"
+    "comments": "Sims 4 CC Manager"
   }
 }

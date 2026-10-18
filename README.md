@@ -1,4 +1,4 @@
-# Sims 4 Mod Manager 2.0
+# Sims 4 CC Manager 2.0
 
 A modern desktop application for browsing, installing, organizing, and cleaning custom content and mods for **The Sims 4**.
 
@@ -92,8 +92,8 @@ A comprehensive diagnostic suite for game stability and performance optimization
 ## Installation
 
 1. Download the latest release from the [Releases](https://github.com/268268268/sims4cc/releases) page:
-   - `sims4-mod-manager.exe` — Standalone portable executable (no installer required).
-   - `sims4-mod-manager-v2.0.0-windows-x64.zip` — Compressed release archive.
+   - `sims4-cc-manager.exe` — Standalone portable executable (no installer required).
+   - `sims4-cc-manager-v2.0.0-windows-x64.zip` — Compressed release archive.
 2. Launch the application. On first startup, select your `Electronic Arts\The Sims 4\Mods` directory (auto-detected if in standard location).
 
 ---
@@ -124,7 +124,7 @@ cd ..
 wails build
 ```
 
-The resulting binary will be placed at `build/bin/sims4-mod-manager.exe`.
+The resulting binary will be placed at `build/bin/sims4-cc-manager.exe`.
 
 ---
 

@@ -15,7 +15,7 @@ export function UpdateProvider({ children }) {
   useEffect(() => {
     if (window.api?.getAppVersion) {
       window.api.getAppVersion().then(v => {
-        if (v) setCurrentVersion(v)
+        if (typeof v === 'string') setCurrentVersion(v)
       }).catch(console.error)
     }
   }, [])

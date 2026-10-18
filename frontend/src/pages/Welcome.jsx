@@ -29,7 +29,7 @@ export default function Welcome({ onFolderSelected }) {
         </div>
         <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">{t('welcome.welcomeTo')}</h1>
         <h2 className="text-3xl font-bold mb-6 tracking-tight text-emerald-400">
-          Sims 4 Mod Manager
+          Sims 4 CC Manager
         </h2>
         <p className="text-gray-400 mb-8 leading-relaxed">
           {t('welcome.hint')}

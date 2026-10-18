@@ -73,7 +73,7 @@ func (r *binaryReader) skip(n int) {
 
 const TAG_GEOM = 0x4D4F4547 // "GEOM" (Little Endian)
 
-// Парсер GEOM по алгоритму Sims 4 Mod Manager (S4MM / DBPFReader)
+// Парсер GEOM по алгоритму Sims 4 CC Manager (S4CCM / DBPFReader)
 func ParseGeom(buf []byte) *GeomData {
 	if len(buf) < 24 {
 		return nil

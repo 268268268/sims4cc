@@ -2020,6 +2020,41 @@ export namespace swiper {
 
 }
 
+export namespace updater {
+	
+	export class UpdateInfo {
+	    currentVersion: string;
+	    latestVersion: string;
+	    hasUpdate: boolean;
+	    releaseName: string;
+	    releaseNotes: string;
+	    publishedAt: string;
+	    downloadUrl: string;
+	    assetSize: number;
+	    assetName: string;
+	    isZip: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.hasUpdate = source["hasUpdate"];
+	        this.releaseName = source["releaseName"];
+	        this.releaseNotes = source["releaseNotes"];
+	        this.publishedAt = source["publishedAt"];
+	        this.downloadUrl = source["downloadUrl"];
+	        this.assetSize = source["assetSize"];
+	        this.assetName = source["assetName"];
+	        this.isZip = source["isZip"];
+	    }
+	}
+
+}
+
 export namespace watcher {
 	
 	export class InstallCaughtResult {

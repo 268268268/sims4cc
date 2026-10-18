@@ -30,7 +30,7 @@ func main() {
 	fileLogger := logger.NewFileLogger(logFile)
 
 	err := wails.Run(&options.App{
-		Title:     "Sims 4 Mod Manager",
+		Title:     "Sims 4 CC Manager",
 		Width:     1280,
 		Height:    820,
 		MinWidth:  960,

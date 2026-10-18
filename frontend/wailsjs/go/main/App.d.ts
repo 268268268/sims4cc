@@ -4,6 +4,7 @@ import {saves} from '../models';
 import {profiles} from '../models';
 import {actions} from '../models';
 import {curseforge} from '../models';
+import {updater} from '../models';
 import {downloader} from '../models';
 import {config} from '../models';
 import {discover} from '../models';
@@ -30,6 +31,8 @@ export function CancelDownloadJob(arg1:string):Promise<boolean>;
 
 export function CheckCurseForgeUpdates(arg1:any):Promise<curseforge.CheckUpdatesResult>;
 
+export function CheckForAppUpdate():Promise<updater.UpdateInfo>;
+
 export function ClearCompletedDownloads():Promise<Array<downloader.QueueJob>>;
 
 export function ClearGameCache():Promise<config.CacheResult>;
@@ -45,6 +48,8 @@ export function DeleteLocalMod(arg1:string):Promise<actions.DeleteResult>;
 export function DeleteProfile(arg1:string):Promise<profiles.ProfileStoreData>;
 
 export function DisconnectAccount(arg1:string):Promise<Record<string, any>>;
+
+export function DownloadAndInstallUpdate():Promise<void>;
 
 export function DownloadCurseForgeMod(arg1:any):Promise<curseforge.DownloadResult>;
 
@@ -77,6 +82,8 @@ export function FollowSourcesBatch(arg1:any):Promise<any>;
 export function FollowSuggestedSources(arg1:any):Promise<any>;
 
 export function Get3DModel(arg1:string,arg2:number):Promise<model3d.Model3DResult>;
+
+export function GetAppVersion():Promise<string>;
 
 export function GetAuthStatus():Promise<Record<string, any>>;
 
@@ -137,6 +144,8 @@ export function RemoveSavedLink(arg1:string):Promise<boolean>;
 export function RenameProfile(arg1:string,arg2:string):Promise<profiles.ProfileStoreData>;
 
 export function ResolveDiscoverLink(arg1:string):Promise<resolver.ResolvedLink>;
+
+export function RestartApp():Promise<void>;
 
 export function RetryDownloadJob(arg1:string):Promise<downloader.QueueJob>;
 

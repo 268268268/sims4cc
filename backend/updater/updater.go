@@ -26,7 +26,7 @@ const (
 	GithubRepoOwner   = "268268268"
 	GithubRepoName    = "sims4cc"
 	LatestReleaseURL  = "https://api.github.com/repos/268268268/sims4cc/releases/latest"
-	DefaultBinaryName = "sims4-mod-manager.exe"
+	DefaultBinaryName = "sims4-cc-manager.exe"
 )
 
 type GitHubAsset struct {
@@ -170,16 +170,16 @@ func pickBestAsset(assets []GitHubAsset) (*GitHubAsset, bool, error) {
 		return nil, false, errors.New("no assets found in release")
 	}
 
-	// 1. Direct sims4-mod-manager.exe or similar .exe
+	// 1. Direct sims4-cc-manager.exe or similar .exe
 	for i := range assets {
 		name := strings.ToLower(assets[i].Name)
-		if name == "sims4-mod-manager.exe" {
+		if name == "sims4-cc-manager.exe" || name == "sims4-mod-manager.exe" {
 			return &assets[i], false, nil
 		}
 	}
 	for i := range assets {
 		name := strings.ToLower(assets[i].Name)
-		if strings.HasSuffix(name, ".exe") && (strings.Contains(name, "sims4") || strings.Contains(name, "mod-manager")) {
+		if strings.HasSuffix(name, ".exe") && (strings.Contains(name, "sims4") || strings.Contains(name, "cc-manager") || strings.Contains(name, "mod-manager")) {
 			return &assets[i], false, nil
 		}
 	}
@@ -214,7 +214,7 @@ func (u *Updater) CheckForUpdate() (*UpdateInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create update request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Sims4ModManager-Updater/"+APP_VERSION)
+	req.Header.Set("User-Agent", "Sims4CCManager-Updater/"+APP_VERSION)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	resp, err := u.httpClient.Do(req)
@@ -320,7 +320,7 @@ func extractExeFromZip(zipPath string, destExePath string) error {
 	var targetFile *zip.File
 	for _, f := range r.File {
 		name := strings.ToLower(filepath.Base(f.Name))
-		if name == "sims4-mod-manager.exe" {
+		if name == "sims4-cc-manager.exe" || name == "sims4-mod-manager.exe" {
 			targetFile = f
 			break
 		}

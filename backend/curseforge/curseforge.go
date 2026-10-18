@@ -103,7 +103,7 @@ func newRequest(method, endpoint string, body io.Reader) (*http.Request, error) 
 	if apiKey != "" {
 		req.Header.Set("x-api-key", apiKey)
 	}
-	req.Header.Set("User-Agent", "Sims 4 Mod Manager")
+	req.Header.Set("User-Agent", "Sims 4 CC Manager")
 	req.Header.Set("Referer", "app://s4mm-electron-app-win")
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
