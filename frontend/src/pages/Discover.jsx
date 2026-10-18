@@ -475,7 +475,7 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor 
               <button
                 onClick={(e) => { e.stopPropagation(); onOpenAuthor(item) }}
                 className="text-emerald-400 hover:text-emerald-300 hover:underline text-xs truncate text-left"
-                title={`Открыть все моды автора ${item.author}`}
+                title={lang === 'ru' ? `Открыть все моды автора ${item.author}` : `Open all mods by ${item.author}`}
               >
                 {item.author}
               </button>
@@ -1022,7 +1022,7 @@ export default function Discover({ source = 'patreon', pendingAuthor, onNavigate
                     key={s.id}
                     onClick={() => { if (!s.builtin) { setShowManage(false); openAuthor({ sourceId: s.id, sourceType: s.type, author: s.label }) } }}
                     className={`chip ${!s.builtin ? 'cursor-pointer hover:border-emerald-500/50' : '!cursor-default'} ${s.error ? '!border-red-700/60' : ''}`}
-                    title={s.error || (!s.builtin ? `Открыть ленту ${s.label}` : undefined)}
+                    title={s.error || (!s.builtin ? (lang === 'ru' ? `Открыть ленту ${s.label}` : `Open ${s.label} feed`) : undefined)}
                   >
                     <TypeIcon type={s.type} /> {s.label}
                     {s.count > 0 && <span className="text-gray-500">({s.count})</span>}

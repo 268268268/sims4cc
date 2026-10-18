@@ -128,7 +128,7 @@ export default function CCSwiper({ modsFolder }) {
 
   // Сброс истории
   const handleReset = async () => {
-    if (confirm('Сбросить историю проверенных модов для этого режима?')) {
+    if (confirm(t('swiper.resetConfirm'))) {
       await window.api.swiperResetReviewed()
       loadCards()
     }
@@ -220,44 +220,44 @@ export default function CCSwiper({ modsFolder }) {
             💎 CC Swiper
           </span>
           <div className="flex items-center gap-2 text-xs text-gray-400 ml-4 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-            <span>Очередь: <b className="text-white">{stats.remaining}</b></span>
+            <span>{t('swiper.remaining')}: <b className="text-white">{stats.remaining}</b></span>
             <span className="text-gray-600">|</span>
-            <span>Просмотрено: <b className="text-emerald-400">{stats.reviewed}</b></span>
+            <span>{t('swiper.reviewed')}: <b className="text-emerald-400">{stats.reviewed}</b></span>
             <span className="text-gray-600">|</span>
-            <span>Всего: <b className="text-gray-300">{stats.total}</b></span>
+            <span>{t('swiper.total')}: <b className="text-gray-300">{stats.total}</b></span>
           </div>
         </div>
 
-        {/* Фильтры */}
+        {/* Filters */}
         <div className="flex items-center gap-3">
-          {/* Подпапка */}
+          {/* Subfolder */}
           {folders.length > 0 && (
             <select
               value={folderFilter}
               onChange={e => setFolderFilter(e.target.value)}
               className="bg-gray-900 border border-white/10 text-xs rounded-lg px-2.5 py-1.5 text-gray-300 focus:outline-none focus:border-emerald-500"
             >
-              <option value="">📁 Все папки</option>
+              <option value="">{t('swiper.allFolders')}</option>
               {folders.map(f => (
                 <option key={f} value={f}>📁 {f}</option>
               ))}
             </select>
           )}
 
-          {/* Тип */}
+          {/* Type */}
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
             className="bg-gray-900 border border-white/10 text-xs rounded-lg px-2.5 py-1.5 text-gray-300 focus:outline-none focus:border-emerald-500"
           >
-            <option value="all">Все моды</option>
-            <option value="cas">👗 Одежда / CAS</option>
-            <option value="objects">🛋️ Мебель / Объекты</option>
-            <option value="with-thumbs">🖼️ Только с превью</option>
-            <option value="no-thumbs">❓ Без превью</option>
+            <option value="all">{t('swiper.allMods')}</option>
+            <option value="cas">{t('swiper.filterCas')}</option>
+            <option value="objects">{t('swiper.filterObjects')}</option>
+            <option value="with-thumbs">{t('swiper.filterWithThumbs')}</option>
+            <option value="no-thumbs">{t('swiper.filterNoThumbs')}</option>
           </select>
 
-          {/* Чекбокс непросмотренные */}
+          {/* Only unreviewed checkbox */}
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
             <input
               type="checkbox"
@@ -265,26 +265,26 @@ export default function CCSwiper({ modsFolder }) {
               onChange={e => setOnlyUnreviewed(e.target.checked)}
               className="accent-emerald-500 rounded"
             />
-            Только непроверенные
+            {t('swiper.onlyUnreviewed')}
           </label>
 
-          {/* Мобильный сервер */}
+          {/* Mobile server */}
           <button
             onClick={() => setMobileModal(true)}
             className={`btn-ghost px-3 py-1.5 text-xs flex items-center gap-1.5 border ${
               mobileServer?.running ? 'border-emerald-500/50 text-emerald-300 bg-emerald-950/30' : 'border-white/10 text-gray-300'
             }`}
-            title="Открыть на телефоне по Wi-Fi"
+            title={t('swiper.openOnPhoneWifi')}
           >
             <DeviceMobile size={15} weight="bold" />
-            <span>Свайпать с телефона</span>
+            <span>{t('swiper.swipeFromPhone')}</span>
             {mobileServer?.running && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />}
           </button>
 
           <button
             onClick={loadCards}
             className="btn-ghost p-2 text-gray-400 hover:text-white"
-            title="Обновить список"
+            title={t('swiper.refreshList')}
           >
             <ArrowsClockwise size={16} />
           </button>
@@ -300,23 +300,23 @@ export default function CCSwiper({ modsFolder }) {
         {loading ? (
           <div className="flex flex-col items-center gap-3 text-gray-400 animate-pulse">
             <Cube size={40} className="text-emerald-500 animate-spin" />
-            <p className="text-sm">Загрузка карточек для свайпа...</p>
+            <p className="text-sm">{t('swiper.loadingCards')}</p>
           </div>
         ) : !currentCard ? (
           <div className="flex flex-col items-center gap-4 text-center max-w-md">
             <div className="w-20 h-20 rounded-full bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-4xl">
               🎉
             </div>
-            <h3 className="text-xl font-bold text-white">Все моды проверены!</h3>
+            <h3 className="text-xl font-bold text-white">{t('swiper.allDoneTitle')}</h3>
             <p className="text-sm text-gray-400">
-              В выбранной категории не осталось непросмотренных файлов. Вы можете сбросить прогресс или выбрать другую папку.
+              {t('swiper.allDoneHint')}
             </p>
             <button
               onClick={handleReset}
               className="btn-primary px-4 py-2 text-xs flex items-center gap-2 mt-2"
             >
               <ArrowCounterClockwise size={14} weight="bold" />
-              <span>Начать заново (сбросить историю)</span>
+              <span>{t('swiper.resetHistory')}</span>
             </button>
           </div>
         ) : (
@@ -358,7 +358,7 @@ export default function CCSwiper({ modsFolder }) {
                 style={{ opacity: keepOpacity }}
                 className="absolute top-6 right-6 z-30 border-4 border-emerald-400 text-emerald-400 font-black text-2xl px-4 py-1.5 rounded-xl rotate-12 tracking-wider pointer-events-none"
               >
-                ОСТАВИТЬ
+                {t('swiper.stampKeep')}
               </div>
 
               {/* Штамп УДАЛИТЬ (красный) */}
@@ -366,7 +366,7 @@ export default function CCSwiper({ modsFolder }) {
                 style={{ opacity: trashOpacity }}
                 className="absolute top-6 left-6 z-30 border-4 border-rose-500 text-rose-500 font-black text-2xl px-4 py-1.5 rounded-xl -rotate-12 tracking-wider pointer-events-none"
               >
-                В КОРЗИНУ
+                {t('swiper.stampTrash')}
               </div>
 
               {/* Область изображения / 3D модели */}
@@ -384,7 +384,7 @@ export default function CCSwiper({ modsFolder }) {
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-gray-600">
                     <Cube size={60} weight="thin" />
-                    <span className="text-xs">Нет превью</span>
+                    <span className="text-xs">{t('swiper.noPreview')}</span>
                   </div>
                 )}
 
@@ -399,7 +399,7 @@ export default function CCSwiper({ modsFolder }) {
                     }`}
                   >
                     <Cube size={14} weight="bold" />
-                    <span>{show3D ? 'Фото' : '3D Режим'}</span>
+                    <span>{show3D ? t('swiper.photoMode') : t('swiper.mode3D')}</span>
                   </button>
                 )}
               </div>
@@ -424,7 +424,7 @@ export default function CCSwiper({ modsFolder }) {
                     <span key={k} className="badge bg-white/5 text-gray-300">{k}</span>
                   ))}
                   {currentCard.dateAdded && (
-                    <span className="text-gray-500 text-[11px]">· Добавлен {formatDate(currentCard.dateAdded)}</span>
+                    <span className="text-gray-500 text-[11px]">· {t('localMods.added', { date: formatDate(currentCard.dateAdded) })}</span>
                   )}
                 </div>
 
@@ -443,7 +443,7 @@ export default function CCSwiper({ modsFolder }) {
             <button
               onClick={() => handleAction('trash')}
               className="w-14 h-14 rounded-full bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-400 border border-rose-500/40 flex flex-col items-center justify-center gap-0.5 shadow-lg shadow-rose-950/40 transition-all cursor-pointer group"
-              title="Переместить в корзину (Стрелка влево)"
+              title={t('swiper.trashHint')}
             >
               <Trash size={22} weight="bold" className="group-hover:scale-110 transition-transform" />
               <span className="text-[9px] font-mono opacity-60">←</span>
@@ -453,7 +453,7 @@ export default function CCSwiper({ modsFolder }) {
             <button
               onClick={() => handleAction('disable')}
               className="w-12 h-12 rounded-full bg-amber-500/20 hover:bg-amber-500/30 active:scale-95 text-amber-300 border border-amber-500/30 flex flex-col items-center justify-center gap-0.5 shadow-md transition-all cursor-pointer"
-              title="Отключить (.disabled)"
+              title={t('swiper.disableHint')}
             >
               <Prohibit size={18} weight="bold" />
               <span className="text-[8px] font-mono opacity-60">off</span>
@@ -464,7 +464,7 @@ export default function CCSwiper({ modsFolder }) {
               onClick={handleUndo}
               disabled={stats.historyCount === 0}
               className="w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 active:scale-95 text-gray-300 border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center justify-center gap-0.5 shadow-md transition-all cursor-pointer"
-              title="Отменить последнее действие (Ctrl+Z)"
+              title={t('swiper.undoHint')}
             >
               <ArrowCounterClockwise size={18} weight="bold" />
               <span className="text-[8px] font-mono opacity-60">Ctrl+Z</span>
@@ -474,7 +474,7 @@ export default function CCSwiper({ modsFolder }) {
             <button
               onClick={() => handleAction('skip')}
               className="w-12 h-12 rounded-full bg-sky-500/20 hover:bg-sky-500/30 active:scale-95 text-sky-300 border border-sky-500/30 flex flex-col items-center justify-center gap-0.5 shadow-md transition-all cursor-pointer"
-              title="Пропустить на потом (Пробел / Стрелка вниз)"
+              title={t('swiper.skipHint')}
             >
               <SkipForward size={18} weight="bold" />
               <span className="text-[8px] font-mono opacity-60">Space</span>
@@ -484,7 +484,7 @@ export default function CCSwiper({ modsFolder }) {
             <button
               onClick={() => handleAction('keep')}
               className="w-14 h-14 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 text-emerald-400 border border-emerald-500/40 flex flex-col items-center justify-center gap-0.5 shadow-lg shadow-emerald-950/40 transition-all cursor-pointer group"
-              title="Оставить мод (Стрелка вправо)"
+              title={t('swiper.keepHint')}
             >
               <Check size={24} weight="bold" className="group-hover:scale-110 transition-transform" />
               <span className="text-[9px] font-mono opacity-60">→</span>
@@ -509,8 +509,8 @@ export default function CCSwiper({ modsFolder }) {
                 <DeviceMobile size={22} weight="bold" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Свайпай моды со смартфона</h3>
-                <p className="text-xs text-gray-400">Лежи на диване и чисти моды пальцем на телефоне</p>
+                <h3 className="text-base font-bold text-white">{t('swiper.mobileTitle')}</h3>
+                <p className="text-xs text-gray-400">{t('swiper.mobileSubtitle')}</p>
               </div>
             </div>
 
@@ -523,7 +523,7 @@ export default function CCSwiper({ modsFolder }) {
                     className="w-56 h-56 rounded-xl border border-emerald-500/30 shadow-lg mb-3"
                   />
                   <p className="text-xs text-gray-300 text-center mb-2">
-                    Наведи камеру телефона (ПК и телефон должны быть в одной сети Wi-Fi):
+                    {t('swiper.mobileHint')}
                   </p>
                   <div className="flex items-center gap-2 bg-gray-900/80 px-3 py-1.5 rounded-lg border border-white/10 w-full justify-between">
                     <span className="text-xs font-mono text-emerald-400 truncate">{mobileServer.url}</span>
@@ -532,13 +532,13 @@ export default function CCSwiper({ modsFolder }) {
                       className="text-gray-400 hover:text-white p-1 text-xs flex items-center gap-1"
                     >
                       <Copy size={14} />
-                      <span>{copiedUrl ? 'Скопировано!' : 'Копия'}</span>
+                      <span>{copiedUrl ? t('common.copied') : t('common.copy')}</span>
                     </button>
                   </div>
                 </>
               ) : (
                 <div className="py-8 text-center text-gray-400 text-xs">
-                  Мобильный сервер не запущен. Нажмите кнопку ниже для запуска.
+                  {t('swiper.mobileStopped')}
                 </div>
               )}
             </div>
@@ -550,14 +550,14 @@ export default function CCSwiper({ modsFolder }) {
                   mobileServer?.running ? 'bg-rose-600 hover:bg-rose-500 border-rose-500' : ''
                 }`}
               >
-                <span>{mobileServer?.running ? 'Остановить сервер' : 'Запустить сервер'}</span>
+                <span>{mobileServer?.running ? t('swiper.stopServer') : t('swiper.startServer')}</span>
               </button>
 
               <button
                 onClick={() => setMobileModal(false)}
                 className="btn-ghost px-4 py-2 text-xs"
               >
-                Закрыть
+                {t('common.close')}
               </button>
             </div>
           </div>

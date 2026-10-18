@@ -66,7 +66,7 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
                 className={`absolute bottom-1.5 right-1.5 p-1.5 rounded-lg backdrop-blur-xs transition shadow border border-white/10 ${
                   show3D ? 'bg-emerald-600 text-white' : 'bg-black/70 hover:bg-emerald-600 text-gray-200 hover:text-white'
                 }`}
-                title="3D просмотр модели"
+                title={t('model3d.view3d')}
               >
                 <Cube size={15} weight={show3D ? 'fill' : 'duotone'} />
               </button>
@@ -93,10 +93,10 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
                       ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-xs'
                       : 'bg-white/5 text-gray-300 border border-white/10 hover:text-white hover:border-emerald-500/30'
                   }`}
-                  title={show3D ? 'Скрыть 3D просмотр' : 'Открыть 3D просмотр'}
+                  title={show3D ? t('model3d.hide3d') : t('model3d.open3d')}
                 >
                   <Cube size={14} weight="bold" />
-                  <span>{show3D ? 'Скрыть 3D' : '3D Модель'}</span>
+                  <span>{show3D ? t('model3d.hide3dShort') : t('model3d.model3dShort')}</span>
                 </button>
               )}
               {mod.kinds?.map(k => (
@@ -186,10 +186,10 @@ export default function LocalModDetail({ mod, catalogMeta, cfMatch, onOpenCf, on
             <button
               onClick={() => setShow3D(!show3D)}
               className={`${show3D ? 'btn-success' : 'btn-ghost'} px-4 py-2 text-sm text-emerald-300 flex items-center gap-1.5`}
-              title="3D просмотр модели мода"
+              title={t('model3d.view3d')}
             >
               <Cube size={16} weight={show3D ? 'fill' : 'duotone'} />
-              {show3D ? 'Скрыть 3D' : '3D Просмотр'}
+              {show3D ? t('model3d.hide3dShort') : t('model3d.title')}
             </button>
           )}
           <button

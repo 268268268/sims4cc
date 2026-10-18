@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { X, Warning, Cube, Trash, ArrowsClockwise, FolderSimple, MagnifyingGlass, CheckCircle } from '@phosphor-icons/react'
 import { formatBytes } from '../lib/format'
+import { useT } from '../lib/i18n'
 import Plumbob from './Plumbob'
 import Switch from './Switch'
 
 export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
+  const { t } = useT()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -18,7 +20,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
     try {
       const res = await window.api.scanPolycount()
       if (!res.ok) {
-        setError(res.error || 'Ошибка сканирования полигональности')
+        setError(res.error || t('polycount.scanError'))
       } else {
         setData(res)
       }
@@ -102,8 +104,8 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
               <Cube size={22} weight="bold" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg leading-tight">Детектор тяжелых модов (Polycount Checker)</h2>
-              <p className="text-gray-400 text-xs">Подсчет полигонов в моделях для поиска CC, просаживающего FPS в игре</p>
+              <h2 className="text-white font-bold text-lg leading-tight">{t('polycount.title')}</h2>
+              <p className="text-gray-400 text-xs">{t('polycount.subtitle')}</p>
             </div>
           </div>
 
@@ -114,7 +116,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
               className="btn-ghost px-3 py-1.5 text-xs text-gray-300 hover:text-white flex items-center gap-1.5"
             >
               <ArrowsClockwise size={14} weight="bold" className={loading ? 'animate-spin' : ''} />
-              <span>Пересканировать</span>
+              <span>{t('polycount.rescan')}</span>
             </button>
             <button
               onClick={onClose}
@@ -133,35 +135,35 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                 onClick={() => setFilter('all')}
                 className={`chip ${filter === 'all' ? 'chip-active' : ''}`}
               >
-                Все 3D ({summary?.totalScannedWithGeom || 0})
+                {t('polycount.all3D', { count: summary?.totalScannedWithGeom || 0 })}
               </button>
               <button
                 onClick={() => setFilter('critical')}
                 className={`chip ${filter === 'critical' ? 'bg-red-600/30 text-red-200 border-red-500/40' : ''}`}
               >
                 <span className="w-2 h-2 rounded-full bg-red-500 inline-block mr-1" />
-                Критические &gt;50k ({summary?.criticalCount || 0})
+                {t('polycount.critical', { count: summary?.criticalCount || 0 })}
               </button>
               <button
                 onClick={() => setFilter('heavy')}
                 className={`chip ${filter === 'heavy' ? 'bg-amber-600/30 text-amber-200 border-amber-500/40' : ''}`}
               >
                 <span className="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1" />
-                Тяжелые 25k–50k ({summary?.heavyCount || 0})
+                {t('polycount.heavy', { count: summary?.heavyCount || 0 })}
               </button>
               <button
                 onClick={() => setFilter('medium')}
                 className={`chip ${filter === 'medium' ? 'bg-yellow-600/30 text-yellow-200 border-yellow-500/40' : ''}`}
               >
                 <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block mr-1" />
-                Средние 10k–25k ({summary?.mediumCount || 0})
+                {t('polycount.medium', { count: summary?.mediumCount || 0 })}
               </button>
               <button
                 onClick={() => setFilter('low')}
                 className={`chip ${filter === 'low' ? 'bg-emerald-600/30 text-emerald-200 border-emerald-500/40' : ''}`}
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1" />
-                Легкие &lt;10k ({summary?.lowCount || 0})
+                {t('polycount.low', { count: summary?.lowCount || 0 })}
               </button>
             </div>
 
@@ -171,7 +173,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Поиск по названию..."
+                placeholder={t('polycount.searchPlaceholder')}
                 className="input w-52 pl-8 pr-3 py-1.5 text-xs"
               />
             </div>
@@ -183,7 +185,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
           {loading && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Plumbob size={48} spin />
-              <p className="text-sm text-gray-400 font-medium">Анализ 3D-геометрии GEOM ресурсов...</p>
+              <p className="text-sm text-gray-400 font-medium">{t('polycount.scanning')}</p>
             </div>
           )}
 
@@ -198,8 +200,8 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
               {visibleMods.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 gap-2">
                   <CheckCircle size={48} weight="thin" className="text-emerald-400/60" />
-                  <p className="text-sm font-semibold text-gray-300">Моды не найдены</p>
-                  <p className="text-xs max-w-sm">В выбранной категории нет 3D-моделей.</p>
+                  <p className="text-sm font-semibold text-gray-300">{t('polycount.emptyTitle')}</p>
+                  <p className="text-xs max-w-sm">{t('polycount.emptyDesc')}</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -237,13 +239,13 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                                   : 'bg-emerald-500/20 text-emerald-300'
                               }`}
                             >
-                              {mod.polygons.toLocaleString()} полигонов
+                              {t('polycount.polygonsCount', { count: mod.polygons.toLocaleString() })}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
                             <span className="truncate max-w-sm" title={mod.relativePath}>{mod.relativePath}</span>
                             <span>·</span>
-                            <span>{mod.vertices.toLocaleString()} вершин</span>
+                            <span>{t('polycount.verticesCount', { count: mod.vertices.toLocaleString() })}</span>
                             <span>·</span>
                             <span>{formatBytes(mod.size)}</span>
                           </div>
@@ -262,7 +264,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                               onClose?.()
                             }}
                             className="btn-ghost px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-950/40 border border-emerald-500/20 rounded-lg flex items-center gap-1"
-                            title="Открыть в 3D"
+                            title={t('polycount.open3d')}
                           >
                             <Cube size={14} weight="bold" />
                             <span>3D</span>
@@ -271,7 +273,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                           <button
                             onClick={() => window.api.showItemInFolder(mod.filePath)}
                             className="btn-ghost p-1.5 text-gray-400 hover:text-white"
-                            title="Показать в папке"
+                            title={t('polycount.showInFolder')}
                           >
                             <FolderSimple size={15} />
                           </button>
@@ -281,7 +283,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                               on={mod.enabled}
                               pending={isPending}
                               onClick={() => handleToggle(mod)}
-                              title={mod.enabled ? 'Отключить' : 'Включить'}
+                              title={mod.enabled ? t('polycount.disableTip') : t('polycount.enableTip')}
                             />
                           </div>
 
@@ -289,7 +291,7 @@ export default function PolycountModal({ onClose, onOpen3D, onFilesChanged }) {
                             onClick={() => handleDelete(mod)}
                             disabled={isPending}
                             className="btn-ghost p-1.5 text-red-400 hover:text-red-200"
-                            title="Удалить в корзину"
+                            title={t('polycount.deleteToTrash')}
                           >
                             <Trash size={15} />
                           </button>

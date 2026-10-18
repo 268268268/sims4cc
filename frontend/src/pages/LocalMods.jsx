@@ -57,6 +57,7 @@ function getModImgUrl(absPath) {
 }
 
 function ModThumbnail({ absPath, imageUrl, mod, onOpen3D }) {
+  const { t } = useT()
   const [remoteFailed, setRemoteFailed] = useState(false)
   const [localFailed, setLocalFailed] = useState(false)
 
@@ -96,7 +97,7 @@ function ModThumbnail({ absPath, imageUrl, mod, onOpen3D }) {
             <Package size={38} weight="thin" className="text-emerald-300/40" />
           )}
           <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
-            {mod?.type === 'ts4script' ? 'Скрипт' : mod?.kinds?.[0] || 'Мод'}
+            {mod?.type === 'ts4script' ? t('localMods.badgeScript') : mod?.kinds?.[0] || t('localMods.badgeMod')}
           </span>
         </div>
       )}
@@ -109,7 +110,7 @@ function ModThumbnail({ absPath, imageUrl, mod, onOpen3D }) {
             onOpen3D?.(mod)
           }}
           className="absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-bold bg-[#0a0f0d]/90 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 flex items-center gap-1 shadow-sm transition-colors"
-          title="Открыть 3D просмотр"
+          title={t('localMods.open3dTip')}
         >
           <Cube size={12} weight="bold" />
           <span>3D</span>
@@ -142,7 +143,7 @@ function ArchiveCard({ mod, pending, onExtract, onOpen, selectMode, isSelected, 
               ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/50'
               : 'bg-black/60 text-gray-400 hover:text-white border border-white/10'
           }`}
-          title={isSelected ? 'Снять выделение' : 'Выбрать'}
+          title={isSelected ? t('localMods.deselectCheckbox') : t('localMods.selectCheckbox')}
         >
           {isSelected ? <CheckSquare size={16} weight="fill" /> : <Square size={16} weight="regular" />}
         </button>
@@ -203,7 +204,7 @@ function ModCard({ mod, pending, onToggle, onOpen, onDelete, onOpenCf, onOpen3D,
               ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/50'
               : 'bg-black/60 text-gray-400 hover:text-white border border-white/10'
           }`}
-          title={isSelected ? 'Снять выделение' : 'Выбрать'}
+          title={isSelected ? t('localMods.deselectCheckbox') : t('localMods.selectCheckbox')}
         >
           {isSelected ? <CheckSquare size={16} weight="fill" /> : <Square size={16} weight="regular" />}
         </button>
@@ -665,7 +666,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
       const paths = Array.from(selectedPaths)
       const res = await window.api.batchToggleLocalMods(paths, targetEnabled)
       if (!res.ok) {
-        setActionError(res.error || 'Ошибка массового изменения')
+        setActionError(res.error || t('localMods.batchErrorToggle'))
       } else {
         markChanged()
         const map = new Map((res.results || []).map(r => [r.oldPath, r.mod]))
@@ -685,7 +686,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
     } finally {
       setBatchBusy(false)
     }
-  }, [batchBusy, selectedPaths, updateResult])
+  }, [batchBusy, selectedPaths, updateResult, t])
 
   const handleBatchDelete = useCallback(async () => {
     if (batchBusy || selectedPaths.size === 0) return
@@ -695,7 +696,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
       const paths = Array.from(selectedPaths)
       const res = await window.api.batchDeleteLocalMods(paths)
       if (!res.ok) {
-        setActionError(res.error || 'Ошибка массового удаления')
+        setActionError(res.error || t('localMods.batchErrorDelete'))
       } else {
         markChanged()
         const deletedSet = new Set((res.deleted || []).map(p => p.toLowerCase()))
@@ -713,7 +714,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
       setBatchBusy(false)
       setConfirmBatchDelete(false)
     }
-  }, [batchBusy, selectedPaths, updateResult])
+  }, [batchBusy, selectedPaths, updateResult, t])
 
   return (
     <div className="flex flex-col h-full">
@@ -733,7 +734,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
             <button
               onClick={() => onNavigate?.('cc-swiper')}
               className="btn-primary px-3 py-2 text-xs flex items-center gap-1.5 shrink-0"
-              title="Режим быстрой сортировки модов в стиле Tinder"
+              title={t('swiper.trashHint')}
             >
               <Cards size={16} weight="bold" />
               <span>CC Swiper</span>
@@ -741,26 +742,26 @@ export default function LocalMods({ modsFolder, onNavigate }) {
             <button
               onClick={() => setShowConflicts(true)}
               className="btn-ghost px-3 py-2 text-xs flex items-center gap-1.5 border border-amber-500/20 text-amber-300 hover:bg-amber-950/30 transition-all shrink-0"
-              title="Поиск дубликатов по хешу и TGI-конфликтов"
+              title={t('conflicts.subtitle')}
             >
               <ShieldWarning size={15} weight="bold" />
-              <span>Конфликты</span>
+              <span>{t('conflicts.title')}</span>
             </button>
             <button
               onClick={() => setShowPolycount(true)}
               className="btn-ghost px-3 py-2 text-xs flex items-center gap-1.5 border border-purple-500/20 text-purple-300 hover:bg-purple-950/30 transition-all shrink-0"
-              title="Рейтинг тяжелых модов по полигонам (Polycount Checker)"
+              title={t('polycount.subtitle')}
             >
               <Cube size={15} weight="bold" />
-              <span>Полигоны</span>
+              <span>{t('polycount.title')}</span>
             </button>
             <button
               onClick={() => setShowSaveInspector(true)}
               className="btn-ghost px-3 py-2 text-xs flex items-center gap-1.5 border border-sky-500/20 text-sky-300 hover:bg-sky-950/30 transition-all shrink-0"
-              title="Анализ сохранений (Save File Inspector) — поиск неиспользуемого CC"
+              title={t('saveInspector.subtitle')}
             >
               <FloppyDisk size={15} weight="bold" />
-              <span>Сейвы</span>
+              <span>{t('saveInspector.title')}</span>
             </button>
             <button
               onClick={() => setShowProfiles(true)}
@@ -838,10 +839,10 @@ export default function LocalMods({ modsFolder, onNavigate }) {
                 if (selectMode) deselectAll()
               }}
               className={`chip ml-1 ${selectMode ? 'bg-emerald-600/30 text-emerald-200 border-emerald-500/40' : ''}`}
-              title="Режим выбора для массовых действий"
+              title={t('localMods.selectModeTip')}
             >
               <ListChecks size={14} weight="bold" />
-              <span>{selectMode ? 'Отмена выбора' : 'Выбрать'}</span>
+              <span>{selectMode ? t('common.deselect') : t('common.select')}</span>
             </button>
           </div>
         </div>
@@ -966,7 +967,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
             {displayedMods.length < visibleMods.length && (
               <div ref={sentinelRef} className="py-8 flex flex-col items-center justify-center gap-2 text-gray-500">
                 <CircleNotch size={24} className="animate-spin text-emerald-400" />
-                <span className="text-xs">Загрузка ещё {Math.min(60, visibleMods.length - displayedMods.length)} из {visibleMods.length - displayedMods.length}...</span>
+                <span className="text-xs">{t('localMods.loadingMore', { count: Math.min(60, visibleMods.length - displayedMods.length), total: visibleMods.length - displayedMods.length })}</span>
               </div>
             )}
           </>
@@ -1015,19 +1016,19 @@ export default function LocalMods({ modsFolder, onNavigate }) {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0c121e]/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 text-white">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-emerald-400">
-              Выбрано: {selectedPaths.size}
+              {t('localMods.selectedCount', { count: selectedPaths.size })}
             </span>
             <button
               onClick={selectAllVisible}
               className="text-xs text-gray-300 hover:text-white underline ml-1"
             >
-              Все ({visibleMods.length})
+              {t('common.selectAll')} ({visibleMods.length})
             </button>
             <button
               onClick={deselectAll}
               className="text-xs text-gray-400 hover:text-white underline ml-1"
             >
-              Сбросить
+              {t('common.reset')}
             </button>
           </div>
 
@@ -1038,28 +1039,28 @@ export default function LocalMods({ modsFolder, onNavigate }) {
               onClick={() => handleBatchToggle(true)}
               disabled={batchBusy || selectedPaths.size === 0}
               className="btn-ghost px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-950/40 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-              title="Включить выбранные моды"
+              title={t('localMods.batchEnableTip')}
             >
               <CheckCircle size={15} weight="bold" />
-              <span>Включить</span>
+              <span>{t('localMods.batchEnable')}</span>
             </button>
             <button
               onClick={() => handleBatchToggle(false)}
               disabled={batchBusy || selectedPaths.size === 0}
               className="btn-ghost px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-950/40 border border-amber-500/20 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-              title="Отключить выбранные моды (.disabled)"
+              title={t('localMods.batchDisableTip')}
             >
               <Prohibit size={15} weight="bold" />
-              <span>Отключить</span>
+              <span>{t('localMods.batchDisable')}</span>
             </button>
             <button
               onClick={() => setConfirmBatchDelete(true)}
               disabled={batchBusy || selectedPaths.size === 0}
               className="btn-ghost px-3 py-1.5 text-xs text-red-300 hover:bg-red-950/40 border border-red-500/20 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-              title="Удалить выбранные моды в корзину"
+              title={t('localMods.batchDeleteTip')}
             >
               <Trash size={15} weight="bold" />
-              <span>В корзину</span>
+              <span>{t('localMods.batchDelete')}</span>
             </button>
           </div>
 
@@ -1071,7 +1072,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
               deselectAll()
             }}
             className="text-xs text-gray-400 hover:text-white p-1"
-            title="Закрыть режим выбора"
+            title={t('localMods.closeSelectMode')}
           >
             <X size={16} weight="bold" />
           </button>
@@ -1080,9 +1081,9 @@ export default function LocalMods({ modsFolder, onNavigate }) {
 
       {confirmBatchDelete && (
         <ConfirmDialog
-          title={`Удалить ${selectedPaths.size} модов в корзину?`}
-          message="Выбранные файлы будут перемещены в корзину Windows. Вы сможете восстановить их оттуда при необходимости."
-          confirmLabel={<><Trash size={15} weight="bold" /> Удалить ({selectedPaths.size})</>}
+          title={t('localMods.batchDeleteConfirmTitle', { count: selectedPaths.size })}
+          message={t('localMods.batchDeleteConfirmMsg')}
+          confirmLabel={<><Trash size={15} weight="bold" /> {t('localMods.batchDeleteConfirmBtn', { count: selectedPaths.size })}</>}
           onConfirm={handleBatchDelete}
           onCancel={() => setConfirmBatchDelete(false)}
         />

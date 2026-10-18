@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { X, Warning, FloppyDisk, ArrowsClockwise, FolderSimple, CheckCircle, Trash, MagnifyingGlass, CaretLeft } from '@phosphor-icons/react'
 import { formatBytes, formatDate } from '../lib/format'
+import { useT } from '../lib/i18n'
 import Plumbob from './Plumbob'
 import Switch from './Switch'
 
 export default function SaveInspectorModal({ onClose, onFilesChanged }) {
+  const { t } = useT()
   const [loadingSaves, setLoadingSaves] = useState(true)
   const [saves, setSaves] = useState([])
   const [savesFolder, setSavesFolder] = useState(null)
@@ -22,7 +24,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
     try {
       const res = await window.api.listSaveFiles()
       if (!res.ok) {
-        setError(res.error || 'Ошибка загрузки сохранений')
+        setError(res.error || t('saveInspector.loadError'))
       } else {
         setSaves(res.saves || [])
         setSavesFolder(res.savesFolder)
@@ -32,7 +34,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
     } finally {
       setLoadingSaves(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadSaves()
@@ -45,7 +47,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
     try {
       const res = await window.api.analyzeSaveFile(save.filePath)
       if (!res.ok) {
-        setError(res.error || 'Ошибка анализа сохранения')
+        setError(res.error || t('saveInspector.analyzeError'))
       } else {
         setAnalysisResult(res)
       }
@@ -133,11 +135,11 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
               <FloppyDisk size={22} weight="bold" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg leading-tight">Анализ сохранений (Save File Inspector)</h2>
+              <h2 className="text-white font-bold text-lg leading-tight">{t('saveInspector.title')}</h2>
               <p className="text-gray-400 text-xs">
                 {analysisResult
-                  ? `Анализ сейва: ${selectedSave?.fileName} · ${analysisResult.saveName}`
-                  : 'Проверка используемого и неиспользуемого CC в семьях и на участках'}
+                  ? t('saveInspector.inspectingSave', { file: selectedSave?.fileName, name: analysisResult.saveName })
+                  : t('saveInspector.inspectingDesc')}
               </p>
             </div>
           </div>
@@ -149,7 +151,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                 className="btn-ghost px-3 py-1.5 text-xs text-gray-300 hover:text-white flex items-center gap-1.5"
               >
                 <CaretLeft size={14} weight="bold" />
-                <span>Все сохранения</span>
+                <span>{t('saveInspector.allSaves')}</span>
               </button>
             )}
             <button
@@ -158,7 +160,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
               className="btn-ghost px-3 py-1.5 text-xs text-gray-300 hover:text-white flex items-center gap-1.5"
             >
               <ArrowsClockwise size={14} weight="bold" className={loadingSaves ? 'animate-spin' : ''} />
-              <span>Обновить</span>
+              <span>{t('saveInspector.refresh')}</span>
             </button>
             <button
               onClick={onClose}
@@ -182,7 +184,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                 }`}
               >
                 <CheckCircle size={15} weight="bold" />
-                <span>Используется CC ({stats?.usedCount || 0})</span>
+                <span>{t('saveInspector.usedCount', { count: stats?.usedCount || 0 })}</span>
                 <span className="badge bg-emerald-950/80 text-emerald-300 font-mono text-[10px]">
                   {formatBytes(stats?.usedSizeBytes || 0)}
                 </span>
@@ -197,7 +199,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                 }`}
               >
                 <Warning size={15} weight="bold" />
-                <span>Не используется CC ({stats?.unusedCount || 0})</span>
+                <span>{t('saveInspector.unusedCount', { count: stats?.unusedCount || 0 })}</span>
                 <span className="badge bg-amber-950/80 text-amber-300 font-mono text-[10px]">
                   {formatBytes(stats?.unusedSizeBytes || 0)}
                 </span>
@@ -210,7 +212,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Поиск мода в сейве..."
+                placeholder={t('saveInspector.searchMod')}
                 className="input w-52 pl-8 pr-3 py-1.5 text-xs"
               />
             </div>
@@ -230,7 +232,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Plumbob size={48} spin />
               <p className="text-sm text-gray-400 font-medium">
-                {analyzing ? 'Распаковка сейва и поиск используемых CAS/Object ID...' : 'Поиск сохранений The Sims 4...'}
+                {analyzing ? t('saveInspector.readingSave') : t('saveInspector.searchingSaves')}
               </p>
             </div>
           )}
@@ -240,19 +242,19 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Выберите сохранение для анализа:</h3>
+                  <h3 className="text-sm font-semibold text-white">{t('saveInspector.selectPrompt')}</h3>
                   {savesFolder && (
                     <p className="text-xs text-gray-500 truncate mt-0.5">{savesFolder}</p>
                   )}
                 </div>
-                <span className="text-xs text-gray-500">Найдено сейвов: {saves.length}</span>
+                <span className="text-xs text-gray-500">{t('saveInspector.foundSaves', { count: saves.length })}</span>
               </div>
 
               {saves.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 gap-2">
                   <FloppyDisk size={48} weight="thin" className="text-gray-600" />
-                  <p className="text-sm font-semibold text-gray-300">Сохранения не найдены</p>
-                  <p className="text-xs max-w-sm">В папке saves отсутствуют файлы Slot_*.save.</p>
+                  <p className="text-sm font-semibold text-gray-300">{t('saveInspector.noSavesFound')}</p>
+                  <p className="text-xs max-w-sm">{t('saveInspector.noSavesHint')}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -273,7 +275,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                         ) : (
                           <div className="flex flex-col items-center gap-1.5 text-gray-600">
                             <FloppyDisk size={36} weight="thin" />
-                            <span className="text-[10px] font-mono">Нет превью</span>
+                            <span className="text-[10px] font-mono">{t('saveInspector.noPreview')}</span>
                           </div>
                         )}
                         <span className="absolute top-2 right-2 badge bg-black/70 backdrop-blur-md text-gray-300 font-mono text-[10px]">
@@ -288,7 +290,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                             {save.fileName}
                           </p>
                           <p className="text-[11px] text-gray-500">
-                            Изменен: {formatDate(save.modifiedAt)}
+                            {t('saveInspector.modified', { date: formatDate(save.modifiedAt) })}
                           </p>
                         </div>
 
@@ -300,7 +302,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                           className="btn-primary mt-auto py-1.5 text-xs w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600"
                         >
                           <FloppyDisk size={14} weight="bold" />
-                          <span>Анализировать сейв</span>
+                          <span>{t('saveInspector.analyzeSaveBtn')}</span>
                         </button>
                       </div>
                     </div>
@@ -316,11 +318,11 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
               {currentList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 gap-2">
                   <CheckCircle size={48} weight="thin" className="text-emerald-400/60" />
-                  <p className="text-sm font-semibold text-gray-300">Список пуст</p>
+                  <p className="text-sm font-semibold text-gray-300">{t('saveInspector.emptyList')}</p>
                   <p className="text-xs max-w-sm">
                     {activeTab === 'used'
-                      ? 'В этом сохранении не обнаружено используемых модов.'
-                      : 'Все ваши моды задействованы в этом сохранении! Лишнего CC нет.'}
+                      ? t('saveInspector.emptyUsed')
+                      : t('saveInspector.emptyUnused')}
                   </p>
                 </div>
               ) : (
@@ -344,7 +346,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                               {mod.fileName}
                             </span>
                             <span className={`badge text-[10px] ${isUsed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-800 text-gray-400'}`}>
-                              {isUsed ? 'Надето / Размещено' : 'Не найдено в сейве'}
+                              {isUsed ? t('saveInspector.wornOrPlaced') : t('saveInspector.notInSave')}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
@@ -358,7 +360,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                           <button
                             onClick={() => window.api.showItemInFolder(mod.filePath)}
                             className="btn-ghost p-1.5 text-gray-400 hover:text-white"
-                            title="Показать в папке"
+                            title={t('polycount.showInFolder')}
                           >
                             <FolderSimple size={15} />
                           </button>
@@ -368,7 +370,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                               on={mod.enabled}
                               pending={isPending}
                               onClick={() => handleToggle(mod)}
-                              title={mod.enabled ? 'Отключить' : 'Включить'}
+                              title={mod.enabled ? t('polycount.disableTip') : t('polycount.enableTip')}
                             />
                           </div>
 
@@ -376,7 +378,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                             onClick={() => handleDelete(mod)}
                             disabled={isPending}
                             className="btn-ghost p-1.5 text-red-400 hover:text-red-200"
-                            title="Удалить в корзину"
+                            title={t('polycount.deleteToTrash')}
                           >
                             <Trash size={15} />
                           </button>

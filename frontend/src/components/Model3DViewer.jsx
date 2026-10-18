@@ -3,12 +3,14 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js'
 import { ArrowClockwise, ArrowsClockwise, Cube, Camera, X, Palette, WarningCircle, User, ArrowsOut, ArrowsIn } from '@phosphor-icons/react'
+import { useT } from '../lib/i18n'
 
 /**
  * 3D Вьювер мешей и расцветок The Sims 4.
  * Поддерживает вращение, зум, панорамирование, переключение расцветок, манекен тела и режим полигональной сетки.
  */
 export default function Model3DViewer({ filePath, modName, onClose }) {
+  const { t } = useT()
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const sceneRef = useRef(null)
@@ -371,7 +373,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
     try {
       const res = await window.api.get3DModel(filePath, swatchIdx)
       if (!res?.has3D) {
-        setError(res?.error || 'В этом моде нет поддерживаемой 3D-геометрии (GEOM).')
+        setError(res?.error || t('model3d.noGeom'))
         setLoading(false)
         return
       }
@@ -381,10 +383,10 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
       buildModel(res, wireframeRef.current, showMannequinRef.current, true)
       setLoading(false)
     } catch (err) {
-      setError(err.message || 'Ошибка загрузки 3D-модели')
+      setError(err.message || t('model3d.loadError'))
       setLoading(false)
     }
-  }, [filePath, buildModel])
+  }, [filePath, buildModel, t])
 
   useEffect(() => {
     load3DData(0)
@@ -538,7 +540,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
       <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/10 z-10 shrink-0">
         <div className="flex items-center gap-2">
           <Cube size={18} weight="duotone" className="text-emerald-400" />
-          <span className="text-xs font-semibold text-gray-200">3D Просмотр</span>
+          <span className="text-xs font-semibold text-gray-200">{t('model3d.title')}</span>
           {stats.faces > 0 && (
             <span
               className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1 ${
@@ -550,13 +552,13 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
               }`}
               title={
                 stats.faces > 45000
-                  ? 'Очень тяжелая модель (>45k полигонов). Может снижать FPS в игре.'
+                  ? t('model3d.heavyDesc')
                   : stats.faces > 20000
-                  ? 'Средняя полигональность.'
-                  : 'Оптимизированная модель.'
+                  ? t('model3d.mediumDesc')
+                  : t('model3d.optimizedDesc')
               }
             >
-              <span>{stats.faces.toLocaleString()} полигонов</span>
+              <span>{t('model3d.polygonsCount', { count: stats.faces.toLocaleString() })}</span>
             </span>
           )}
         </div>
@@ -567,30 +569,30 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
             <button
               onClick={() => setCameraPreset('face')}
               className="px-2 py-0.5 rounded hover:bg-white/10 hover:text-white transition"
-              title="Фокус на лице/голове"
+              title={t('model3d.tipFace')}
             >
-              Лицо
+              {t('model3d.camFace')}
             </button>
             <button
               onClick={() => setCameraPreset('torso')}
               className="px-2 py-0.5 rounded hover:bg-white/10 hover:text-white transition"
-              title="Фокус на торсе/одежде"
+              title={t('model3d.tipTorso')}
             >
-              Торс
+              {t('model3d.camTorso')}
             </button>
             <button
               onClick={() => setCameraPreset('full')}
               className="px-2 py-0.5 rounded hover:bg-white/10 hover:text-white transition"
-              title="Полный рост"
+              title={t('model3d.tipFull')}
             >
-              Рост
+              {t('model3d.camFull')}
             </button>
             <button
               onClick={() => setCameraPreset('back')}
               className="px-2 py-0.5 rounded hover:bg-white/10 hover:text-white transition"
-              title="Вид сзади"
+              title={t('model3d.tipBack')}
             >
-              Сзади
+              {t('model3d.camBack')}
             </button>
           </div>
 
@@ -601,7 +603,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                 : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'
             }`}
-            title="Автоматическое вращение"
+            title={t('model3d.autoRotate')}
           >
             <ArrowsClockwise size={15} weight={autoRotate ? 'bold' : 'regular'} />
           </button>
@@ -613,7 +615,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                 : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'
             }`}
-            title="Полигональная сетка (Wireframe)"
+            title={t('model3d.wireframe')}
           >
             <Cube size={15} weight={wireframe ? 'fill' : 'regular'} />
           </button>
@@ -626,7 +628,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'
               }`}
-              title={showMannequin ? 'Скрыть манекен тела' : 'Показать манекен тела'}
+              title={showMannequin ? t('model3d.hideMannequin') : t('model3d.showMannequin')}
             >
               <User size={15} weight={showMannequin ? 'fill' : 'regular'} />
             </button>
@@ -635,7 +637,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
           <button
             onClick={resetCamera}
             className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-gray-400 hover:text-white transition"
-            title="Сбросить ракурс камеры"
+            title={t('model3d.resetCam')}
           >
             <ArrowClockwise size={15} />
           </button>
@@ -643,7 +645,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
           <button
             onClick={takeScreenshot}
             className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-gray-400 hover:text-white transition"
-            title="Сохранить снимок в PNG"
+            title={t('model3d.screenshot')}
           >
             <Camera size={15} />
           </button>
@@ -651,7 +653,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-gray-400 hover:text-white transition"
-            title={isFullscreen ? 'Выйти из полноэкранного режима (Esc)' : 'Развернуть на весь экран'}
+            title={isFullscreen ? t('model3d.exitFullscreen') : t('model3d.fullscreen')}
           >
             {isFullscreen ? <ArrowsIn size={15} /> : <ArrowsOut size={15} />}
           </button>
@@ -660,7 +662,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-gray-400 hover:text-red-300 transition ml-1"
-              title="Закрыть 3D просмотр"
+              title={t('model3d.close')}
             >
               <X size={15} />
             </button>
@@ -676,7 +678,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
         {loading && (
           <div className="absolute inset-0 bg-[#0d1017]/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2">
             <div className="w-8 h-8 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-            <p className="text-xs text-gray-300 font-medium">Загрузка 3D-модели и текстур...</p>
+            <p className="text-xs text-gray-300 font-medium">{t('model3d.loading')}</p>
           </div>
         )}
 
@@ -694,7 +696,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
         <div className="shrink-0 w-full px-3 py-2.5 bg-[#0e121a]/95 backdrop-blur-md border-t border-white/10 flex items-center gap-3 z-10">
           <div className="flex items-center gap-1.5 text-xs text-gray-300 shrink-0 font-medium select-none">
             <Palette size={15} className="text-emerald-400" />
-            <span>Цвета ({modelData.swatches.length}):</span>
+            <span>{t('model3d.swatches', { count: modelData.swatches.length })}</span>
             {switchingSwatch && (
               <span className="w-3.5 h-3.5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin ml-1 inline-block" />
             )}
@@ -715,7 +717,7 @@ export default function Model3DViewer({ filePath, modName, onClose }) {
                       ? 'border-emerald-400 ring-2 ring-emerald-400/50 scale-110 z-10'
                       : 'border-white/20 hover:border-white/60 hover:scale-105 opacity-85 hover:opacity-100'
                   }`}
-                  title={`Расцветка #${swatch.index + 1}`}
+                  title={t('model3d.swatchIndex', { index: swatch.index + 1 })}
                 >
                   {color2 ? (
                     <div

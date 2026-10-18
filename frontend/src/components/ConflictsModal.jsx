@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Warning, Trash, ArrowsClockwise, Copy, ShieldWarning, CheckCircle, FolderSimple, FileCode } from '@phosphor-icons/react'
 import { formatBytes } from '../lib/format'
+import { useT } from '../lib/i18n'
 import Plumbob from './Plumbob'
 
 export default function ConflictsModal({ onClose, onFilesChanged }) {
+  const { t } = useT()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -16,7 +18,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
     try {
       const res = await window.api.scanConflicts()
       if (!res.ok) {
-        setError(res.error || 'Ошибка сканирования конфликтов')
+        setError(res.error || t('conflicts.scanError'))
       } else {
         setData(res)
       }
@@ -25,7 +27,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     scan()
@@ -77,8 +79,8 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
               <ShieldWarning size={22} weight="bold" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg leading-tight">Дубликаты и Конфликты</h2>
-              <p className="text-gray-400 text-xs">Поиск 100% копий по SHA-1 и переопределений TGI-ресурсов</p>
+              <h2 className="text-white font-bold text-lg leading-tight">{t('conflicts.title')}</h2>
+              <p className="text-gray-400 text-xs">{t('conflicts.subtitle')}</p>
             </div>
           </div>
 
@@ -89,7 +91,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
               className="btn-ghost px-3 py-1.5 text-xs text-gray-300 hover:text-white flex items-center gap-1.5"
             >
               <ArrowsClockwise size={14} weight="bold" className={loading ? 'animate-spin' : ''} />
-              <span>Пересканировать</span>
+              <span>{t('conflicts.rescan')}</span>
             </button>
             <button
               onClick={onClose}
@@ -113,7 +115,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                 }`}
               >
                 <Copy size={15} weight="bold" />
-                <span>Дубликаты файлов ({stats?.duplicateFilesCount || 0})</span>
+                <span>{t('conflicts.duplicateFiles', { count: stats?.duplicateFilesCount || 0 })}</span>
                 {stats?.totalWastedBytes > 0 && (
                   <span className="badge bg-amber-950/80 text-amber-300 font-mono text-[10px]">
                     -{formatBytes(stats.totalWastedBytes)}
@@ -130,12 +132,12 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                 }`}
               >
                 <Warning size={15} weight="bold" />
-                <span>TGI Конфликты ({stats?.tgiConflictsCount || 0})</span>
+                <span>{t('conflicts.tgiConflicts', { count: stats?.tgiConflictsCount || 0 })}</span>
               </button>
             </div>
 
             <div className="text-xs text-gray-500">
-              Просканировано: <span className="text-gray-300 font-mono">{stats?.totalFilesScanned || 0}</span> файлов
+              {t('conflicts.scannedFiles', { count: stats?.totalFilesScanned || 0 })}
             </div>
           </div>
         )}
@@ -145,7 +147,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
           {loading && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Plumbob size={48} spin />
-              <p className="text-sm text-gray-400 font-medium">Сканирование DBPF заголовков и хешей файлов...</p>
+              <p className="text-sm text-gray-400 font-medium">{t('conflicts.scanning')}</p>
             </div>
           )}
 
@@ -162,8 +164,8 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                   {duplicates.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 gap-2">
                       <CheckCircle size={48} weight="thin" className="text-emerald-400/60" />
-                      <p className="text-sm font-semibold text-gray-300">Дубликаты не найдены</p>
-                      <p className="text-xs max-w-sm">Все файлы в вашей папке Mods имеют уникальный SHA-1 хеш.</p>
+                      <p className="text-sm font-semibold text-gray-300">{t('conflicts.noDuplicatesTitle')}</p>
+                      <p className="text-xs max-w-sm">{t('conflicts.noDuplicatesHint')}</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -172,13 +174,13 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                           <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5">
                             <div className="flex items-center gap-2">
                               <span className="badge bg-amber-500/20 text-amber-300 font-mono text-xs">
-                                Копий: {group.files.length}
+                                {t('conflicts.copiesCount', { count: group.files.length })}
                               </span>
                               <span className="text-xs text-gray-400">
-                                Размер файла: <strong className="text-gray-200">{formatBytes(group.size)}</strong>
+                                {t('conflicts.fileSize', { size: formatBytes(group.size) })}
                               </span>
                               <span className="text-xs text-amber-400/80 font-mono">
-                                (Лишнее место: {formatBytes(group.wastedBytes)})
+                                ({t('conflicts.wastedSpace', { size: formatBytes(group.wastedBytes) })})
                               </span>
                             </div>
                             <span className="text-[10px] font-mono text-gray-600 truncate max-w-[200px]" title={group.hash}>
@@ -199,7 +201,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                                     </span>
                                     {fIdx === 0 && (
                                       <span className="badge bg-emerald-500/20 text-emerald-300 text-[10px]">
-                                        Основной файл
+                                        {t('conflicts.mainFile')}
                                       </span>
                                     )}
                                   </div>
@@ -212,7 +214,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                                   <button
                                     onClick={() => window.api.showItemInFolder(file.filePath)}
                                     className="btn-ghost p-1.5 text-gray-400 hover:text-white"
-                                    title="Показать в проводнике"
+                                    title={t('conflicts.showInFolder')}
                                   >
                                     <FolderSimple size={15} />
                                   </button>
@@ -221,10 +223,10 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                                       onClick={() => handleDeleteDuplicate(file.filePath)}
                                       disabled={deletingPath === file.filePath}
                                       className="btn-ghost px-2.5 py-1 text-xs text-red-300 hover:bg-red-950/40 border border-red-500/20 rounded-md flex items-center gap-1"
-                                      title="Удалить копию в корзину"
+                                      title={t('conflicts.deleteDuplicate')}
                                     >
                                       <Trash size={13} />
-                                      <span>{deletingPath === file.filePath ? '…' : 'Удалить копию'}</span>
+                                      <span>{deletingPath === file.filePath ? '…' : t('conflicts.deleteCopy')}</span>
                                     </button>
                                   )}
                                 </div>
@@ -243,8 +245,8 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                   {conflicts.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 gap-2">
                       <CheckCircle size={48} weight="thin" className="text-emerald-400/60" />
-                      <p className="text-sm font-semibold text-gray-300">TGI конфликтов не обнаружено</p>
-                      <p className="text-xs max-w-sm">Никакие два мода не перезаписывают одинаковые CAS, Object или Tuning ресурсы.</p>
+                      <p className="text-sm font-semibold text-gray-300">{t('conflicts.noConflictsTitle')}</p>
+                      <p className="text-xs max-w-sm">{t('conflicts.noConflictsHint')}</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -253,7 +255,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                           <div className="flex items-center justify-between pb-3 mb-3 border-b border-red-500/10">
                             <div className="flex items-center gap-2">
                               <span className="badge bg-red-600/30 text-red-200 text-xs font-semibold">
-                                Конфликт переопределения ({conf.resources.length} рес.)
+                                {t('conflicts.overrideConflict', { count: conf.resources.length })}
                               </span>
                             </div>
                           </div>
@@ -267,7 +269,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                                 <button
                                   onClick={() => window.api.showItemInFolder(conf.fileA.filePath)}
                                   className="btn-ghost p-1 text-gray-400 hover:text-white"
-                                  title="В папке"
+                                  title={t('conflicts.showInFolder')}
                                 >
                                   <FolderSimple size={13} />
                                 </button>
@@ -283,7 +285,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                                 <button
                                   onClick={() => window.api.showItemInFolder(conf.fileB.filePath)}
                                   className="btn-ghost p-1 text-gray-400 hover:text-white"
-                                  title="В папке"
+                                  title={t('conflicts.showInFolder')}
                                 >
                                   <FolderSimple size={13} />
                                 </button>
@@ -294,7 +296,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
 
                           <div className="bg-black/30 rounded-lg p-2.5">
                             <span className="text-[11px] text-gray-400 font-semibold mb-1.5 block">
-                              Конфликтующие ключи:
+                              {t('conflicts.conflictingKeys')}
                             </span>
                             <div className="flex flex-wrap gap-1.5">
                               {conf.resources.slice(0, 10).map((r, rIdx) => (
@@ -308,7 +310,7 @@ export default function ConflictsModal({ onClose, onFilesChanged }) {
                               ))}
                               {conf.resources.length > 10 && (
                                 <span className="badge bg-white/5 text-gray-500 text-[10px]">
-                                  +{conf.resources.length - 10} ещё
+                                  {t('conflicts.moreKeys', { count: conf.resources.length - 10 })}
                                 </span>
                               )}
                             </div>
