@@ -1094,6 +1094,15 @@ func DownloadModStream(ctx context.Context, payload any) DownloadResult {
 		return DownloadResult{Ok: false, Error: "Некорректный ID мода"}
 	}
 
+	if m, ok := payload.(map[string]any); ok {
+		if amd, ok := m["allowModDistribution"].(bool); ok && !amd && !cfg.BypassRestrictedDownloads {
+			return DownloadResult{
+				Ok:    false,
+				Error: "Автор запретил скачивание мода через API (allowModDistribution: false). Перейдите на страницу мода на CurseForge или включите скачивание в обход в Настройках.",
+			}
+		}
+	}
+
 	// Если downloadUrl не получен напрямую, запрашиваем его у CurseForge
 	if downloadUrl == "" {
 		if fileId == 0 {
@@ -1128,7 +1137,13 @@ func DownloadModStream(ctx context.Context, payload any) DownloadResult {
 			if err == nil && resolvedUrl != "" {
 				downloadUrl = resolvedUrl
 			} else {
-				// Прямой обход ограничения API через Edge CDN
+				if !cfg.BypassRestrictedDownloads {
+					return DownloadResult{
+						Ok:    false,
+						Error: "Автор запретил скачивание мода через API (allowModDistribution: false). Перейдите на страницу мода на CurseForge или включите скачивание в обход в Настройках.",
+					}
+				}
+				// Прямой обход ограничения API через Edge CDN (включен пользователем в Настройках на свой риск)
 				if fileName == "" {
 					if fn, err := GetFileMetadata(modId, fileId); err == nil && fn != "" {
 						fileName = fn

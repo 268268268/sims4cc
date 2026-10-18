@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Package, CircleNotch, Check, Warning, ArrowUp, ArrowsClockwise, DownloadSimple, Clock } from '@phosphor-icons/react'
+import { Package, CircleNotch, Check, Warning, ArrowUp, ArrowsClockwise, DownloadSimple, Clock, ArrowSquareOut } from '@phosphor-icons/react'
 import { formatBytes } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { useDownloadQueue } from '../context/DownloadQueueContext'
@@ -12,12 +12,14 @@ const ICON = { size: 15, weight: 'bold' }
  */
 export default function DownloadButton({ mod, installed, onInstalled, mode = 'download', className = '' }) {
   const { t, lang } = useT()
-  const { getCurseForgeJob, enqueueCurseForge } = useDownloadQueue()
+  const { getCurseForgeJob, enqueueCurseForge, bypassRestricted } = useDownloadQueue()
   const job = getCurseForgeJob(mod.id)
   const notifiedRef = useRef(false)
 
   const status = job?.status || 'idle' // idle | queued | downloading | installing | completed | error | canceled
   const isBusy = status === 'queued' || status === 'downloading' || status === 'installing'
+  const isRestricted = mod?.allowModDistribution === false
+  const shouldRedirectToSite = isRestricted && !bypassRestricted && status !== 'completed' && (!installed || mode === 'update')
 
   useEffect(() => {
     if (status === 'completed' && !notifiedRef.current) {
@@ -30,6 +32,12 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
 
   const onClick = async (e) => {
     e?.stopPropagation()
+    if (shouldRedirectToSite) {
+      const targetUrl = mod.links?.websiteUrl || `https://www.curseforge.com/sims4/mods/${mod.slug || mod.id}`
+      window.api?.startDownloadWatch?.({ id: mod.id, name: mod.name, latestFiles: mod.latestFiles })
+      window.api?.openExternal?.(targetUrl)
+      return
+    }
     if (isBusy) return
     await enqueueCurseForge(mod, mode === 'update')
   }
@@ -54,11 +62,13 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
           ? <><Check {...ICON} /> {mode === 'update' ? t('curseforge.updated') : t('curseforge.downloaded')}</>
           : status === 'error'
             ? <><Warning {...ICON} /> {t('curseforge.failedRetry')}</>
-            : mode === 'update'
-              ? <><ArrowUp {...ICON} /> {t('curseforge.updateBtn')}</>
-              : installed
-                ? <><ArrowsClockwise {...ICON} /> {t('curseforge.redownload')}</>
-                : <><DownloadSimple {...ICON} /> {t('curseforge.download')}</>
+            : shouldRedirectToSite
+              ? <><ArrowSquareOut {...ICON} /> {t('curseforge.openOnSite')}</>
+              : mode === 'update'
+                ? <><ArrowUp {...ICON} /> {t('curseforge.updateBtn')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-300 font-mono">CDN</span>}</>
+                : installed
+                  ? <><ArrowsClockwise {...ICON} /> {t('curseforge.redownload')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-300 font-mono">CDN</span>}</>
+                  : <><DownloadSimple {...ICON} /> {t('curseforge.download')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-300 font-mono">CDN</span>}</>
 
   const stateClass =
     isBusy
@@ -67,16 +77,26 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
         ? 'btn-success cursor-default'
         : status === 'error'
           ? 'btn-danger'
-          : mode === 'update'
-            ? 'btn-primary'
-            : installed
-              ? 'btn-ghost'
-              : 'btn-primary'
+          : shouldRedirectToSite
+            ? 'btn-ghost border border-white/10 hover:border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-300'
+            : mode === 'update'
+              ? 'btn-primary'
+              : installed
+                ? 'btn-ghost'
+                : 'btn-primary'
+
+  const buttonTitle =
+    shouldRedirectToSite
+      ? t('curseforge.distBlockedTip')
+      : isRestricted && bypassRestricted
+        ? t('curseforge.bypassWarningNotice')
+        : undefined
 
   return (
     <button
       onClick={onClick}
       disabled={isBusy}
+      title={buttonTitle}
       className={`relative overflow-hidden ${stateClass} ${className}`}
     >
       {label}

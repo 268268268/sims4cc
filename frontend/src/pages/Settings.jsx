@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar } from '@phosphor-icons/react'
+import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar, ShieldWarning } from '@phosphor-icons/react'
 import { useT, LANG_OPTIONS } from '../lib/i18n'
+import { useDownloadQueue } from '../context/DownloadQueueContext'
 import AppUpdatesSection from '../components/AppUpdatesSection'
 
 const KOFI_URL = 'https://ko-fi.com/sims4ccmanager'
@@ -73,6 +74,121 @@ function LanguageSection() {
               {opt.id === 'auto' ? t('settings.languageAuto') : opt.native}
             </button>
           ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CurseForgeSettingsSection() {
+  const { t } = useT()
+  const { bypassRestricted, setBypassRestricted } = useDownloadQueue()
+  const [key, setKey] = useState('')
+  const [show, setShow] = useState(false)
+  const [status, setStatus] = useState(null) // null | 'saving' | 'saved'
+
+  useEffect(() => {
+    window.api.getConfig().then(cfg => setKey(cfg?.curseForgeApiKey ?? ''))
+  }, [])
+
+  const onSave = async () => {
+    setStatus('saving')
+    try {
+      await window.api.setConfig('curseForgeApiKey', key.trim() || null)
+      setStatus('saved')
+      setTimeout(() => setStatus(null), 2500)
+    } catch {
+      setStatus(null)
+    }
+  }
+
+  return (
+    <section className="mb-6 fade-in-up">
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        {t('settings.apiKey')}
+      </h3>
+      <div className="card p-5">
+        <p className="text-gray-400 text-sm mb-3 leading-relaxed">
+          {t('settings.apiKeyHint')}{' '}
+          <button
+            onClick={() => window.api.openExternal('https://console.curseforge.com/')}
+            className="text-emerald-300 underline hover:text-emerald-200"
+          >
+            console.curseforge.com
+          </button>
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type={show ? 'text' : 'password'}
+            value={key}
+            onChange={e => setKey(e.target.value)}
+            placeholder="$2a$10$…"
+            className="input flex-1 px-3 py-2 font-mono text-xs"
+          />
+          <button onClick={() => setShow(s => !s)} className="btn-ghost px-3 py-2 text-sm" title={show ? t('common.hide') : t('common.show')}>
+            {show ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
+          </button>
+          <button onClick={onSave} disabled={status === 'saving'} className="btn-primary px-4 py-2 text-sm">
+            {status === 'saving' ? t('common.saving') : status === 'saved' ? <><Check size={15} weight="bold" /> {t('common.saved')}</> : t('common.save')}
+          </button>
+        </div>
+
+        {/* CurseForge Author Restrictions Bypass */}
+        <div className="my-5 border-t border-white/5" />
+
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <ShieldWarning size={18} weight="fill" className={bypassRestricted ? 'text-amber-400' : 'text-emerald-400'} />
+              <h4 className="text-sm font-semibold text-gray-200">
+                {t('settings.curseForgeRestrictions')}
+              </h4>
+              <span className={`px-2 py-0.5 rounded text-[11px] font-medium border flex items-center gap-1 ${
+                bypassRestricted
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              }`}>
+                {bypassRestricted ? <Warning size={12} weight="bold" /> : <CheckCircle size={12} weight="bold" />}
+                {bypassRestricted ? t('settings.bypassActiveBadge') : t('settings.bypassDisabledBadge')}
+              </span>
+            </div>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              {t('settings.bypassRestrictedDesc')}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={bypassRestricted}
+            onClick={() => setBypassRestricted(!bypassRestricted)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none self-center ${
+              bypassRestricted ? 'bg-amber-500 shadow-sm shadow-amber-500/30' : 'bg-white/10 hover:bg-white/15'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                bypassRestricted ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Warning / Disclaimer */}
+        <div className={`mt-4 p-3.5 rounded-xl border text-xs leading-relaxed flex items-start gap-2.5 transition-colors ${
+          bypassRestricted
+            ? 'bg-amber-950/30 border-amber-600/40 text-amber-200/90'
+            : 'bg-white/[0.02] border-white/5 text-gray-400'
+        }`}>
+          <Warning size={16} weight="fill" className={`shrink-0 mt-0.5 ${bypassRestricted ? 'text-amber-400' : 'text-gray-500'}`} />
+          <div className="flex-1">
+            <p className={`font-semibold mb-0.5 ${bypassRestricted ? 'text-amber-300' : 'text-gray-300'}`}>
+              {t('settings.bypassRestrictedWarningTitle')}
+            </p>
+            <p className="opacity-90">
+              {t('settings.bypassRestrictedWarningText')}
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -333,7 +449,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
 
         <LanguageSection />
         <ConnectedAccountsSection />
-        <ApiKeySection />
+        <CurseForgeSettingsSection />
         <ApiKeySection
           configKey="tumblrApiKey"
           titleKey="settings.tumblrApiKey"

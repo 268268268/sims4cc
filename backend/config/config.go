@@ -15,10 +15,11 @@ type Config struct {
 	CurseForgeApiKey string   `json:"curseForgeApiKey"`
 	TumblrApiKey     string   `json:"tumblrApiKey"`
 	TumblrFeedTags   []string `json:"tumblrFeedTags,omitempty"`
-	Theme            string   `json:"theme"`
-	Locale           string   `json:"locale"`
-	Language         string   `json:"language"`
-	AutoScan         bool     `json:"autoScan"`
+	Theme                     string   `json:"theme"`
+	Locale                    string   `json:"locale"`
+	Language                  string   `json:"language"`
+	AutoScan                  bool     `json:"autoScan"`
+	BypassRestrictedDownloads bool     `json:"bypassRestrictedDownloads"`
 }
 
 type ValidationResult struct {
@@ -192,6 +193,10 @@ func SetConfig(key string, val any) error {
 	case "autoScan":
 		if b, ok := val.(bool); ok {
 			cfg.AutoScan = b
+		}
+	case "bypassRestrictedDownloads":
+		if b, ok := val.(bool); ok {
+			cfg.BypassRestrictedDownloads = b
 		}
 	}
 

@@ -8,6 +8,7 @@ import { pushAuthor } from '../lib/authorHistory'
 import { formatBytes, formatCount, formatRelative } from '../lib/format'
 import { pickLatestFile, RELEASE_TYPE } from '../lib/cfFile'
 import { useT } from '../lib/i18n'
+import { useDownloadQueue } from '../context/DownloadQueueContext'
 
 // CF sortField enum: 2=Popularity, 3=LastUpdated, 4=Name, 6=TotalDownloads
 const SORT_OPTIONS = [
@@ -86,6 +87,7 @@ function SkeletonCard() {
 
 function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor }) {
   const { t } = useT()
+  const { bypassRestricted } = useDownloadQueue()
   const latest = pickLatestFile(mod)
   const size = formatBytes(latest?.fileLength)
   const downloads = formatCount(mod.downloadCount)
@@ -118,6 +120,18 @@ function ModCard({ mod, installed, hasUpdate, onInstalled, onOpen, onOpenAuthor 
         {release && (
           <span className={`absolute top-2 left-2 badge ${release.cls} backdrop-blur-sm`} title={release.title}>
             {release.label}
+          </span>
+        )}
+        {mod.allowModDistribution === false && (
+          <span
+            className={`absolute bottom-2 left-2 badge text-[10px] ${
+              bypassRestricted
+                ? 'bg-amber-500/80 text-black font-semibold'
+                : 'bg-black/70 text-gray-300 border border-white/10'
+            } backdrop-blur-sm`}
+            title={bypassRestricted ? t('curseforge.bypassWarningNotice') : t('curseforge.authorRestrictedTip')}
+          >
+            {bypassRestricted ? t('curseforge.bypassWarningBadge') : t('curseforge.authorRestricted')}
           </span>
         )}
       </div>
@@ -172,9 +186,17 @@ function InstalledView({ updateInfo, checking, filter, downloadedIds, onInstalle
   if (filter === 'updates') mods = mods.filter(m => metaById.get(m.id)?.updateAvailable)
   const missing = updateInfo.updates.filter(u => !u.found)
   const updatesCount = updateInfo.updates.filter(u => u.updateAvailable).length
-  // All mods can be updated in 1 click via direct CDN fallback
-  const updatable = updateInfo.mods.filter(m => metaById.get(m.id)?.updateAvailable === true)
-  const blockedCount = 0
+  const { bypassRestricted } = useDownloadQueue()
+  // If bypass is disabled, mods where creator disabled API distribution cannot be auto-updated
+  const updatable = updateInfo.mods.filter(m => {
+    const isAvail = metaById.get(m.id)?.updateAvailable === true
+    if (!isAvail) return false
+    if (m.allowModDistribution === false && !bypassRestricted) return false
+    return true
+  })
+  const blockedCount = bypassRestricted
+    ? 0
+    : updateInfo.mods.filter(m => metaById.get(m.id)?.updateAvailable === true && m.allowModDistribution === false).length
 
   if (!mods.length && !missing.length) {
     return (

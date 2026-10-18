@@ -6,6 +6,7 @@ import DownloadButton from './DownloadButton'
 import { formatBytes, formatCount, formatDate } from '../lib/format'
 import { pickLatestFile, RELEASE_TYPE } from '../lib/cfFile'
 import { useT } from '../lib/i18n'
+import { useDownloadQueue } from '../context/DownloadQueueContext'
 
 const PLACEHOLDER =
   'data:image/svg+xml,' +
@@ -69,6 +70,8 @@ function DescriptionTab({ modId }) {
 
 export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInstalled, onClose, onOpenAuthor }) {
   const { t } = useT()
+  const { bypassRestricted } = useDownloadQueue()
+  const isRestricted = mod?.allowModDistribution === false
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [tab, setTab] = useState('overview') // overview | description
   const banner = mod?.logo?.url || mod?.logo?.thumbnailUrl || PLACEHOLDER
@@ -172,6 +175,27 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
           </>
         )}
 
+        {/* Creator Restriction Warning Banner */}
+        {isRestricted && (
+          <div className={`p-3.5 rounded-xl border text-xs leading-relaxed flex items-start gap-2.5 ${
+            bypassRestricted
+              ? 'bg-amber-950/30 border-amber-600/40 text-amber-200'
+              : 'bg-white/[0.03] border-white/10 text-gray-300'
+          }`}>
+            <Warning size={16} weight="fill" className={`shrink-0 mt-0.5 ${bypassRestricted ? 'text-amber-400' : 'text-gray-400'}`} />
+            <div className="flex-1">
+              <p className={`font-semibold mb-0.5 ${bypassRestricted ? 'text-amber-300' : 'text-gray-200'}`}>
+                {bypassRestricted ? t('curseforge.bypassWarningBadge') : t('curseforge.authorRestricted')}
+              </p>
+              <p className="opacity-90">
+                {bypassRestricted
+                  ? t('curseforge.bypassWarningNotice')
+                  : t('curseforge.restrictedModalNotice')}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-3 pt-1">
           <DownloadButton
             mod={mod}
@@ -180,7 +204,7 @@ export default function CurseForgeModDetail({ mod, installed, hasUpdate, onInsta
             onInstalled={onInstalled}
             className="px-4 py-2 text-sm"
           />
-          {websiteUrl && (
+          {websiteUrl && (!isRestricted || bypassRestricted) && (
             <button
               onClick={() => {
                 window.api.startDownloadWatch?.({ id: mod.id, name: mod.name, latestFiles: mod.latestFiles })

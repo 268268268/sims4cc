@@ -7,8 +7,37 @@ const DownloadQueueContext = createContext(null)
 export function DownloadQueueProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [bypassRestricted, setBypassRestrictedState] = useState(false)
   const completedIdsRef = useRef(new Set())
   const completionListenersRef = useRef(new Set())
+
+  useEffect(() => {
+    window.api?.getConfig?.().then(c => {
+      setBypassRestrictedState(Boolean(c?.bypassRestrictedDownloads))
+    }).catch(() => {})
+
+    const onConfigUpdated = (e) => {
+      if (e?.detail?.bypassRestrictedDownloads !== undefined) {
+        setBypassRestrictedState(Boolean(e.detail.bypassRestrictedDownloads))
+      } else {
+        window.api?.getConfig?.().then(c => {
+          setBypassRestrictedState(Boolean(c?.bypassRestrictedDownloads))
+        }).catch(() => {})
+      }
+    }
+    window.addEventListener('config-updated', onConfigUpdated)
+    return () => window.removeEventListener('config-updated', onConfigUpdated)
+  }, [])
+
+  const setBypassRestricted = useCallback(async (val) => {
+    setBypassRestrictedState(val)
+    try {
+      await window.api?.setConfig?.('bypassRestrictedDownloads', val)
+      window.dispatchEvent(new CustomEvent('config-updated', { detail: { bypassRestrictedDownloads: val } }))
+    } catch (e) {
+      console.error('Failed to save bypassRestrictedDownloads:', e)
+    }
+  }, [])
 
   const applyQueue = useCallback((nextList) => {
     if (!Array.isArray(nextList)) return
@@ -138,6 +167,8 @@ export function DownloadQueueProvider({ children }) {
     activeCount,
     drawerOpen,
     setDrawerOpen,
+    bypassRestricted,
+    setBypassRestricted,
     enqueueCurseForge,
     enqueueDiscover,
     cancelJob,
@@ -150,6 +181,8 @@ export function DownloadQueueProvider({ children }) {
     queue,
     activeCount,
     drawerOpen,
+    bypassRestricted,
+    setBypassRestricted,
     enqueueCurseForge,
     enqueueDiscover,
     cancelJob,
