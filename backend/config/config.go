@@ -70,7 +70,7 @@ func ReadConfig() *Config {
 	p := GetConfigPath()
 	data, err := os.ReadFile(p)
 	cfg := &Config{
-		Theme:    "dark",
+		Theme:    "studio-titanium",
 		Locale:   "ru",
 		Language: "auto",
 		AutoScan: true,
@@ -78,6 +78,9 @@ func ReadConfig() *Config {
 
 	if err == nil {
 		_ = json.Unmarshal(data, cfg)
+		if cfg.Theme == "" || cfg.Theme == "dark" {
+			cfg.Theme = "studio-titanium"
+		}
 		if cfg.Language == "" && cfg.Locale != "" {
 			cfg.Language = cfg.Locale
 		}

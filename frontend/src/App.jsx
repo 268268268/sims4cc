@@ -13,6 +13,10 @@ import CurseForge from './pages/CurseForgeBrowser'
 import Discover from './pages/Discover'
 import Settings from './pages/Settings'
 import UpdateBanner from './components/UpdateBanner'
+import { getInitialTheme, applyTheme } from './lib/theme'
+
+// Apply cached or default theme right away to avoid flash of unstyled content
+applyTheme(getInitialTheme())
 
 const PAGES = {
   'local-mods': LocalMods,
@@ -31,7 +35,12 @@ export default function App() {
 
   useEffect(() => {
     window.api.getConfig()
-      .then(cfg => setModsFolder(cfg?.modsFolder ?? null))
+      .then(cfg => {
+        setModsFolder(cfg?.modsFolder ?? null)
+        if (cfg?.theme) {
+          applyTheme(cfg.theme)
+        }
+      })
       .catch(err => {
         console.error('Failed to load config:', err)
         setModsFolder(null)

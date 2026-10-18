@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar, ShieldWarning } from '@phosphor-icons/react'
+import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar, ShieldWarning, Palette } from '@phosphor-icons/react'
 import { useT, LANG_OPTIONS } from '../lib/i18n'
 import { useDownloadQueue } from '../context/DownloadQueueContext'
+import { THEMES, THEME_CATEGORIES, getInitialTheme, setAppTheme } from '../lib/theme'
 import AppUpdatesSection from '../components/AppUpdatesSection'
 
 const KOFI_URL = 'https://ko-fi.com/sims4ccmanager'
@@ -46,6 +47,147 @@ function SupportSection() {
               ? <Check size={13} weight="bold" className="text-emerald-400" />
               : <Copy size={13} weight="bold" />}
           </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ThemeSection() {
+  const { t, lang } = useT()
+  const [currentTheme, setCurrentTheme] = useState(() => getInitialTheme())
+  const [activeCategory, setActiveCategory] = useState('all')
+
+  useEffect(() => {
+    const onThemeChange = (e) => {
+      if (e?.detail?.theme) {
+        setCurrentTheme(e.detail.theme)
+      }
+    }
+    window.addEventListener('theme-changed', onThemeChange)
+    return () => window.removeEventListener('theme-changed', onThemeChange)
+  }, [])
+
+  const handleSelect = async (id) => {
+    setCurrentTheme(id)
+    await setAppTheme(id)
+  }
+
+  const filteredThemes = activeCategory === 'all'
+    ? THEMES
+    : THEMES.filter(th => th.category === activeCategory)
+
+  return (
+    <section className="mb-6 fade-in-up">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          <Palette size={17} weight="fill" className="text-sky-400 shrink-0" />
+          {t('settings.theme')}
+        </h3>
+        <span className="text-xs text-gray-400">
+          {t('settings.themeSubtitle')}
+        </span>
+      </div>
+
+      <div className="card p-5">
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-white/5">
+          {THEME_CATEGORIES.map(cat => {
+            const count = cat.id === 'all' ? THEMES.length : THEMES.filter(th => th.category === cat.id).length
+            const isCatActive = activeCategory === cat.id
+            const label = lang === 'ru' ? cat.labelRu : cat.labelEn
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`chip ${isCatActive ? 'chip-active' : ''}`}
+              >
+                {label} ({count})
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Themes Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filteredThemes.map(th => {
+            const isSelected = currentTheme === th.id
+            const name = lang === 'ru' ? th.nameRu : th.name
+            const desc = lang === 'ru' ? th.descRu : th.descEn
+
+            return (
+              <div
+                key={th.id}
+                onClick={() => handleSelect(th.id)}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-3 relative group ${
+                  isSelected
+                    ? 'bg-white/[0.08] border-sky-400 ring-1 ring-sky-400/80 shadow-lg shadow-black/40'
+                    : 'bg-white/[0.03] border-white/10 hover:border-white/20 hover:bg-white/[0.05]'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="font-semibold text-sm text-white group-hover:text-white transition-colors">
+                      {name}
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {th.tag === 'default' && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          {t('settings.themeDefaultBadge')}
+                        </span>
+                      )}
+                      {th.tag === 'og' && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {t('settings.themeOgBadge')}
+                        </span>
+                      )}
+                      {isSelected && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white text-black flex items-center gap-1">
+                          <Check size={11} weight="bold" /> {t('settings.themeActive')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-gray-400 text-xs leading-relaxed line-clamp-2">
+                    {desc}
+                  </p>
+                </div>
+
+                {/* Color Swatch Dots */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="w-4 h-4 rounded-full border border-white/20 shadow-sm"
+                      style={{ backgroundColor: th.preview.accent }}
+                      title="Accent"
+                    />
+                    <span
+                      className="w-4 h-4 rounded-full border border-white/20 shadow-sm"
+                      style={{ backgroundColor: th.preview.accent2 }}
+                      title="Secondary"
+                    />
+                    <span
+                      className="w-4 h-4 rounded-full border border-white/20 shadow-sm"
+                      style={{ backgroundColor: th.preview.card }}
+                      title="Card Background"
+                    />
+                    <span
+                      className="w-4 h-4 rounded-full border border-white/20 shadow-sm"
+                      style={{ backgroundColor: th.preview.bg }}
+                      title="App Background"
+                    />
+                  </div>
+
+                  <span className={`text-[11px] font-medium transition-colors ${
+                    isSelected ? 'text-sky-300' : 'text-gray-500 group-hover:text-gray-300'
+                  }`}>
+                    {isSelected ? '✓' : (lang === 'ru' ? 'Выбрать' : 'Select')}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </section>
@@ -447,6 +589,7 @@ export default function Settings({ modsFolder, onFolderChanged }) {
 
         <AppUpdatesSection />
 
+        <ThemeSection />
         <LanguageSection />
         <ConnectedAccountsSection />
         <CurseForgeSettingsSection />

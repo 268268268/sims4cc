@@ -38,7 +38,8 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
 
   return (
     <aside
-      className={`${collapsed ? 'w-16' : 'w-60'} shrink-0 overflow-hidden bg-[#090d0b]
+      style={{ backgroundColor: 'var(--theme-sidebar-bg, #0a0a0a)' }}
+      className={`${collapsed ? 'w-16' : 'w-60'} shrink-0 overflow-hidden
         border-r border-white/[0.08] flex flex-col
         transition-[width] duration-200 ease-in-out`}
     >
@@ -47,7 +48,7 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
           <Plumbob size={30} />
         ) : (
           <h1 className="text-lg font-bold leading-tight tracking-tight whitespace-nowrap">
-            <span className="text-emerald-400 font-bold">Sims 4</span>
+            <span style={{ color: 'var(--theme-accent-highlight, #38bdf8)' }} className="font-bold">Sims 4</span>
             <br />
             <span className="text-white">{t('nav.brandLine2')}</span>
           </h1>
@@ -70,25 +71,25 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
                   ${collapsed ? 'justify-center px-0' : 'px-3.5 text-left'}
                   transition-colors duration-150
                   ${active
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    ? 'bg-[var(--theme-active-nav-bg,rgba(255,255,255,0.1))] text-[var(--theme-active-nav-text,#ffffff)] border border-[var(--theme-active-nav-border,rgba(255,255,255,0.2))] font-semibold shadow-sm'
                     : 'text-gray-400 hover:bg-white/[0.04] hover:text-white border border-transparent'
                   }`}
               >
                 <div className="relative shrink-0 flex items-center justify-center">
                   {brand
                     ? <SourceIcon type={brand} size={19} className="shrink-0" />
-                    : <Icon size={20} weight={active ? 'fill' : 'regular'} className="shrink-0" />}
+                    : <Icon size={20} weight={active ? 'fill' : 'regular'} className="shrink-0" style={active ? { color: 'var(--theme-accent-highlight, #38bdf8)' } : undefined} />}
                   {collapsed && showUpdateOnItem && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#090d0b] animate-pulse" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-black animate-pulse" style={{ backgroundColor: 'var(--theme-accent-highlight, #38bdf8)' }} />
                   )}
                 </div>
                 {!collapsed && <span className="truncate">{label}</span>}
                 {!collapsed && showUpdateOnItem && (
-                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse tracking-wide">
+                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse tracking-wide">
                     {t('updates.badgeText') || 'UPDATE'}
                   </span>
                 )}
-                {!collapsed && !showUpdateOnItem && active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                {!collapsed && !showUpdateOnItem && active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-accent-highlight, #38bdf8)' }} />}
               </button>
 
               {/* Source sub-nav — only under an open Discover, expanded sidebar */}
