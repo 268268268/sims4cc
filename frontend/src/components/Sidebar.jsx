@@ -4,6 +4,7 @@ import Plumbob from './Plumbob'
 import SourceIcon from './SourceIcon'
 import { useT } from '../lib/i18n'
 import { useDownloadQueue } from '../context/DownloadQueueContext'
+import { useAppUpdate } from '../context/UpdateContext'
 
 const NAV_ITEMS = [
   { id: 'local-mods', labelKey: 'nav.localMods', Icon: Package },
@@ -28,6 +29,7 @@ const DISCOVER_SOURCES = [
 export default function Sidebar({ activePage, onNavigate, discoverSource, onDiscoverSource }) {
   const { t, lang } = useT()
   const { queue, activeCount, setDrawerOpen } = useDownloadQueue()
+  const { hasUpdate, currentVersion, updateInfo } = useAppUpdate()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === '1')
   const toggle = () => setCollapsed(c => {
     localStorage.setItem('sidebar-collapsed', c ? '0' : '1')
@@ -56,12 +58,15 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
         {NAV_ITEMS.map(({ id, labelKey, Icon, brand }) => {
           const active = activePage === id
           const label = t(labelKey)
+          const isSettings = id === 'settings'
+          const showUpdateOnItem = isSettings && hasUpdate
+
           return (
             <div key={id}>
               <button
                 onClick={() => onNavigate(id)}
-                title={collapsed ? label : undefined}
-                className={`w-full flex items-center gap-3 py-2.5 text-sm font-medium rounded-lg whitespace-nowrap
+                title={collapsed ? (showUpdateOnItem ? `${label} (${t('updates.badgeText') || 'UPDATE'})` : label) : undefined}
+                className={`w-full flex items-center gap-3 py-2.5 text-sm font-medium rounded-lg whitespace-nowrap relative
                   ${collapsed ? 'justify-center px-0' : 'px-3.5 text-left'}
                   transition-colors duration-150
                   ${active
@@ -69,11 +74,21 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
                     : 'text-gray-400 hover:bg-white/[0.04] hover:text-white border border-transparent'
                   }`}
               >
-                {brand
-                  ? <SourceIcon type={brand} size={19} className="shrink-0" />
-                  : <Icon size={20} weight={active ? 'fill' : 'regular'} className="shrink-0" />}
-                {!collapsed && label}
-                {!collapsed && active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                <div className="relative shrink-0 flex items-center justify-center">
+                  {brand
+                    ? <SourceIcon type={brand} size={19} className="shrink-0" />
+                    : <Icon size={20} weight={active ? 'fill' : 'regular'} className="shrink-0" />}
+                  {collapsed && showUpdateOnItem && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#090d0b] animate-pulse" />
+                  )}
+                </div>
+                {!collapsed && <span className="truncate">{label}</span>}
+                {!collapsed && showUpdateOnItem && (
+                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse tracking-wide">
+                    {t('updates.badgeText') || 'UPDATE'}
+                  </span>
+                )}
+                {!collapsed && !showUpdateOnItem && active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400" />}
               </button>
 
               {/* Source sub-nav — only under an open Discover, expanded sidebar */}
@@ -127,11 +142,22 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
       )}
 
       <div className={`border-t border-white/5 py-3 flex items-center ${collapsed ? 'justify-center px-0' : 'px-4 justify-between'}`}>
-        {!collapsed && <span className="text-xs text-gray-600">v1.0.0</span>}
+        {!collapsed && (
+          <button
+            onClick={() => onNavigate('settings')}
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-400 transition-colors cursor-pointer group"
+            title={hasUpdate ? (updateInfo?.latestVersion ? `Update available: v${updateInfo.latestVersion}` : 'Update available') : `The Sims 4 Mod Manager v${currentVersion || '2.0.0'}`}
+          >
+            <span>v{currentVersion || '2.0.0'}</span>
+            {hasUpdate && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping group-hover:scale-125" />
+            )}
+          </button>
+        )}
         <button
           onClick={toggle}
           title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-          className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
         >
           {collapsed ? <CaretDoubleRight size={16} weight="bold" /> : <CaretDoubleLeft size={16} weight="bold" />}
         </button>

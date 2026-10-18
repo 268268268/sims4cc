@@ -13,6 +13,16 @@ const api = {
   showItemInFolder: (p) => App.ShowItemInFolder(p),
   openExternal: (url) => App.OpenExternal(url),
 
+  // App Updater
+  checkForAppUpdate: () => App.CheckForAppUpdate(),
+  downloadAndInstallUpdate: () => App.DownloadAndInstallUpdate(),
+  restartApp: () => App.RestartApp(),
+  getAppVersion: () => App.GetAppVersion(),
+  onAppUpdateProgress: (cb) => {
+    EventsOn('app_update_progress', cb)
+    return () => EventsOff('app_update_progress', cb)
+  },
+
   // Local mods
   scanLocalMods: () => App.ScanLocalMods(),
   getCachedLocalMods: () => App.GetCachedLocalMods(),

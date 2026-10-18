@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client'
 import '@fontsource-variable/outfit'
 import App from './App'
 import { I18nProvider } from './lib/i18n'
+import { UpdateProvider } from './context/UpdateContext'
 import './index.css'
 
 // Глобальный перехват ошибок для диагностики
@@ -23,7 +24,9 @@ window.onunhandledrejection = function(e) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <I18nProvider>
-      <App />
+      <UpdateProvider>
+        <App />
+      </UpdateProvider>
     </I18nProvider>
   </React.StrictMode>
 )

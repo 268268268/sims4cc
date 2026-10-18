@@ -518,6 +518,33 @@ export default {
     loadError: 'Failed to load 3D model',
     swatches: 'Colors ({count}):',
     swatchIndex: 'Color #{index}'
+  },
+  updates: {
+    title: 'App Updates',
+    subtitle: 'Check for new releases of The Sims 4 Mod Manager on GitHub',
+    currentVersion: 'Current version',
+    versionBadge: 'v{version}',
+    checkUpdates: 'Check for updates',
+    checking: 'Checking for updates…',
+    upToDate: 'You are using the latest version of the app',
+    upToDateDesc: 'Sims 4 Mod Manager v{version} is up to date.',
+    updateAvailable: 'New version {version} is available',
+    releaseNotes: 'Release Notes',
+    downloadAndInstall: 'Download & Install Update',
+    downloading: 'Downloading…',
+    downloadingProgress: 'Downloading update: {percent}% ({downloaded} of {total})',
+    extracting: 'Extracting update archive…',
+    installing: 'Installing update…',
+    readyToRestart: 'Update installed successfully!',
+    readyDesc: 'Please restart the application to apply the update.',
+    restartNow: 'Restart Now',
+    badgeText: 'UPDATE',
+    bannerNotice: 'Update available: {version}',
+    bannerAction: 'Details / Update',
+    bannerDismiss: 'Later',
+    fileSize: 'File size: {size}',
+    publishedAt: 'Published: {date}',
+    unknownError: 'Unknown error during update'
   }
 }
 

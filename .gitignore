@@ -23,6 +23,8 @@ frontend/.vite/
 scratch/
 temp/
 *.tmp
+brag-output/
+cinematic-video/
 
 # IDE & OS
 .vscode/

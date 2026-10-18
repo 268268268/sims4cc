@@ -12,6 +12,7 @@ import CCSwiper from './pages/CCSwiper'
 import CurseForge from './pages/CurseForgeBrowser'
 import Discover from './pages/Discover'
 import Settings from './pages/Settings'
+import UpdateBanner from './components/UpdateBanner'
 
 const PAGES = {
   'local-mods': LocalMods,
@@ -85,6 +86,7 @@ export default function App() {
       <DropZone />
       <DownloadCatcher />
       <DownloadQueueDrawer />
+      <UpdateBanner onNavigate={setActivePage} />
     </DownloadQueueProvider>
   )
 }

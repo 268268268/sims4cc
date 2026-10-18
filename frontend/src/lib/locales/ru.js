@@ -518,6 +518,33 @@ export default {
     loadError: 'Ошибка загрузки 3D-модели',
     swatches: 'Цвета ({count}):',
     swatchIndex: 'Расцветка #{index}'
+  },
+  updates: {
+    title: 'Обновление приложения',
+    subtitle: 'Проверка новых версий The Sims 4 Mod Manager на GitHub',
+    currentVersion: 'Текущая версия',
+    versionBadge: 'v{version}',
+    checkUpdates: 'Проверить обновления',
+    checking: 'Проверка обновлений…',
+    upToDate: 'У вас установлена последняя версия приложения',
+    upToDateDesc: 'Приложение Sims 4 Mod Manager v{version} актуально.',
+    updateAvailable: 'Доступна новая версия {version}',
+    releaseNotes: 'Список изменений',
+    downloadAndInstall: 'Скачать и установить обновление',
+    downloading: 'Загрузка…',
+    downloadingProgress: 'Загрузка обновления: {percent}% ({downloaded} из {total})',
+    extracting: 'Распаковка архива обновления…',
+    installing: 'Установка обновления…',
+    readyToRestart: 'Обновление успешно установлено!',
+    readyDesc: 'Чтобы применить обновление, перезапустите приложение.',
+    restartNow: 'Перезапустить сейчас',
+    badgeText: 'UPDATE',
+    bannerNotice: 'Доступно обновление {version}',
+    bannerAction: 'Подробнее / Обновить',
+    bannerDismiss: 'Позже',
+    fileSize: 'Размер файла: {size}',
+    publishedAt: 'Опубликовано: {date}',
+    unknownError: 'Неизвестная ошибка при обновлении'
   }
 }
 

@@ -28,17 +28,21 @@ import (
 	"sims4cc-wails/backend/saves"
 	"sims4cc-wails/backend/scanner"
 	"sims4cc-wails/backend/swiper"
+	"sims4cc-wails/backend/updater"
 	"sims4cc-wails/backend/watcher"
 )
 
 // App struct
 type App struct {
-	ctx context.Context
+	ctx     context.Context
+	updater *updater.Updater
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		updater: updater.NewUpdater(),
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -46,6 +50,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	downloader.Init(ctx)
+	a.updater.Init(ctx)
 }
 
 // --- Config & System ---
@@ -82,6 +87,24 @@ func (a *App) ShowItemInFolder(p string) error {
 
 func (a *App) OpenExternal(url string) error {
 	return actions.OpenExternal(url)
+}
+
+// --- App Updater ---
+
+func (a *App) CheckForAppUpdate() (*updater.UpdateInfo, error) {
+	return a.updater.CheckForUpdate()
+}
+
+func (a *App) DownloadAndInstallUpdate() error {
+	return a.updater.DownloadAndInstall()
+}
+
+func (a *App) RestartApp() error {
+	return a.updater.Restart()
+}
+
+func (a *App) GetAppVersion() string {
+	return updater.AppVersion
 }
 
 // --- Local Mods ---

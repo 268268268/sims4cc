@@ -26,6 +26,10 @@ export function CheckCurseForgeUpdates(arg1) {
   return window['go']['main']['App']['CheckCurseForgeUpdates'](arg1);
 }
 
+export function CheckForAppUpdate() {
+  return window['go']['main']['App']['CheckForAppUpdate']();
+}
+
 export function ClearCompletedDownloads() {
   return window['go']['main']['App']['ClearCompletedDownloads']();
 }
@@ -56,6 +60,10 @@ export function DeleteProfile(arg1) {
 
 export function DisconnectAccount(arg1) {
   return window['go']['main']['App']['DisconnectAccount'](arg1);
+}
+
+export function DownloadAndInstallUpdate() {
+  return window['go']['main']['App']['DownloadAndInstallUpdate']();
 }
 
 export function DownloadCurseForgeMod(arg1) {
@@ -120,6 +128,10 @@ export function FollowSuggestedSources(arg1) {
 
 export function Get3DModel(arg1, arg2) {
   return window['go']['main']['App']['Get3DModel'](arg1, arg2);
+}
+
+export function GetAppVersion() {
+  return window['go']['main']['App']['GetAppVersion']();
 }
 
 export function GetAuthStatus() {
@@ -240,6 +252,10 @@ export function RenameProfile(arg1, arg2) {
 
 export function ResolveDiscoverLink(arg1) {
   return window['go']['main']['App']['ResolveDiscoverLink'](arg1);
+}
+
+export function RestartApp() {
+  return window['go']['main']['App']['RestartApp']();
 }
 
 export function RetryDownloadJob(arg1) {

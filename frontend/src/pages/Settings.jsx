@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar } from '@phosphor-icons/react'
 import { useT, LANG_OPTIONS } from '../lib/i18n'
+import AppUpdatesSection from '../components/AppUpdatesSection'
 
 const KOFI_URL = 'https://ko-fi.com/sims4ccmanager'
 const PAYPAL_EMAIL = 'feliks.pochta@gmail.com'
@@ -327,6 +328,8 @@ export default function Settings({ modsFolder, onFolderChanged }) {
             )}
           </div>
         </section>
+
+        <AppUpdatesSection />
 
         <LanguageSection />
         <ConnectedAccountsSection />
