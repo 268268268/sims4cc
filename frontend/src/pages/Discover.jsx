@@ -404,7 +404,7 @@ function SuggestedCreators({ suggested, onFollow, busy }) {
 }
 
 function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor }) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const meta = TYPE_META[item.sourceType] ?? { badge: 'bg-gray-700 text-gray-300', label: item.sourceType }
   const canDownload = isDownloadable(item)
   const candidates = useMemo(() => {
