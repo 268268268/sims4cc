@@ -1,137 +1,141 @@
 # Sims 4 Mod Manager 2.0
 
-Современное десктопное приложение для организации, очистки, поиска и автоматической установки пользовательского контента (Custom Content) и модификаций для **The Sims 4**.
+A modern desktop application for browsing, installing, organizing, and cleaning custom content and mods for **The Sims 4**.
 
-Версия 2.0 представляет собой полное переосмысление проекта: архитектура переписана на связку **Go + Wails v2 + React**, что обеспечило мгновенный запуск, низкое потребление оперативной памяти (~60 МБ) и прямую многопоточную обработку игровых архивов DBPF.
-
----
-
-## Интерфейс и возможности
-
-### 1. Управление локальными модами
-Быстрое сканирование директории `Mods`, извлечение встроенных игровых миниатюр, чтение названий из строк локализации STBL и управление активностью файлов без их физического удаления.
-
-![Управление локальными модами](docs/screenshots/01-local-mods.png)
-
-- **Мгновенная каталогизация**: сортировка по категориям (Причёски, Одежда, Обувь, Скинтоны, Мебель, Скрипты).
-- **Включение и отключение**: переименование расширений для временного скрытия модов от игры.
-- **Поддержка архивов**: автоматическая распаковка `.zip`, `.rar`, `.7z` с корректной маршрутизацией файлов лотов и персонажей в папку `Tray`.
-- **Drag-and-Drop**: установка модификаций простым перетаскиванием файлов в окно программы.
+Version 2.0 is a complete rewrite from the ground up using **Go, Wails v2, React 18, and Tailwind CSS**. It replaces the legacy Electron runtime with a high-performance native Go core, providing instant cold startups, an ultra-low memory footprint (~60 MB RAM), and multi-threaded DBPF package parsing.
 
 ---
 
-### 2. Лента контента: Pinterest, Patreon, Tumblr
-Встроенный агрегатор контента с автоматическим извлечением прямых ссылок на загрузку. Больше не требуется вручную переходить по цепочкам сокращалок и рекламы.
+## Features
 
-![Лента контента Pinterest](docs/screenshots/02-discover-pinterest.png)
+### 1. Local Mods Management
+Fast directory scanning, direct DBPF STBL string localization reading, package thumbnail extraction, and one-click enabling/disabling without deleting files.
 
-- **Скачивание в 1 клик**: бэкенд разрешает ссылки до конечных файлов `.package` на SimFileShare, Google Drive, Patreon и CurseForge.
-- **Фильтрация нерелевантного контента**: алгоритм предварительной верификации автоматически отсеивает фотосессии и тизеры без файлов.
-- **Поддержка блогов авторов**: автоматический переход и парсинг сайтов креаторов (`seoul-soul.com`, Blogspot, Wix).
-- **Статусы Early Access**: посты с платным ранним доступом маркируются специальным индикатором и не смешиваются с бесплатными файлами.
-- **Обход ограничений API**: поддержка прямых CDN-зеркал CurseForge и шлюзов скачивания Patreon.
+![Local Mods Manager](docs/screenshots/01-local-mods.png)
+
+- **Categorization**: Automatic grouping into Packages, Scripts, Archives, CAS Parts, Build/Buy Objects, and Tuning mods.
+- **Enable / Disable Toggle**: Instantly enable or disable mods via extension renaming to isolate broken content.
+- **Archive Extraction**: Drag-and-drop `.zip`, `.rar`, and `.7z` archives with automatic extraction and Tray item routing.
+- **Package Details**: Inspect internal resources (CASP, GEOM 3D mesh, RLE2 textures, STBL strings) and launch the integrated 3D mesh viewer.
 
 ---
 
-### 3. CC Swiper — быстрая очистка папки модов
-Режим пакетного перебора установленных модов в формате свайп-карточек для быстрой очистки накопленного контента.
+### 2. Discover Feed: Pinterest, Patreon, Tumblr
+An integrated content aggregator with an intelligent link resolver that extracts direct package download URLs, bypassing external ad redirects and link shorteners.
+
+![Discover Feed](docs/screenshots/02-discover-pinterest.png)
+
+- **One-Click Direct Downloads**: Automatically resolves SimFileShare, Google Drive, Patreon, and CurseForge links directly to `.package` files.
+- **Smart Feed Filtering**: Background validation workers filter out teaser photos and broken links, displaying only verified downloadable custom content.
+- **Creator Blog Support**: Deep link resolution for creator websites and portfolios (such as `seoul-soul.com`, Blogspot, Wix, and custom creator domains).
+- **Early Access Detection**: Clearly marks paid early access posts with lock indicators, keeping public free content easily accessible.
+- **Edge CDN Fallback**: Downloads CurseForge mods directly via CDN even when third-party API distribution is restricted by the creator.
+
+---
+
+### 3. CC Swiper — Fast Mod Cleaner
+A card-swiping interface designed for cleaning bloated custom content collections.
 
 ![CC Swiper](docs/screenshots/03-cc-swiper.png)
 
-- **Управление с клавиатуры**: стрелки влево/вправо (или клавиши A/D) для удаления или сохранения мода.
-- **Безопасное удаление**: отправка файлов в корзину с возможностью мгновенной отмены последнего действия.
-- **Мобильный режим**: встроенный локальный веб-сервер позволяет проводить чистку модов с экрана телефона или планшета через домашнюю сеть Wi-Fi.
-- **Статистика сессии**: наглядный счетчик удаленных файлов и освобожденного дискового пространства.
+- **Keyboard Controls**: Press `A` (or Left Arrow) to delete, and `D` (or Right Arrow) to keep.
+- **Recycle Bin Safety**: Deleted items are safely moved to the system Recycle Bin with instant undo (`Z`).
+- **Mobile Wi-Fi Companion**: Run the embedded local server to swipe and clean mods directly from your mobile phone or tablet on your local network.
+- **Resource Stats**: Real-time display of 3D polygon counts, texture memory, swatches, and total storage cleaned during the session.
 
 ---
 
-### 4. Каталог CurseForge
-Полноценный клиент официальной платформы модификаций с прямым поиском и отслеживанием обновлений.
+### 4. CurseForge Catalog Browser
+A full-featured client for the official CurseForge mod platform with search, category filtering, and automated updates.
 
-![Каталог CurseForge](docs/screenshots/04-curseforge.png)
+![CurseForge Catalog](docs/screenshots/04-curseforge.png)
 
-- Поиск по авторам, названиям и категориям модификаций.
-- Уведомления об устаревших версиях установленных скриптов (MCCC, UI Cheats, WonderfulWhims и др.).
-- Бесшовная загрузка и фоновая установка в один клик.
-
----
-
-### 5. Диагностика, конфликты и анализ сохранений
-Комплексный инструментарий для поддержания стабильности игры и предотвращения сбоев.
-
-![Диагностика и Конфликты](docs/screenshots/05-diagnostics.png)
-
-- **Детектор конфликтов**: выявление дублирующихся Tuning ID и пересекающихся ресурсов между модами.
-- **Поиск точных дубликатов**: сканирование по контрольным суммам SHA-256 для удаления случайно продублированных файлов.
-- **Polycount Analyzer**: выявление тяжелых высокополигональных 3D-моделей, просаживающих FPS в игре.
-- **Сканер файлов сохранений (`.save`)**: анализ используемого персонажами CC и обнаружение удаленных элементов, вызывающих визуальные глитчи.
+- Browse and search popular gameplay mods, traits, careers, and custom content.
+- **Update Checker**: Automatically detects new releases for installed script mods (e.g., MC Command Center, UI Cheats Extension, WonderfulWhims).
+- Background downloading with automated extraction into the `Mods` directory.
 
 ---
 
-## Архитектура и технологии
+### 5. Diagnostics, Conflicts & Save Inspector
+A comprehensive diagnostic suite for game stability and performance optimization.
 
-| Компонент | Стек / Библиотека | Назначение |
+![Diagnostics & Conflicts](docs/screenshots/05-diagnostics.png)
+
+- **Conflict Detection**: Scans for conflicting Tuning IDs, instance overlaps, and duplicated GUIDs between packages.
+- **Duplicate Scanner**: Identifies exact file duplicates across subfolders using SHA-256 hash comparisons.
+- **Polycount Analyzer**: Flags high-poly meshes that can cause frame rate drops and simulation lag.
+- **Save File Inspector**: Analyzes `.save` files to verify that all custom content used by your Sims is installed, preventing missing mesh glitches.
+
+---
+
+## Architecture & Technology Stack
+
+| Component | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Backend Core** | Go 1.22+ | Высокопроизводительный парсер DBPF, HTTP-резолвер, сетевые воркеры |
-| **Desktop Runtime** | Wails v2 | Нативная интеграция с Windows WebView2, минимальный оверхед |
-| **Frontend UI** | React 18, Vite | Компонентная структура интерфейса, быстрый рендеринг |
-| **Стилизация** | Tailwind CSS | Адаптивная темная тема, аппаратная отрисовка эффектов |
-| **3D Rendering** | Three.js | Интерактивный просмотр GEOM мешей и материалов в браузере мода |
-| **Локализация** | Custom i18n | Полная поддержка русского и английского языков |
+| **Backend Core** | Go 1.22+ | High-throughput DBPF parser, HTTP link resolver, multi-threaded worker pools |
+| **Desktop Shell** | Wails v2 | Native Windows WebView2 runtime, replacing Electron |
+| **Frontend UI** | React 18, Vite | Component architecture, responsive dark theme |
+| **Styling** | Tailwind CSS v4 | Hardware-accelerated UI rendering, modern Sims Plumbob mineral theme |
+| **3D Rendering** | Three.js | Real-time interactive inspection of CAS and Object GEOM meshes |
+| **Localization** | Custom i18n | Multi-language support (English and Russian) |
 
 ---
 
-## Системные требования
+## System Requirements
 
-- **Операционная система**: Windows 10 / Windows 11 (64-bit).
-- **Установленная игра**: The Sims 4 (поддерживаются версии EA App, Steam, а также альтернативные установки).
-- **Среда выполнения**: Microsoft Edge WebView2 (предустановлен в современных версиях Windows).
-
----
-
-## Быстрый запуск
-
-1. Перейдите на страницу [Releases](https://github.com/268268268/sims4cc/releases).
-2. Загрузите актуальный архив или исполняемый файл `sims4-mod-manager.exe`.
-3. Запустите приложение. При первом старте укажите путь к вашей директории `Electronic Arts\The Sims 4\Mods` (по умолчанию определяется автоматически).
+- **Operating System**: Windows 10 or Windows 11 (64-bit).
+- **Game**: The Sims 4 (EA App, Steam, or custom installation path).
+- **Runtime**: Microsoft Edge WebView2 (preinstalled on modern Windows installations).
 
 ---
 
-## Сборка из исходного кода
+## Installation
 
-Для самостоятельной сборки приложения необходимы установленные инструменты:
-- **Go** 1.22 или новее
-- **Node.js** 18+ и **npm**
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+1. Download the latest release from the [Releases](https://github.com/268268268/sims4cc/releases) page:
+   - `sims4-mod-manager.exe` — Standalone portable executable (no installer required).
+   - `sims4-mod-manager-v2.0.0-windows-x64.zip` — Compressed release archive.
+2. Launch the application. On first startup, select your `Electronic Arts\The Sims 4\Mods` directory (auto-detected if in standard location).
 
-### Шаги компиляции:
+---
+
+## Building from Source
+
+### Prerequisites
+- **Go** (version 1.22 or higher)
+- **Node.js** (version 18 or higher) and **npm**
+- **Wails CLI v2**:
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@latest
+  ```
+
+### Build Steps
 
 ```bash
-# Клонирование репозитория
+# Clone the repository
 git clone https://github.com/268268268/sims4cc.git
 cd sims4cc
 
-# Установка зависимостей интерфейса
+# Install frontend dependencies
 cd frontend
 npm install
 cd ..
 
-# Сборка готового бинарного файла
+# Build release executable
 wails build
 ```
 
-Скомпилированное приложение будет находиться в директории `build/bin/sims4-mod-manager.exe`.
+The resulting binary will be placed at `build/bin/sims4-mod-manager.exe`.
 
 ---
 
-## Поддерживаемые источники контента
+## Supported Content Sources
 
-- **Прямые платформы**: Pinterest, Patreon, Tumblr, Boosty, CurseForge, ModTheSims, TheSimsResource, GitHub, itch.io.
-- **Файловые хостинги**: SimFileShare, Google Drive, MediaFire, MEGA.
-- **Блоги и каталоги креаторов**: SeoulSoul, Blogspot, Wix, SimsFinds и персональные домены авторов.
+- **Platforms**: Pinterest, Patreon, Tumblr, Boosty, CurseForge, ModTheSims, The Sims Resource, GitHub Releases, itch.io.
+- **File Hosts**: SimFileShare, Google Drive, MediaFire, MEGA, Dropbox.
+- **Creator Portals**: SeoulSoul, Blogspot, Wix, SimsFinds, and custom author domains.
 
 ---
 
-## Лицензия
+## License
 
-Проект распространяется под лицензией MIT. Не является официальным продуктом Electronic Arts или Maxis. Все торговые марки принадлежат их законным правообладателям.
+Distributed under the MIT License. This is an independent fan project not affiliated with or endorsed by Electronic Arts or Maxis. All trademarks belong to their respective owners.
