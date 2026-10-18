@@ -1,5 +1,32 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+build/bin/
+
+# Dependencies
 node_modules/
+frontend/node_modules/
+
+# Frontend builds
+frontend/dist/
+frontend/.vite/
+
+# Logs and environment
+*.log
 .env
-.aider*
-dist/
-out/
+.env.local
+
+# Scratch and test files
+scratch/
+temp/
+*.tmp
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

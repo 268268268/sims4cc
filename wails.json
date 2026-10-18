@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "sims4cc-wails",
+  "outputfilename": "sims4-mod-manager",
+  "frontend:dir": "frontend",
+  "frontend:install": "",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "PoZi268"
+  },
+  "info": {
+    "companyName": "Sims 4 Mod Manager",
+    "productName": "Sims 4 Mod Manager",
+    "productVersion": "1.2.0",
+    "copyright": "Copyright 2026",
+    "comments": "Sims 4 Mod Manager"
+  }
+}

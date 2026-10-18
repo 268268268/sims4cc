@@ -1,95 +1,137 @@
-# Sims 4 Mod Manager
+# Sims 4 Mod Manager 2.0
 
-A desktop app for browsing, installing, and organizing **The Sims 4** custom content — with a
-built‑in CurseForge browser, a local mod library, and a *Discover* feed that aggregates public
-posts from Patreon, Pinterest, Tumblr and ModTheSims.
+Современное десктопное приложение для организации, очистки, поиска и автоматической установки пользовательского контента (Custom Content) и модификаций для **The Sims 4**.
 
-> Unofficial fan tool. Not affiliated with or endorsed by Electronic Arts, Maxis, Overwolf/CurseForge,
-> Patreon, or any content creator. Windows‑first (Electron).
+Версия 2.0 представляет собой полное переосмысление проекта: архитектура переписана на связку **Go + Wails v2 + React**, что обеспечило мгновенный запуск, низкое потребление оперативной памяти (~60 МБ) и прямую многопоточную обработку игровых архивов DBPF.
 
-## Features
+---
 
-**Local Mods**
-- Scans your Mods folder, reads real mod names from the `.package` (DBPF STBL) and shows the
-  in‑game thumbnail extracted straight from the file.
-- Enable/disable (extension rename), delete to the Recycle Bin, drag‑and‑drop install of
-  `.zip` / `.package` / `.ts4script`, automatic Tray‑file routing.
-- Detail view: package resource breakdown, folder size, files list, "installed from CurseForge" link.
-- Search, filter (type / enabled / archives) and sort.
+## Интерфейс и возможности
 
-**CurseForge**
-- Browse & search Sims 4 mods, filter by category, sort, infinite scroll.
-- One‑click install (zips auto‑extract into the Mods folder).
-- "Installed" view with **update detection** and one‑click update (no duplicate folders).
-- Live download progress; detail modal with a sanitized description and a screenshot lightbox.
+### 1. Управление локальными модами
+Быстрое сканирование директории `Mods`, извлечение встроенных игровых миниатюр, чтение названий из строк локализации STBL и управление активностью файлов без их физического удаления.
 
-**Discover**
-- Aggregates public content from **Patreon** (free posts install directly), **Pinterest** boards,
-  **Tumblr** blogs and **ModTheSims**.
-- A curated starter pack of popular creators — one click to follow.
-- **Connect your own accounts** (Patreon / Pinterest): you log in on the real site in a normal
-  window; the app reuses the session cookie and **never sees your password**. Paywalled posts stay
-  locked unless *you* have access.
-- **Download from a link:** paste a Pinterest pin, a Patreon post, a SimFileShare or a direct file
-  URL and the app resolves it to the actual mod and installs it.
+![Управление локальными модами](docs/screenshots/01-local-mods.png)
 
-**General**
-- English & Russian UI, dark theme, per‑host rate‑limiting so following many creators won't get
-  you throttled, and a "clear the game cache" reminder after installs.
+- **Мгновенная каталогизация**: сортировка по категориям (Причёски, Одежда, Обувь, Скинтоны, Мебель, Скрипты).
+- **Включение и отключение**: переименование расширений для временного скрытия модов от игры.
+- **Поддержка архивов**: автоматическая распаковка `.zip`, `.rar`, `.7z` с корректной маршрутизацией файлов лотов и персонажей в папку `Tray`.
+- **Drag-and-Drop**: установка модификаций простым перетаскиванием файлов в окно программы.
 
-## Install
+---
 
-Grab the latest **`sims4-mod-manager-x.y.z-setup.exe`** (installer) or
-**`sims4-mod-manager-x.y.z-portable.exe`** from the
-[Releases](https://github.com/PoZi268/sims4cc/releases) page and run it.
+### 2. Лента контента: Pinterest, Patreon, Tumblr
+Встроенный агрегатор контента с автоматическим извлечением прямых ссылок на загрузку. Больше не требуется вручную переходить по цепочкам сокращалок и рекламы.
 
-## Build from source
+![Лента контента Pinterest](docs/screenshots/02-discover-pinterest.png)
 
-Requirements: **Node.js 18+** and Windows.
+- **Скачивание в 1 клик**: бэкенд разрешает ссылки до конечных файлов `.package` на SimFileShare, Google Drive, Patreon и CurseForge.
+- **Фильтрация нерелевантного контента**: алгоритм предварительной верификации автоматически отсеивает фотосессии и тизеры без файлов.
+- **Поддержка блогов авторов**: автоматический переход и парсинг сайтов креаторов (`seoul-soul.com`, Blogspot, Wix).
+- **Статусы Early Access**: посты с платным ранним доступом маркируются специальным индикатором и не смешиваются с бесплатными файлами.
+- **Обход ограничений API**: поддержка прямых CDN-зеркал CurseForge и шлюзов скачивания Patreon.
+
+---
+
+### 3. CC Swiper — быстрая очистка папки модов
+Режим пакетного перебора установленных модов в формате свайп-карточек для быстрой очистки накопленного контента.
+
+![CC Swiper](docs/screenshots/03-cc-swiper.png)
+
+- **Управление с клавиатуры**: стрелки влево/вправо (или клавиши A/D) для удаления или сохранения мода.
+- **Безопасное удаление**: отправка файлов в корзину с возможностью мгновенной отмены последнего действия.
+- **Мобильный режим**: встроенный локальный веб-сервер позволяет проводить чистку модов с экрана телефона или планшета через домашнюю сеть Wi-Fi.
+- **Статистика сессии**: наглядный счетчик удаленных файлов и освобожденного дискового пространства.
+
+---
+
+### 4. Каталог CurseForge
+Полноценный клиент официальной платформы модификаций с прямым поиском и отслеживанием обновлений.
+
+![Каталог CurseForge](docs/screenshots/04-curseforge.png)
+
+- Поиск по авторам, названиям и категориям модификаций.
+- Уведомления об устаревших версиях установленных скриптов (MCCC, UI Cheats, WonderfulWhims и др.).
+- Бесшовная загрузка и фоновая установка в один клик.
+
+---
+
+### 5. Диагностика, конфликты и анализ сохранений
+Комплексный инструментарий для поддержания стабильности игры и предотвращения сбоев.
+
+![Диагностика и Конфликты](docs/screenshots/05-diagnostics.png)
+
+- **Детектор конфликтов**: выявление дублирующихся Tuning ID и пересекающихся ресурсов между модами.
+- **Поиск точных дубликатов**: сканирование по контрольным суммам SHA-256 для удаления случайно продублированных файлов.
+- **Polycount Analyzer**: выявление тяжелых высокополигональных 3D-моделей, просаживающих FPS в игре.
+- **Сканер файлов сохранений (`.save`)**: анализ используемого персонажами CC и обнаружение удаленных элементов, вызывающих визуальные глитчи.
+
+---
+
+## Архитектура и технологии
+
+| Компонент | Стек / Библиотека | Назначение |
+| :--- | :--- | :--- |
+| **Backend Core** | Go 1.22+ | Высокопроизводительный парсер DBPF, HTTP-резолвер, сетевые воркеры |
+| **Desktop Runtime** | Wails v2 | Нативная интеграция с Windows WebView2, минимальный оверхед |
+| **Frontend UI** | React 18, Vite | Компонентная структура интерфейса, быстрый рендеринг |
+| **Стилизация** | Tailwind CSS | Адаптивная темная тема, аппаратная отрисовка эффектов |
+| **3D Rendering** | Three.js | Интерактивный просмотр GEOM мешей и материалов в браузере мода |
+| **Локализация** | Custom i18n | Полная поддержка русского и английского языков |
+
+---
+
+## Системные требования
+
+- **Операционная система**: Windows 10 / Windows 11 (64-bit).
+- **Установленная игра**: The Sims 4 (поддерживаются версии EA App, Steam, а также альтернативные установки).
+- **Среда выполнения**: Microsoft Edge WebView2 (предустановлен в современных версиях Windows).
+
+---
+
+## Быстрый запуск
+
+1. Перейдите на страницу [Releases](https://github.com/268268268/sims4cc/releases).
+2. Загрузите актуальный архив или исполняемый файл `sims4-mod-manager.exe`.
+3. Запустите приложение. При первом старте укажите путь к вашей директории `Electronic Arts\The Sims 4\Mods` (по умолчанию определяется автоматически).
+
+---
+
+## Сборка из исходного кода
+
+Для самостоятельной сборки приложения необходимы установленные инструменты:
+- **Go** 1.22 или новее
+- **Node.js** 18+ и **npm**
+- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+
+### Шаги компиляции:
 
 ```bash
-git clone https://github.com/PoZi268/sims4cc.git
+# Клонирование репозитория
+git clone https://github.com/268268268/sims4cc.git
 cd sims4cc
+
+# Установка зависимостей интерфейса
+cd frontend
 npm install
-npm run dev          # run in development
-npm run dist         # build the Windows installer + portable exe into dist/
+cd ..
+
+# Сборка готового бинарного файла
+wails build
 ```
 
-### CurseForge API key (optional)
+Скомпилированное приложение будет находиться в директории `build/bin/sims4-mod-manager.exe`.
 
-Browsing/downloading from CurseForge needs a free API key.
+---
 
-- **Easiest:** run the app → **Settings → CurseForge API Key** → paste it.
-- Or create a `.env` file in the project root (a `.env` takes precedence over the Settings key):
+## Поддерживаемые источники контента
 
-  ```
-  CURSEFORGE_API_KEY=your-key-here
-  ```
+- **Прямые платформы**: Pinterest, Patreon, Tumblr, Boosty, CurseForge, ModTheSims, TheSimsResource, GitHub, itch.io.
+- **Файловые хостинги**: SimFileShare, Google Drive, MediaFire, MEGA.
+- **Блоги и каталоги креаторов**: SeoulSoul, Blogspot, Wix, SimsFinds и персональные домены авторов.
 
-Get a free key at <https://console.curseforge.com/>. The *Discover* tab works without a key.
+---
 
-## Tech
+## Лицензия
 
-Electron 43 · electron‑vite · React 18 · Tailwind CSS 4 · Phosphor Icons.
-App data (settings, caches, followed sources) lives in `%APPDATA%\sims4-mod-manager` — never in the repo.
-
-## Support
-
-The app is free and MIT‑licensed — nothing is locked behind a payment. If it saves you time and
-you'd like to chip in for its development:
-
-- **Ko‑fi:** <https://ko-fi.com/sims4ccmanager>
-- **PayPal:** `feliks.pochta@gmail.com`
-
-Entirely optional — and please keep supporting the CC creators themselves first.
-
-## Disclaimer
-
-This tool only accesses **publicly available** content and honors paywalls: patron‑only Patreon
-posts are shown as locked and are never bypassed. Please respect each platform's Terms of Service
-and, above all, **support the creators** whose work you enjoy. Provided "as is", without warranty —
-see [LICENSE](LICENSE).
-
-## License
-
-[MIT](LICENSE)
+Проект распространяется под лицензией MIT. Не является официальным продуктом Electronic Arts или Maxis. Все торговые марки принадлежат их законным правообладателям.
