@@ -212,7 +212,7 @@ export default function SaveInspectorModal({ onClose, onFilesChanged }) {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder={t('saveInspector.searchMod')}
+                placeholder={t('saveInspector.searchPlaceholder')}
                 className="input w-52 pl-8 pr-3 py-1.5 text-xs"
               />
             </div>
