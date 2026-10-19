@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Eye, EyeSlash, Check, Globe, HeartStraight, PushPin, FolderOpen, Broom, Warning, Folder, Trash, CheckCircle, XCircle, Translate, Coffee, Copy, CurrencyCircleDollar, ShieldWarning, Palette } from '@phosphor-icons/react'
 import { useT, LANG_OPTIONS } from '../lib/i18n'
 import { useDownloadQueue } from '../context/DownloadQueueContext'
-import { THEMES, THEME_CATEGORIES, getInitialTheme, setAppTheme } from '../lib/theme'
+import { THEMES, getInitialTheme, setAppTheme } from '../lib/theme'
 import AppUpdatesSection from '../components/AppUpdatesSection'
 
 const KOFI_URL = 'https://ko-fi.com/sims4ccmanager'
@@ -56,7 +56,6 @@ function SupportSection() {
 function ThemeSection() {
   const { t, lang } = useT()
   const [currentTheme, setCurrentTheme] = useState(() => getInitialTheme())
-  const [activeCategory, setActiveCategory] = useState('all')
 
   useEffect(() => {
     const onThemeChange = (e) => {
@@ -73,10 +72,6 @@ function ThemeSection() {
     await setAppTheme(id)
   }
 
-  const filteredThemes = activeCategory === 'all'
-    ? THEMES
-    : THEMES.filter(th => th.category === activeCategory)
-
   return (
     <section className="mb-6 fade-in-up">
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
@@ -90,27 +85,9 @@ function ThemeSection() {
       </div>
 
       <div className="card p-5">
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-white/5">
-          {THEME_CATEGORIES.map(cat => {
-            const count = cat.id === 'all' ? THEMES.length : THEMES.filter(th => th.category === cat.id).length
-            const isCatActive = activeCategory === cat.id
-            const label = lang === 'ru' ? cat.labelRu : cat.labelEn
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`chip ${isCatActive ? 'chip-active' : ''}`}
-              >
-                {label} ({count})
-              </button>
-            )
-          })}
-        </div>
-
         {/* Themes Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filteredThemes.map(th => {
+          {THEMES.map(th => {
             const isSelected = currentTheme === th.id
             const name = lang === 'ru' ? th.nameRu : th.name
             const desc = lang === 'ru' ? th.descRu : th.descEn

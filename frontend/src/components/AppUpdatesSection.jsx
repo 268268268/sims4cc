@@ -82,7 +82,7 @@ export default function AppUpdatesSection() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-200">{t('updates.currentVersion')}:</span>
                 <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-white/10 text-gray-200 border border-white/10">
-                  v{currentVersion || '2.0.0'}
+                  v{currentVersion || '2.0.1'}
                 </span>
                 {hasUpdate && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse">
@@ -121,7 +121,7 @@ export default function AppUpdatesSection() {
         {!hasUpdate && !checking && updateInfo && (
           <div className="flex items-center gap-2 text-xs text-emerald-400/90 bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-3.5 py-2.5">
             <CheckCircle size={16} weight="fill" className="shrink-0" />
-            <span>{t('updates.upToDateDesc', { version: currentVersion || '2.0.0' })}</span>
+            <span>{t('updates.upToDateDesc', { version: currentVersion || '2.0.1' })}</span>
           </div>
         )}
 

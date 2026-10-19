@@ -1,14 +1,5 @@
 // Theme management and registry for Sims 4 CC Manager
-// 12 curated themes derived from ui-ux-pro-max-skill with Studio Titanium as default.
-
-export const THEME_CATEGORIES = [
-  { id: 'all', labelRu: 'Все', labelEn: 'All' },
-  { id: 'tech', labelRu: '⚡ Modern Tech', labelEn: '⚡ Modern Tech' },
-  { id: 'classic', labelRu: '💎 Classic Sims', labelEn: '💎 Classic Sims' },
-  { id: 'fashion', labelRu: '👗 Fashion & CAS', labelEn: '👗 Fashion & CAS' },
-  { id: 'gaming', labelRu: '🎮 Gaming & Cyber', labelEn: '🎮 Gaming & Cyber' },
-  { id: 'warm', labelRu: '🌅 Warm & Midnight', labelEn: '🌅 Warm & Midnight' }
-]
+// 12 curated themes derived from modern color theory with Studio Titanium as default.
 
 export const THEMES = [
   {
@@ -17,7 +8,6 @@ export const THEMES = [
     nameRu: 'Студио Титаниум (OLED)',
     tag: 'default',
     tagRu: 'По умолчанию',
-    category: 'tech',
     descRu: 'Глубокий OLED-монохром с титановым платиновым акцентом и небесной подсветкой. Идеальная цветопередача для одежды и CAS.',
     descEn: 'Deep OLED monochrome with titanium platinum accents and sky blue highlights. Pure contrast for CAS & fashion.',
     preview: {
@@ -34,7 +24,6 @@ export const THEMES = [
     nameRu: 'Классический Plumbob (OG)',
     tag: 'og',
     tagRu: 'OG Classic',
-    category: 'classic',
     descRu: 'Оригинальная изумрудная палитра Sims Plumbob. Фирменный зелёный кристалл и глубокий лесной фон.',
     descEn: 'Original Sims Plumbob emerald green palette. Iconic plumbob crystal and deep mineral base.',
     preview: {
@@ -49,7 +38,6 @@ export const THEMES = [
     id: 'amethyst',
     name: 'Velvet Amethyst',
     nameRu: 'Бархатный Аметист',
-    category: 'fashion',
     descRu: 'Бархатный нео-аметист и лаванда. Стиль высокой моды, подиумный контраст для гардероба.',
     descEn: 'Velvet neo-amethyst & lavender. High fashion runway contrast.',
     preview: {
@@ -64,7 +52,6 @@ export const THEMES = [
     id: 'rose-wine',
     name: 'Rose Wine & Quartz',
     nameRu: 'Роза-Кварц и Вино',
-    category: 'fashion',
     descRu: 'Гламурный ягодный роза-кварц. Эстетика макияжа, причёсок и нежного CAS.',
     descEn: 'Glamorous berry rose-quartz. Makeup, hair, and soft CAS aesthetic.',
     preview: {
@@ -79,7 +66,6 @@ export const THEMES = [
     id: 'haute-gold',
     name: 'Obsidian & Haute Gold',
     nameRu: 'Черный Оникс и Золото',
-    category: 'fashion',
     descRu: 'Черный оникс и шампанское золото. Роскошный ювелирный минимализм с контрастными кнопками.',
     descEn: 'Onyx black and champagne gold. Luxury jewelry minimalism with crisp buttons.',
     preview: {
@@ -94,7 +80,6 @@ export const THEMES = [
     id: 'cyber-coral',
     name: 'Cyber Coral & Peony',
     nameRu: 'Кибер-Коралл и Пион',
-    category: 'gaming',
     descRu: 'Симс-неон, коралл и розовая фуксия. Дерзкая трендовая энергетика Y2K.',
     descEn: 'Sims-neon, coral and hot peony. Bold Y2K gamer energy.',
     preview: {
@@ -109,7 +94,6 @@ export const THEMES = [
     id: 'synthwave',
     name: 'Vapor Synthwave',
     nameRu: 'Вейпор Синтвейв',
-    category: 'gaming',
     descRu: 'Электрик-маджента и неоновый циановый отблеск на полуночном фоне.',
     descEn: 'Electric magenta and cyan glow against midnight backdrops.',
     preview: {
@@ -124,7 +108,6 @@ export const THEMES = [
     id: 'cyber-lime',
     name: 'Cyber Lime & Matrix',
     nameRu: 'Кибер-Лайм и Матрица',
-    category: 'gaming',
     descRu: 'Кислотный электро-лайм на темно-графитовом фоне с ультра-контрастным текстом.',
     descEn: 'Acid neon lime on dark graphite with ultra-high contrast dark typography.',
     preview: {
@@ -139,7 +122,6 @@ export const THEMES = [
     id: 'cobalt-cyan',
     name: 'Electric Cobalt & Cyan',
     nameRu: 'Электрик Кобальт & Циан',
-    category: 'tech',
     descRu: 'Ледниковый циан и глубокий ультрамарин. Технологичный, чистый, быстрый стиль.',
     descEn: 'Glacial cyan and ultramarine blue. Crisp modern pro interface.',
     preview: {
@@ -154,7 +136,6 @@ export const THEMES = [
     id: 'raycast-indigo',
     name: 'Deep Space Indigo',
     nameRu: 'Космический Индиго',
-    category: 'tech',
     descRu: 'Глубокий чернильный индиго в стиле Linear и Raycast. Строгий софт для профессионалов.',
     descEn: 'Linear & Raycast-inspired deep space indigo. Sleek precision software.',
     preview: {
@@ -169,7 +150,6 @@ export const THEMES = [
     id: 'sunset-amber',
     name: 'Sunset Amber & Espresso',
     nameRu: 'Закатный Янтарь и Эспрессо',
-    category: 'warm',
     descRu: 'Закатный янтарный неон на темном эспрессо. Теплый и ламповый свет для ночи.',
     descEn: 'Sunset amber glow on dark espresso. Warm, cozy night aesthetic.',
     preview: {
@@ -184,7 +164,6 @@ export const THEMES = [
     id: 'midnight-mint',
     name: 'Midnight Plum & Mint',
     nameRu: 'Полночная Слива & Мята',
-    category: 'warm',
     descRu: 'Глубокая бархатная слива с контрастной освежающей мятой. Редкое и стильное сочетание.',
     descEn: 'Deep velvet plum paired with refreshing high-contrast mint.',
     preview: {

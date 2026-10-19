@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	APP_VERSION       = "2.0.0"
+	APP_VERSION       = "2.0.1"
 	AppVersion        = APP_VERSION
 	GithubRepoOwner   = "268268268"
 	GithubRepoName    = "sims4cc"

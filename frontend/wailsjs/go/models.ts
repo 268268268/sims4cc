@@ -128,6 +128,7 @@ export namespace config {
 	    locale: string;
 	    language: string;
 	    autoScan: boolean;
+	    bypassRestrictedDownloads: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -145,6 +146,7 @@ export namespace config {
 	        this.locale = source["locale"];
 	        this.language = source["language"];
 	        this.autoScan = source["autoScan"];
+	        this.bypassRestrictedDownloads = source["bypassRestrictedDownloads"];
 	    }
 	}
 	export class ValidationResult {
