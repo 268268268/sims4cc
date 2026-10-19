@@ -5,7 +5,9 @@ import (
 	"compress/zlib"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -189,6 +191,25 @@ type ListSavesResult struct {
 	Error       string        `json:"error,omitempty"`
 }
 
+// Возвращает путь, который реально можно прочитать: сам сейв или свежую резервную копию игры (.ver0),
+// если Windows запрещает чтение основного файла (например, его записала игра под другой учётной записью).
+func readableSavePath(savePath string) (string, bool) {
+	f, err := os.Open(savePath)
+	if err == nil {
+		f.Close()
+		return savePath, false
+	}
+	if !errors.Is(err, fs.ErrPermission) {
+		return savePath, false
+	}
+	alt := savePath + ".ver0"
+	if f, err := os.Open(alt); err == nil {
+		f.Close()
+		return alt, true
+	}
+	return savePath, false
+}
+
 // Находит папку saves
 func resolveSavesFolder(modsFolder string) string {
 	candidates := []string{
@@ -240,11 +261,12 @@ func ListSaveFiles(customFolder string) ListSavesResult {
 		}
 
 		var thumbUrl *string
-		dbpfEntries, err := dbpf.ParseEntries(p)
+		thumbPath, _ := readableSavePath(p)
+		dbpfEntries, err := dbpf.ParseEntries(thumbPath)
 		if err == nil {
 			for _, e := range dbpfEntries {
 				if (e.Type == 0x14 || e.Type == 0xf || e.Type == 0x10) && e.Size > 0 {
-					f, err := os.Open(p)
+					f, err := os.Open(thumbPath)
 					if err == nil {
 						raw := make([]byte, e.Size)
 						_, _ = f.Seek(int64(e.Position), io.SeekStart)
@@ -318,12 +340,16 @@ func AnalyzeSaveFile(savePath string) SaveAnalysisResult {
 		return SaveAnalysisResult{Ok: false, Error: "Папка Mods не указана"}
 	}
 
-	saveEntries, err := dbpf.ParseEntries(savePath)
+	readPath, fromBackup := readableSavePath(savePath)
+	saveEntries, err := dbpf.ParseEntries(readPath)
 	if err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			return SaveAnalysisResult{Ok: false, Error: "Нет доступа к файлу сохранения: Windows запрещает его чтение (файл создан другим пользователем Windows), а резервной копии .ver0 нет"}
+		}
 		return SaveAnalysisResult{Ok: false, Error: "Не удалось прочитать файл сохранения"}
 	}
 
-	sf, err := os.Open(savePath)
+	sf, err := os.Open(readPath)
 	if err != nil {
 		return SaveAnalysisResult{Ok: false, Error: err.Error()}
 	}
@@ -452,7 +478,7 @@ func AnalyzeSaveFile(savePath string) SaveAnalysisResult {
 	return SaveAnalysisResult{
 		Ok:         true,
 		SavePath:   savePath,
-		SaveName:   filepath.Base(savePath),
+		SaveName:   saveDisplayName(savePath, fromBackup),
 		UsedMods:   usedMods,
 		UnusedMods: unusedMods,
 		Stats: SaveAnalysisStats{
@@ -464,4 +490,11 @@ func AnalyzeSaveFile(savePath string) SaveAnalysisResult {
 			TotalSizeBytes:  totalBytes,
 		},
 	}
+}
+
+func saveDisplayName(savePath string, fromBackup bool) string {
+	if fromBackup {
+		return filepath.Base(savePath) + " (резервная копия .ver0: основной файл закрыт правами Windows)"
+	}
+	return filepath.Base(savePath)
 }
