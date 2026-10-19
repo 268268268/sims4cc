@@ -18,6 +18,8 @@ import (
 var assets embed.FS
 
 func main() {
+	setProcessPriority()
+
 	app := NewApp()
 
 	appData := os.Getenv("APPDATA")

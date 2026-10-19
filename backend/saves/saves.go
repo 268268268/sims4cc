@@ -8,13 +8,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
 
 	"sims4cc-wails/backend/config"
 	"sims4cc-wails/backend/dbpf"
+	"sims4cc-wails/backend/workers"
 )
 
 // Декомпрессия RefPack (QFS), используемого EA в файлах сохранений
@@ -358,10 +358,7 @@ func AnalyzeSaveFile(savePath string) SaveAnalysisResult {
 		instances []uint64
 	}
 
-	numWorkers := runtime.NumCPU()
-	if numWorkers < 2 {
-		numWorkers = 2
-	}
+	numWorkers := workers.Count()
 
 	jobs := make(chan rawModFile, len(rawFiles))
 	results := make(chan modEntry, len(rawFiles))

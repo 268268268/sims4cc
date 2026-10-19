@@ -7,13 +7,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
 	"sims4cc-wails/backend/actions"
 	"sims4cc-wails/backend/config"
 	"sims4cc-wails/backend/dbpf"
+	"sims4cc-wails/backend/workers"
 )
 
 type FileItem struct {
@@ -171,10 +171,7 @@ func ScanDuplicatesAndConflicts() ConflictScanResult {
 		keys []tgiKey
 	}
 
-	numWorkers := runtime.NumCPU()
-	if numWorkers < 2 {
-		numWorkers = 2
-	}
+	numWorkers := workers.Count()
 	jobs := make(chan FileItem, len(files))
 	resultsCh := make(chan fileEntries, len(files))
 

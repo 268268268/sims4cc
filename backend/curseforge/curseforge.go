@@ -20,6 +20,7 @@ import (
 	"sims4cc-wails/backend/config"
 	"sims4cc-wails/backend/extractor"
 	"sims4cc-wails/backend/scanner"
+	"sims4cc-wails/backend/workers"
 )
 
 const (
@@ -65,16 +66,113 @@ func Murmur2(data []byte, seed uint32) uint32 {
 	return h
 }
 
-// Вычисляет отпечаток файла для CurseForge, пропуская пробельные байты 9, 10, 13, 32
-func ComputeFingerprint(data []byte) uint32 {
-	filtered := make([]byte, 0, len(data))
-	for _, b := range data {
-		if b == 9 || b == 10 || b == 13 || b == 32 {
-			continue
+// ComputeSeekerFingerprint вычисляет отпечаток Murmur2 (seed 1) потоково через io.ReadSeeker
+// в два прохода блоками по 64 КБ, пропуская пробельные байты 9, 10, 13, 32 без загрузки файла целиком в RAM.
+func ComputeSeekerFingerprint(s io.ReadSeeker) (uint32, error) {
+	const (
+		m uint32 = 0x5bd1e995
+		r        = 24
+		bufSize  = 64 * 1024
+	)
+
+	// Проход 1: подсчет точной длины нормализованных данных (байты кроме 9, 10, 13, 32)
+	var normalizedLen uint32
+	r1 := bufio.NewReaderSize(s, bufSize)
+	buf := make([]byte, bufSize)
+	for {
+		n, err := r1.Read(buf)
+		if n > 0 {
+			for _, b := range buf[:n] {
+				if b != 9 && b != 10 && b != 13 && b != 32 {
+					normalizedLen++
+				}
+			}
 		}
-		filtered = append(filtered, b)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
 	}
-	return Murmur2(filtered, 1)
+
+	// Перемотка на начало файла для второго прохода
+	if _, err := s.Seek(0, io.SeekStart); err != nil {
+		return 0, err
+	}
+
+	// Проход 2: инкрементальное вычисление Murmur2
+	h := uint32(1) ^ normalizedLen
+	r2 := bufio.NewReaderSize(s, bufSize)
+	var chunk [4]byte
+	chunkLen := 0
+
+	for {
+		n, err := r2.Read(buf)
+		if n > 0 {
+			for _, b := range buf[:n] {
+				if b == 9 || b == 10 || b == 13 || b == 32 {
+					continue
+				}
+				chunk[chunkLen] = b
+				chunkLen++
+				if chunkLen == 4 {
+					k := uint32(chunk[0]) | (uint32(chunk[1]) << 8) | (uint32(chunk[2]) << 16) | (uint32(chunk[3]) << 24)
+					k *= m
+					k ^= k >> r
+					k *= m
+					h *= m
+					h ^= k
+					chunkLen = 0
+				}
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	switch chunkLen {
+	case 3:
+		h ^= uint32(chunk[2]) << 16
+		fallthrough
+	case 2:
+		h ^= uint32(chunk[1]) << 8
+		fallthrough
+	case 1:
+		h ^= uint32(chunk[0])
+		h *= m
+	}
+
+	h ^= h >> 13
+	h *= m
+	h ^= h >> 15
+
+	return h, nil
+}
+
+// ComputeFileFingerprint вычисляет отпечаток CurseForge для файла на диске
+// потоково в два прохода блоками по 64 КБ без чтения файла целиком в RAM.
+func ComputeFileFingerprint(filePath string) (uint32, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	return ComputeSeekerFingerprint(f)
+}
+
+// ComputeFingerprint вычисляет отпечаток из среза байт потоковым методом
+func ComputeFingerprint(data []byte) uint32 {
+	fp, err := ComputeSeekerFingerprint(bytes.NewReader(data))
+	if err != nil {
+		return 0
+	}
+	return fp
 }
 
 func getApiKey() string {
@@ -501,20 +599,19 @@ func MatchLocalMods() []MatchedModResult {
 		jobs := make(chan scanner.LocalModDTO, len(uncached))
 		resCh := make(chan fpRes, len(uncached))
 		var wg sync.WaitGroup
-		workers := 8
-		if len(uncached) < workers {
-			workers = len(uncached)
+		workersCount := workers.Count()
+		if len(uncached) < workersCount {
+			workersCount = len(uncached)
 		}
-		for w := 0; w < workers; w++ {
+		for w := 0; w < workersCount; w++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for m := range jobs {
-					data, err := os.ReadFile(m.FilePath)
-					if err != nil || len(data) == 0 {
+					fp, err := ComputeFileFingerprint(m.FilePath)
+					if err != nil || fp == 0 {
 						continue
 					}
-					fp := ComputeFingerprint(data)
 					resCh <- fpRes{
 						cacheKey: fmt.Sprintf("%s|%s|%d", m.FilePath, m.ModifiedAt, m.Size),
 						filePath: m.FilePath,

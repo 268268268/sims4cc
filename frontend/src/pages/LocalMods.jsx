@@ -354,6 +354,7 @@ export default function LocalMods({ modsFolder, onNavigate }) {
   }, [])
   const [cfRecords, setCfRecords] = useState([]) // [{pathLower, modId, name}] from downloads.json
   const [cfFinger, setCfFinger] = useState({}) // filePathLower -> { modId, name, hasUpdate } from CF fingerprint match
+  const lastMatchedScanKeyRef = useRef(null)
   const [cfDetailMod, setCfDetailMod] = useState(null) // full CF mod for the modal
   const [cfDetailLoading, setCfDetailLoading] = useState(false)
   const [showProfiles, setShowProfiles] = useState(false)
@@ -465,19 +466,35 @@ export default function LocalMods({ modsFolder, onNavigate }) {
 
   // Identify which local files are CurseForge mods by fingerprint (covers mods
   // installed outside the app) and whether an update exists.
+  // Delay background matching by 4 seconds after mods are rendered, and only run once per scan key.
+  const scanKey = result?.scannedAt || (result?.mods?.length ? 'cached' : null)
+
   useEffect(() => {
-    if (state !== 'done' || !result?.mods?.length) return
+    if (state !== 'done' || !scanKey) return
     let cancelled = false
-    // Show the previous match from cache instantly, then recompute in the background.
+
+    // Instantly show previous matches from disk cache without heavy computations
     window.api.matchLocalCurseForge?.({ cached: true }).then(map => {
       if (cancelled) return
       if (map && Object.keys(map).length) setCfFinger(map)
-      return window.api.matchLocalCurseForge?.()
-    }).then(map => {
-      if (!cancelled && map) setCfFinger(map)
     }).catch(() => {})
-    return () => { cancelled = true }
-  }, [state, result])
+
+    // Only run full background fingerprinting if it hasn't run for this scan yet
+    if (lastMatchedScanKeyRef.current === scanKey) return
+
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      lastMatchedScanKeyRef.current = scanKey
+      window.api.matchLocalCurseForge?.().then(map => {
+        if (!cancelled && map) setCfFinger(map)
+      }).catch(() => {})
+    }, 4000)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [state, scanKey])
 
   // local mod → CurseForge match. Fingerprint is authoritative (has update info);
   // fall back to the downloads.json path record for app-installed mods.

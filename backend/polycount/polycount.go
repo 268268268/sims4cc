@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"sims4cc-wails/backend/config"
 	"sims4cc-wails/backend/dbpf"
 	"sims4cc-wails/backend/geom"
+	"sims4cc-wails/backend/workers"
 )
 
 type PolyModItem struct {
@@ -174,10 +174,7 @@ func ScanPolycount() PolyScanResult {
 			key  string
 			data polyDataCache
 		}
-		numWorkers := runtime.NumCPU()
-		if numWorkers < 2 {
-			numWorkers = 2
-		}
+		numWorkers := workers.Count()
 		jobs := make(chan fileCandidate, len(uncached))
 		resCh := make(chan inspectRes, len(uncached))
 		var wg sync.WaitGroup
