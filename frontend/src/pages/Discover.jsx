@@ -446,7 +446,7 @@ function ItemCard({ item, onOpen, installed = false, onDownloaded, onOpenAuthor 
             <LockSimple size={11} weight="fill" /> {t('discover.patronsOnly')}
           </span>
         ) : installed ? (
-          <span className="absolute top-2 right-2 badge bg-emerald-500 text-white backdrop-blur-sm" title={t('discover.installedBadge')}>
+          <span className="absolute top-2 right-2 badge bg-emerald-600 text-white backdrop-blur-sm" title={t('discover.installedBadge')}>
             <Check size={11} weight="bold" /> {t('discover.installedBadge')}
           </span>
         ) : canDownload && (

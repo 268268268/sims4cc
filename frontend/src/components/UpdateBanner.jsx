@@ -35,7 +35,7 @@ export default function UpdateBanner({ onNavigate }) {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={handleOpen}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 cursor-pointer"
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 cursor-pointer"
           >
             {t('updates.bannerAction')}
           </button>

@@ -65,10 +65,10 @@ export default function DownloadButton({ mod, installed, onInstalled, mode = 'do
             : shouldRedirectToSite
               ? <><ArrowSquareOut {...ICON} /> {t('curseforge.openOnSite')}</>
               : mode === 'update'
-                ? <><ArrowUp {...ICON} /> {t('curseforge.updateBtn')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-300 font-mono">CDN</span>}</>
+                ? <><ArrowUp {...ICON} /> {t('curseforge.updateBtn')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500 text-black font-bold font-mono">CDN</span>}</>
                 : installed
-                  ? <><ArrowsClockwise {...ICON} /> {t('curseforge.redownload')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-300 font-mono">CDN</span>}</>
-                  : <><DownloadSimple {...ICON} /> {t('curseforge.download')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-300 font-mono">CDN</span>}</>
+                  ? <><ArrowsClockwise {...ICON} /> {t('curseforge.redownload')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500 text-black font-bold font-mono">CDN</span>}</>
+                  : <><DownloadSimple {...ICON} /> {t('curseforge.download')}{isRestricted && bypassRestricted && <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500 text-black font-bold font-mono">CDN</span>}</>
 
   const stateClass =
     isBusy

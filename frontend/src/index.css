@@ -436,6 +436,23 @@
   --theme-selection: rgba(45, 212, 191, 0.35);
 }
 
+/* Tailwind emerald-* utilities (toggles, author names, "free" badges, status text) follow the
+   active theme's highlight. Plumbob OG keeps the real emerald. Fills (600+) are darkened so
+   white text on them stays readable even when the accent is near-white (Studio Titanium). */
+:root:not([data-theme="plumbob-og"]) {
+  --color-emerald-50: color-mix(in oklab, var(--theme-accent-highlight) 10%, white);
+  --color-emerald-100: color-mix(in oklab, var(--theme-accent-highlight) 22%, white);
+  --color-emerald-200: color-mix(in oklab, var(--theme-accent-highlight) 45%, white);
+  --color-emerald-300: color-mix(in oklab, var(--theme-accent-highlight) 72%, white);
+  --color-emerald-400: var(--theme-accent-highlight);
+  --color-emerald-500: var(--theme-accent-highlight);
+  --color-emerald-600: color-mix(in oklab, var(--theme-accent-highlight) 72%, black);
+  --color-emerald-700: color-mix(in oklab, var(--theme-accent-highlight) 58%, black);
+  --color-emerald-800: color-mix(in oklab, var(--theme-accent-highlight) 44%, black);
+  --color-emerald-900: color-mix(in oklab, var(--theme-accent-highlight) 32%, black);
+  --color-emerald-950: color-mix(in oklab, var(--theme-accent-highlight) 20%, black);
+}
+
 /* ==========================================================================
    BASE & RESET
    ========================================================================== */
