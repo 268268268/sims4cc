@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"sims4cc-wails/backend/config"
 	"sims4cc-wails/backend/curseforge"
 )
 
@@ -965,7 +966,8 @@ func resolveCurseForge(slug, originalUrl string) ResolvedLink {
 
 	lf := match.LatestFiles[0]
 	dlUrl := lf.DownloadUrl
-	if dlUrl == "" && lf.Id > 0 {
+	// Empty downloadUrl means the author disabled 3rd-party distribution: respect it unless the user opted in.
+	if dlUrl == "" && lf.Id > 0 && config.ReadConfig().BypassRestrictedDownloads {
 		part1 := lf.Id / 1000
 		part2 := lf.Id % 1000
 		dlUrl = fmt.Sprintf("https://edge.forgecdn.net/files/%d/%d/%s", part1, part2, url.QueryEscape(lf.FileName))
