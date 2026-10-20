@@ -14,6 +14,9 @@ import (
 )
 
 func TestLiveVerifyFeeds(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping live network test in CI")
+	}
 	t.Run("PatreonFeed_okruee", func(t *testing.T) {
 		items, nextCursor, err := FetchPatreonFeed(Source{Id: "p_okruee", Type: "patreon", Input: "okruee", Label: "okruee"}, "")
 		t.Logf("Patreon (okruee) items: %d, nextCursor=%q, err=%v", len(items), nextCursor, err)
@@ -83,6 +86,9 @@ func TestLiveVerifyFeeds(t *testing.T) {
 }
 
 func TestLiveVerifyResolvers(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping live network test in CI")
+	}
 	cases := []struct {
 		name string
 		url  string
@@ -116,6 +122,9 @@ func TestLiveVerifyResolvers(t *testing.T) {
 }
 
 func TestLiveVerifySaveExternalThumbnail(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping live network test in CI")
+	}
 	tmpDir, err := os.MkdirTemp("", "sims4_thumb_verify_*")
 	if err != nil {
 		t.Fatal(err)
@@ -154,6 +163,9 @@ func TestLiveVerifySaveExternalThumbnail(t *testing.T) {
 }
 
 func TestLiveEndToEndDownload(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping live network test in CI")
+	}
 	tmpMods, err := os.MkdirTemp("", "sims4_test_mods_*")
 	if err != nil {
 		t.Fatal(err)

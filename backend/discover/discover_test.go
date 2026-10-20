@@ -1,10 +1,14 @@
 package discover
 
 import (
+	"os"
 	"testing"
 )
 
 func TestFetchMtsFeed(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping network test in CI or short mode")
+	}
 	items := FetchMtsFeed()
 	if len(items) == 0 {
 		t.Fatalf("expected at least 1 item from FetchMtsFeed, got 0")
@@ -22,6 +26,9 @@ func TestFetchMtsFeed(t *testing.T) {
 }
 
 func TestFetchTumblrTagFeed(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping network test in CI or short mode")
+	}
 	res := FetchTumblrTagFeed(map[string]any{
 		"tags": []string{"ts4cc"},
 	})
@@ -41,6 +48,9 @@ func TestFetchTumblrTagFeed(t *testing.T) {
 }
 
 func TestFetchSourceFeedMts(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping network test in CI or short mode")
+	}
 	res := FetchSourceFeed(map[string]any{
 		"sourceId": "builtin-mts",
 		"sort":     "new",
@@ -55,6 +65,9 @@ func TestFetchSourceFeedMts(t *testing.T) {
 }
 
 func TestGetMtsDetail(t *testing.T) {
+	if testing.Short() || os.Getenv("CI") != "" {
+		t.Skip("skipping network test in CI or short mode")
+	}
 	url := "https://modthesims.info/d/701047/scythelord-wall-decorations.html"
 	detail := GetMtsDetail(url)
 	if !detail.Ok {
