@@ -1,0 +1,73 @@
+name: "Bug Report"
+description: "Report a bug or unexpected behavior in Sims 4 CC Manager"
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please fill out the form below to help us reproduce and resolve the problem.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the unexpected behavior...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this behavior?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what should have happened...
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows 11 (64-bit)
+        - Windows 10 (64-bit)
+        - Other / Linux / macOS
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Sims 4 CC Manager Version
+      description: Which version are you running (e.g., v2.0.1)?
+      placeholder: v2.0.1
+    validations:
+      required: true
+  - type: dropdown
+    id: game-platform
+    attributes:
+      label: The Sims 4 Platform
+      options:
+        - EA App
+        - Steam
+        - Custom / Other
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Screenshots
+      description: Paste any error messages, logs from `wails_debug.log`, or drag-and-drop screenshots here.
+      placeholder: Paste logs or attach screenshots...
+    validations:
+      required: false

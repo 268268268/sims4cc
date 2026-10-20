@@ -4,6 +4,16 @@
 
 # Sims 4 CC Manager
 
+<p align="center">
+  <a href="https://github.com/268268268/sims4cc/releases"><img src="https://img.shields.io/github/v/release/268268268/sims4cc?color=10b981&label=Release" alt="Latest Release"></a>
+  <a href="https://github.com/268268268/sims4cc/actions/workflows/virustotal.yml"><img src="https://img.shields.io/badge/VirusTotal-Scanned-002f6c?logo=virustotal&logoColor=white" alt="VirusTotal Scanned"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/268268268/sims4cc?color=3b82f6" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/Platform-Windows-0078d4?logo=windows&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/Wails-v2-DF1A29?logo=wails&logoColor=white" alt="Wails v2">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
+</p>
+
 A modern desktop application for browsing, installing, organizing, and cleaning custom content and mods for **The Sims 4**.
 
 Version 2.0 is a complete rewrite using **Go, Wails v2, React 18, and Tailwind CSS**. It replaces the legacy Electron runtime with a native Go core: fast cold starts, a lighter memory footprint, and multi-threaded DBPF package parsing that leaves CPU headroom for the rest of your system.
@@ -171,6 +181,37 @@ The resulting binary will be placed at `build/bin/sims4-cc-manager.exe`.
 
 ---
 
+## Security & Antivirus (VirusTotal)
+
+The safety and trust of our users is paramount:
+
+- **100% Open Source**: All source code (Go backend and React frontend) is publicly audited and freely available in this repository.
+- **Automated VirusTotal Scanning**: Official releases are automatically scanned with [VirusTotal](https://www.virustotal.com/) across 70+ antivirus engines via GitHub Actions.
+- **Direct Scan Reports**: Every GitHub release includes a direct link to the VirusTotal analysis report in the release notes.
+- **SHA-256 Checksum Verification**: You can verify the integrity of your downloaded `.exe` before launching:
+  ```powershell
+  Get-FileHash sims4-cc-manager.exe -Algorithm SHA256
+  ```
+  *(Compare the hash against the checksum published in the corresponding [Release](https://github.com/268268268/sims4cc/releases)).*
+
+> [!NOTE]
+> Like many open-source Go and Wails desktop applications without expensive commercial EV code-signing certificates, Windows SmartScreen or heuristic antivirus scans may occasionally show a temporary notice on fresh releases. If prompted by SmartScreen, click **More info → Run anyway**. You can always inspect the VirusTotal report and compile from source yourself.
+
+For more details or to report any security concern, please see [SECURITY.md](SECURITY.md).
+
+---
+
+## Community & Contributing
+
+Contributions, feedback, and bug reports are warmly welcomed!
+
+- **Report a Bug**: [Open an issue](https://github.com/268268268/sims4cc/issues/new?template=bug_report.yml) using our bug report template.
+- **Request a Feature**: [Suggest an enhancement](https://github.com/268268268/sims4cc/issues/new?template=feature_request.yml).
+- **Contributing Guide**: Check out [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, architecture overview, and PR guidelines.
+- **Code of Conduct**: We adhere to the [Contributor Covenant](CODE_OF_CONDUCT.md).
+
+---
+
 ## License
 
-Distributed under the MIT License. This is an independent fan project not affiliated with or endorsed by Electronic Arts or Maxis. All trademarks belong to their respective owners.
+Distributed under the [MIT License](LICENSE). This is an independent fan project not affiliated with or endorsed by Electronic Arts or Maxis. All trademarks belong to their respective owners.
