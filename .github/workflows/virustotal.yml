@@ -49,10 +49,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify VirusTotal Key Configuration
+        run: |
+          KEY="${{ secrets.VT_API_KEY || secrets.VIRUSTOTAL_API_KEY || vars.VT_API_KEY || vars.VIRUSTOTAL_API_KEY }}"
+          if [ -z "$KEY" ]; then
+            echo "::error title=Missing VT_API_KEY::VirusTotal API key is empty or not found! Check Repository Settings -> Secrets and variables -> Actions -> Repository secrets (Name must be VT_API_KEY)."
+            exit 1
+          fi
+          echo "VirusTotal API key is configured (length: ${#KEY})."
+
       - name: Run VirusTotal Analysis
         uses: crazy-max/ghaction-virustotal@v5
         with:
-          vt_api_key: ${{ secrets.VT_API_KEY }}
+          vt_api_key: ${{ secrets.VT_API_KEY || secrets.VIRUSTOTAL_API_KEY || vars.VT_API_KEY || vars.VIRUSTOTAL_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             ./release-assets/*.exe
