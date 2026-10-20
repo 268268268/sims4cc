@@ -41,16 +41,16 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Verify Go backend & tests
-        run: |
-          go vet ./...
-          go test -short ./...
-
       - name: Install & Build Frontend
         working-directory: ./frontend
         run: |
           npm ci
           npm run build
+
+      - name: Verify Go backend & tests
+        run: |
+          go vet ./...
+          go test -short ./...
 
       - name: Build Wails Linux Binary
         if: runner.os == 'Linux'
