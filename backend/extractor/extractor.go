@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"sims4cc-wails/backend/actions"
 	"sims4cc-wails/backend/config"
@@ -54,7 +52,7 @@ type ExtractAllResult struct {
 	Error     string           `json:"error,omitempty"`
 }
 
-// Распаковка .rar / .7z (и нестандартных .zip) через встроенный в Windows 10/11 tar.exe (libarchive)
+// Распаковка .rar / .7z (и нестандартных .zip) через системную утилиту распаковки
 func extractViaSystemTar(archivePath, targetDir, trayFolder string, hasTray, deleteSource bool) ExtractResult {
 	tmpDir, err := os.MkdirTemp("", "sims4cc-extract-*")
 	if err != nil {
@@ -62,9 +60,7 @@ func extractViaSystemTar(archivePath, targetDir, trayFolder string, hasTray, del
 	}
 	defer os.RemoveAll(tmpDir)
 
-	cmd := exec.Command("tar.exe", "-xf", archivePath, "-C", tmpDir)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := runExtractionTool(archivePath, tmpDir); err != nil {
 		msg := strings.TrimSpace(string(out))
 		if msg == "" {
 			msg = err.Error()

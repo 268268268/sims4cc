@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -611,7 +610,7 @@ func (a *App) InstallCaughtFile(payload watcher.InstallPayload) watcher.InstallC
 
 func (a *App) OpenThumbCache() map[string]any {
 	dir := scanner.GetThumbCacheDir()
-	_ = exec.Command("explorer.exe", dir).Start()
+	_ = actions.OpenDirectory(dir)
 	return map[string]any{"ok": true}
 }
 

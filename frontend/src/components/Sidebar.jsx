@@ -147,9 +147,9 @@ export default function Sidebar({ activePage, onNavigate, discoverSource, onDisc
           <button
             onClick={() => onNavigate('settings')}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-400 transition-colors cursor-pointer group"
-            title={hasUpdate ? (updateInfo?.latestVersion ? `Update available: v${updateInfo.latestVersion}` : 'Update available') : `The Sims 4 CC Manager v${currentVersion || '2.0.1'}`}
+            title={hasUpdate ? (updateInfo?.latestVersion ? `Update available: v${updateInfo.latestVersion}` : 'Update available') : `The Sims 4 CC Manager v${currentVersion || '2.0.2'}`}
           >
-            <span>v{currentVersion || '2.0.1'}</span>
+            <span>v{currentVersion || '2.0.2'}</span>
             {hasUpdate && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping group-hover:scale-125" />
             )}

@@ -215,13 +215,7 @@ func resolveSavesFolder(modsFolder string) string {
 	candidates := []string{
 		filepath.Join(filepath.Dir(modsFolder), "saves"),
 	}
-	home, _ := os.UserHomeDir()
-	if home != "" {
-		candidates = append(candidates,
-			filepath.Join(home, "Documents", "Electronic Arts", "The Sims 4", "saves"),
-			filepath.Join(home, "OneDrive", "Documents", "Electronic Arts", "The Sims 4", "saves"),
-		)
-	}
+	candidates = append(candidates, config.GetSims4SavesCandidates()...)
 
 	for _, c := range candidates {
 		if info, err := os.Stat(c); err == nil && info.IsDir() {

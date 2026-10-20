@@ -1,0 +1,176 @@
+name: Discord Release Announcer
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to announce (leave empty for latest)'
+        required: false
+        default: ''
+
+jobs:
+  announce:
+    name: Post Update to Discord
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Resolve Release Information
+        id: release_info
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          else
+            TAG=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send Discord Announcement
+        if: env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release_info.outputs.tag }}
+        run: |
+          # Fetch full release data in JSON
+          REL_JSON=$(gh release view "$TAG" --repo "${{ github.repository }}" --json name,tagName,body,url,publishedAt,author,assets)
+
+          python3 - << 'EOF'
+          import os
+          import json
+          import urllib.request
+
+          webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+          if not webhook_url:
+              print("No DISCORD_WEBHOOK_URL configured, skipping Discord notification.")
+              exit(0)
+
+          rel_json_str = os.environ.get("REL_JSON", "{}")
+          try:
+              data = json.loads(rel_json_str)
+          except Exception as e:
+              print(f"Failed to parse release JSON: {e}")
+              exit(1)
+
+          tag = data.get("tagName", "Update")
+          name = data.get("name") or tag
+          url = data.get("url", "")
+          body = data.get("body", "").strip()
+          published_at = data.get("publishedAt", "")
+          author = data.get("author", {})
+          author_name = author.get("login", "PoZi268")
+          author_avatar = author.get("avatarUrl", "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png")
+          assets = data.get("assets", [])
+
+          # Discord embed description max length is 4096
+          if len(body) > 3800:
+              body = body[:3800] + "\n\n... *(полный список изменений доступен на странице релиза)*"
+
+          if not body:
+              body = "🎉 Выпущена новая версия! Подробности и изменения доступны на странице релиза."
+
+          # Extract download links for Windows and Linux
+          win_links = []
+          linux_links = []
+          other_links = []
+
+          for a in assets:
+              a_name = a.get("name", "")
+              a_url = a.get("url", "")
+              size_mb = round(a.get("size", 0) / (1024 * 1024), 1)
+              size_str = f" ({size_mb} MB)" if size_mb > 0 else ""
+
+              if a_name.endswith(".exe") or (a_name.endswith(".zip") and "win" in a_name.lower()):
+                  win_links.append(f"➔ [💾 {a_name}]({a_url}){size_str}")
+              elif a_name.endswith(".AppImage") or "linux" in a_name.lower():
+                  linux_links.append(f"➔ [🐧 {a_name}]({a_url}){size_str}")
+              else:
+                  other_links.append(f"➔ [📦 {a_name}]({a_url}){size_str}")
+
+          fields = []
+          if win_links:
+              fields.append({
+                  "name": "🪟 Скачать для Windows",
+                  "value": "\n".join(win_links),
+                  "inline": False
+              })
+          if linux_links:
+              fields.append({
+                  "name": "🐧 Скачать для Linux / Steam Deck",
+                  "value": "\n".join(linux_links),
+                  "inline": False
+              })
+          if other_links:
+              fields.append({
+                  "name": "📦 Дополнительные файлы",
+                  "value": "\n".join(other_links),
+                  "inline": False
+              })
+
+          fields.append({
+              "name": "🔗 Исходный код и страница релиза",
+              "value": f"[Открыть на GitHub]({url})",
+              "inline": False
+          })
+
+          embed = {
+              "title": f"✨ Релиз {tag} — {name}",
+              "url": url,
+              "description": body,
+              "color": 0x10B981, # Изумрудный Plumbob Green
+              "thumbnail": {
+                  "url": "https://raw.githubusercontent.com/268268268/sims4cc/master/build/appicon.png"
+              },
+              "author": {
+                  "name": f"Автор: {author_name}",
+                  "icon_url": author_avatar,
+                  "url": f"https://github.com/{author_name}"
+              },
+              "fields": fields,
+              "footer": {
+                  "text": "Sims 4 CC Manager • Автоматическое оповещение",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+              }
+          }
+          if published_at:
+              embed["timestamp"] = published_at
+
+          payload = {
+              "username": "Sims 4 CC Manager",
+              "avatar_url": "https://raw.githubusercontent.com/268268268/sims4cc/master/build/appicon.png",
+              "content": f"@everyone 📢 **Внимание! Вышло новое обновление Sims 4 CC Manager `{tag}`!**",
+              "allowed_mentions": {
+                  "parse": ["everyone"]
+              },
+              "embeds": [embed]
+          }
+
+          req = urllib.request.Request(
+              webhook_url,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "User-Agent": "GitHubActions-DiscordWebhook/1.0"
+              }
+          )
+
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  print(f"Notification sent successfully! HTTP Status: {resp.status}")
+          except urllib.error.HTTPError as e:
+              print(f"Failed to send Discord message: HTTP {e.code} - {e.read().decode('utf-8')}")
+              exit(1)
+          except Exception as e:
+              print(f"Error sending request: {e}")
+              exit(1)
+          EOF
+        env:
+          REL_JSON: ${{ env.REL_JSON }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

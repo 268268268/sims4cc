@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 const UpdateContext = createContext(null)
 
 export function UpdateProvider({ children }) {
-  const [currentVersion, setCurrentVersion] = useState('2.0.1')
+  const [currentVersion, setCurrentVersion] = useState('2.0.2')
   const [updateInfo, setUpdateInfo] = useState(null)
   const [checking, setChecking] = useState(false)
   const [status, setStatus] = useState('idle') // idle | checking | downloading | extracting | installing | ready | error

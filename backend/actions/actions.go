@@ -4,66 +4,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
-	"unsafe"
 
 	"sims4cc-wails/backend/config"
 	"sims4cc-wails/backend/scanner"
 )
-
-var (
-	shell32           = syscall.NewLazyDLL("shell32.dll")
-	shFileOperationW  = shell32.NewProc("SHFileOperationW")
-)
-
-const (
-	foDelete         = 0x0003
-	fofAllowUndo     = 0x0040
-	fofNoConfirmation = 0x0010
-	fofSilent        = 0x0004
-)
-
-type shFileOpStructW struct {
-	hwnd                  uintptr
-	wFunc                 uint32
-	pFrom                 *uint16
-	pTo                   *uint16
-	fFlags                uint16
-	fAnyOperationsAborted int32
-	hNameMappings         uintptr
-	lpszProgressTitle     *uint16
-}
-
-// Перемещает файл в Корзину Windows
-func MoveToRecycleBin(path string) error {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return err
-	}
-
-	// SHFileOperation требует double-null terminated строку
-	utf16Path, err := syscall.UTF16FromString(absPath)
-	if err != nil {
-		return err
-	}
-	buf := append(utf16Path, 0)
-
-	op := shFileOpStructW{
-		wFunc:  foDelete,
-		pFrom:  &buf[0],
-		fFlags: fofAllowUndo | fofNoConfirmation | fofSilent,
-	}
-
-	ret, _, _ := shFileOperationW.Call(uintptr(unsafe.Pointer(&op)))
-	if ret != 0 {
-		// Резервное удаление
-		return os.Remove(absPath)
-	}
-	return nil
-}
 
 type ToggleResult struct {
 	Ok      bool                 `json:"ok"`
@@ -176,20 +122,6 @@ func BatchDeleteLocalMods(filePaths []string) DeleteResult {
 		}
 	}
 	return DeleteResult{Ok: true, Count: len(removed), Removed: removed, Deleted: removed}
-}
-
-// Открывает проводник и выделяет файл
-func ShowItemInFolder(path string) error {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return err
-	}
-	return exec.Command("explorer.exe", fmt.Sprintf("/select,%s", absPath)).Start()
-}
-
-// Открывает URL в браузере по умолчанию
-func OpenExternal(url string) error {
-	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 }
 
 // Копирует файл в папку назначения с уникальным именем

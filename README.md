@@ -8,7 +8,8 @@
   <a href="https://github.com/268268268/sims4cc/releases"><img src="https://img.shields.io/github/v/release/268268268/sims4cc?color=10b981&label=Release" alt="Latest Release"></a>
   <a href="https://github.com/268268268/sims4cc/actions/workflows/virustotal.yml"><img src="https://img.shields.io/badge/VirusTotal-Scanned-002f6c?logo=virustotal&logoColor=white" alt="VirusTotal Scanned"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/268268268/sims4cc?color=3b82f6" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/Platform-Windows-0078d4?logo=windows&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078d4?logo=linux&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/Steam%20Deck-Ready-171a21?logo=steamdeck&logoColor=white" alt="Steam Deck Ready">
   <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/Wails-v2-DF1A29?logo=wails&logoColor=white" alt="Wails v2">
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
@@ -128,18 +129,30 @@ Studio Titanium is the default: a neutral OLED monochrome that keeps the colors 
 
 ## System Requirements
 
-- **Operating System**: Windows 10 or Windows 11 (64-bit).
-- **Game**: The Sims 4 (EA App, Steam, or custom installation path).
-- **Runtime**: Microsoft Edge WebView2 (preinstalled on modern Windows installations).
+- **Operating System**: 
+  - **Windows**: Windows 10 or Windows 11 (64-bit) with Microsoft Edge WebView2.
+  - **Linux**: Any modern distribution (Ubuntu, Debian, Fedora, Arch) or **SteamOS (Steam Deck)** via standalone AppImage.
+- **Game**: The Sims 4 (EA App, Steam / Proton, Lutris, Bottles, or custom installation path).
 
 ---
 
 ## Installation
 
+### Windows
 1. Download the latest release from the [Releases](https://github.com/268268268/sims4cc/releases) page:
    - `sims4-cc-manager.exe` — Standalone portable executable (no installer required).
-   - `sims4-cc-manager-v2.0.1-windows-x64.zip` — Compressed release archive.
+   - `sims4-cc-manager-windows-x64.zip` — Compressed release archive.
 2. Launch the application. On first startup, select your `Electronic Arts\The Sims 4\Mods` directory (auto-detected if in standard location).
+
+### Linux & Steam Deck
+1. Download `sims4-cc-manager-linux-x64.AppImage` from [Releases](https://github.com/268268268/sims4cc/releases).
+2. Make it executable:
+   ```bash
+   chmod +x sims4-cc-manager-linux-x64.AppImage
+   ./sims4-cc-manager-linux-x64.AppImage
+   ```
+   *(On Steam Deck, simply check "Is Executable" in file properties in Desktop Mode).*
+3. The app automatically discovers Sims 4 Mods in Steam Proton prefixes (`compatdata/1222670`), Flatpak Steam, Lutris, or Wine.
 
 ---
 
@@ -151,6 +164,17 @@ Studio Titanium is the default: a neutral OLED monochrome that keeps the colors 
 - **Wails CLI v2**:
   ```bash
   go install github.com/wailsapp/wails/v2/cmd/wails@latest
+  ```
+- **Linux only**: WebKitGTK and GTK3 development headers:
+  ```bash
+  # Debian / Ubuntu / Linux Mint
+  sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev
+
+  # Fedora
+  sudo dnf install gtk3-devel webkit2gtk4.0-devel
+
+  # Arch Linux / Manjaro
+  sudo pacman -S gtk3 webkit2gtk
   ```
 
 ### Build Steps
@@ -169,7 +193,7 @@ cd ..
 wails build
 ```
 
-The resulting binary will be placed at `build/bin/sims4-cc-manager.exe`.
+The resulting binary will be placed at `build/bin/sims4-cc-manager.exe` (Windows) or `build/bin/sims4-cc-manager` (Linux).
 
 ---
 

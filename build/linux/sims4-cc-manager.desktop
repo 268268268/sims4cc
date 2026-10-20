@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Sims 4 CC Manager
+Comment=Modern CC & Mod Manager for The Sims 4
+Exec=sims4-cc-manager %U
+Icon=sims4-cc-manager
+Terminal=false
+Categories=Game;Utility;
+StartupWMClass=sims4cc-wails

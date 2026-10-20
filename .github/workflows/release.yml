@@ -1,0 +1,154 @@
+name: Build & Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to attach binaries to (e.g. v2.0.2)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Binary
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Windows Application
+        run: |
+          wails build -clean -trimpath -platform windows/amd64
+
+      - name: Prepare Windows Archives
+        shell: pwsh
+        run: |
+          $ver = "${{ github.event.release.tag_name }}"
+          if (-not $ver) { $ver = "${{ github.event.inputs.tag_name }}" }
+          if (-not $ver) { $ver = "latest" }
+
+          mkdir -p ./dist
+          Copy-Item ./build/bin/sims4-cc-manager.exe ./dist/sims4-cc-manager.exe
+          Compress-Archive -Path ./dist/sims4-cc-manager.exe -DestinationPath "./dist/sims4-cc-manager-$ver-windows-x64.zip" -Force
+
+      - name: Upload Windows Assets to Release
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          fi
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)
+          fi
+          gh release upload "$TAG" ./dist/* --repo "${{ github.repository }}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build Linux AppImage & Tarball
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libfuse2 file wget
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Linux Application
+        run: |
+          wails build -clean -trimpath -platform linux/amd64
+
+      - name: Create Linux AppImage & Tarball
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          fi
+          if [ -z "$TAG" ]; then
+            TAG="latest"
+          fi
+
+          mkdir -p ./dist
+          mkdir -p ./AppDir/usr/bin
+          mkdir -p ./AppDir/usr/share/applications
+          mkdir -p ./AppDir/usr/share/icons/hicolor/256x256/apps
+
+          # Copy binaries and assets
+          cp ./build/bin/sims4-cc-manager ./AppDir/usr/bin/sims4-cc-manager
+          chmod +x ./AppDir/usr/bin/sims4-cc-manager
+
+          cp ./build/linux/sims4-cc-manager.desktop ./AppDir/sims4-cc-manager.desktop
+          cp ./build/linux/sims4-cc-manager.desktop ./AppDir/usr/share/applications/sims4-cc-manager.desktop
+          cp ./build/appicon.png ./AppDir/sims4-cc-manager.png
+          cp ./build/appicon.png ./AppDir/usr/share/icons/hicolor/256x256/apps/sims4-cc-manager.png
+
+          # AppRun launcher
+          cat << 'EOF' > ./AppDir/AppRun
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          exec "${HERE}/usr/bin/sims4-cc-manager" "$@"
+          EOF
+          chmod +x ./AppDir/AppRun
+
+          # Download appimagetool
+          wget -q -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract-and-run ./AppDir "./dist/sims4-cc-manager-$TAG-linux-x64.AppImage"
+
+          # Create portable tar.gz
+          tar -czf "./dist/sims4-cc-manager-$TAG-linux-x64.tar.gz" -C ./build/bin sims4-cc-manager
+
+      - name: Upload Linux Assets to Release
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          fi
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)
+          fi
+          gh release upload "$TAG" ./dist/* --repo "${{ github.repository }}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

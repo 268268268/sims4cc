@@ -9,19 +9,18 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
+	goRuntime "runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
-	APP_VERSION       = "2.0.1"
+	APP_VERSION       = "2.0.2"
 	AppVersion        = APP_VERSION
 	GithubRepoOwner   = "268268268"
 	GithubRepoName    = "sims4cc"
@@ -166,10 +165,39 @@ func CompareVersions(v1, v2 string) int {
 }
 
 func pickBestAsset(assets []GitHubAsset) (*GitHubAsset, bool, error) {
+	return pickBestAssetForOS(assets, goRuntime.GOOS)
+}
+
+func pickBestAssetForOS(assets []GitHubAsset, targetOS string) (*GitHubAsset, bool, error) {
 	if len(assets) == 0 {
 		return nil, false, errors.New("no assets found in release")
 	}
 
+	if targetOS == "linux" {
+		// 1. AppImage
+		for i := range assets {
+			name := strings.ToLower(assets[i].Name)
+			if strings.HasSuffix(name, ".appimage") {
+				return &assets[i], false, nil
+			}
+		}
+		// 2. Linux tar.gz
+		for i := range assets {
+			name := strings.ToLower(assets[i].Name)
+			if (strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".tgz")) && strings.Contains(name, "linux") {
+				return &assets[i], true, nil
+			}
+		}
+		// 3. Linux standalone binary
+		for i := range assets {
+			name := strings.ToLower(assets[i].Name)
+			if !strings.HasSuffix(name, ".exe") && !strings.HasSuffix(name, ".zip") && strings.Contains(name, "linux") {
+				return &assets[i], false, nil
+			}
+		}
+	}
+
+	// Windows or fallback
 	// 1. Direct sims4-cc-manager.exe or similar .exe
 	for i := range assets {
 		name := strings.ToLower(assets[i].Name)
@@ -206,7 +234,7 @@ func pickBestAsset(assets []GitHubAsset) (*GitHubAsset, bool, error) {
 		}
 	}
 
-	return nil, false, errors.New("no suitable Windows executable or zip found in release assets")
+	return nil, false, errors.New("no suitable release assets found")
 }
 
 func (u *Updater) CheckForUpdate() (*UpdateInfo, error) {
@@ -493,53 +521,6 @@ func (u *Updater) DownloadAndInstall() error {
 		Downloaded: contentLength,
 		Total:      contentLength,
 	})
-
-	return nil
-}
-
-func (u *Updater) Restart() error {
-	exePath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to determine executable path: %w", err)
-	}
-	exePath, err = filepath.EvalSymlinks(exePath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve symlink: %w", err)
-	}
-
-	dir := filepath.Dir(exePath)
-	oldPath := exePath + ".old"
-	updatePath := exePath + ".update"
-
-	// Deferred restart command via cmd.exe:
-	// 1. Wait 1-2 seconds with ping
-	// 2. If updatePath exists, overwrite exePath with move /Y
-	// 3. Clean up .old if exists
-	// 4. Start the updated executable
-	cmdStr := fmt.Sprintf(`ping 127.0.0.1 -n 2 > nul & if exist "%s" move /Y "%s" "%s" & if exist "%s" del /F /Q "%s" 2>nul & start "" "%s"`,
-		updatePath, updatePath, exePath,
-		oldPath, oldPath,
-		exePath,
-	)
-
-	cmd := exec.Command("cmd.exe", "/C", cmdStr)
-	cmd.Dir = dir
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000 | 0x00000200, // CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to launch restart process: %w", err)
-	}
-
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		if u.ctx != nil {
-			runtime.Quit(u.ctx)
-		}
-		os.Exit(0)
-	}()
 
 	return nil
 }

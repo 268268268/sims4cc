@@ -181,16 +181,9 @@ func getLocalThumbCachePath(modsFolder string) string {
 			return p
 		}
 	}
-	home := os.Getenv("USERPROFILE")
-	if home != "" {
-		candidates := []string{
-			filepath.Join(home, "Documents", "Electronic Arts", "The Sims 4", "localthumbcache.package"),
-			filepath.Join(home, "OneDrive", "Documents", "Electronic Arts", "The Sims 4", "localthumbcache.package"),
-		}
-		for _, c := range candidates {
-			if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-				return c
-			}
+	for _, c := range config.GetSims4CacheCandidates() {
+		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
+			return c
 		}
 	}
 	return ""

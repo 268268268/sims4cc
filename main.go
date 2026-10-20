@@ -5,12 +5,14 @@ import (
 	"embed"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
@@ -26,9 +28,9 @@ func main() {
 	if appData == "" {
 		appData, _ = os.UserConfigDir()
 	}
-	logDir := appData + "\\sims4-mod-manager"
+	logDir := filepath.Join(appData, "sims4-mod-manager")
 	_ = os.MkdirAll(logDir, 0755)
-	logFile := logDir + "\\wails_debug.log"
+	logFile := filepath.Join(logDir, "wails_debug.log")
 	fileLogger := logger.NewFileLogger(logFile)
 
 	err := wails.Run(&options.App{
@@ -94,6 +96,9 @@ func main() {
 			WebviewGpuIsDisabled: false, // Включаем GPU-ускорение (DirectX / Hardware WebGL)
 			Theme:                windows.Dark,
 			ResizeDebounceMS:     10,
+		},
+		Linux: &linux.Options{
+			WindowIsTranslucent: false,
 		},
 	})
 

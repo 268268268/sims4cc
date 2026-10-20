@@ -58,4 +58,22 @@ func TestPickBestAsset(t *testing.T) {
 	if bestZip.Name != "sims4-cc-manager-v2.0.0-windows-x64.zip" || !isZip2 {
 		t.Errorf("expected zip asset and isZip=true")
 	}
+
+	// Test Linux asset selection
+	linuxAssets := []GitHubAsset{
+		{Name: "sims4-cc-manager-v2.0.2-windows-x64.zip", BrowserDownloadURL: "https://example.com/win.zip"},
+		{Name: "sims4-cc-manager.exe", BrowserDownloadURL: "https://example.com/win.exe"},
+		{Name: "sims4-cc-manager-v2.0.2-linux-x64.tar.gz", BrowserDownloadURL: "https://example.com/linux.tar.gz"},
+		{Name: "sims4-cc-manager-v2.0.2-linux-x64.AppImage", BrowserDownloadURL: "https://example.com/linux.AppImage"},
+	}
+	bestLinux, isZipL, errL := pickBestAssetForOS(linuxAssets, "linux")
+	if errL != nil {
+		t.Fatalf("unexpected error on linux: %v", errL)
+	}
+	if bestLinux.Name != "sims4-cc-manager-v2.0.2-linux-x64.AppImage" {
+		t.Errorf("expected AppImage on Linux, got %s", bestLinux.Name)
+	}
+	if isZipL {
+		t.Errorf("expected isZip=false for AppImage, got true")
+	}
 }

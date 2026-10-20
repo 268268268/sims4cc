@@ -95,13 +95,7 @@ func ReadConfig() *Config {
 	}
 
 	if isInvalidMods {
-		home := os.Getenv("USERPROFILE")
-		candidates := []string{
-			filepath.Join(home, "Sims4User", "Mods"),
-			filepath.Join(home, "Documents", "Electronic Arts", "The Sims 4", "Mods"),
-			filepath.Join(home, "OneDrive", "Documents", "Electronic Arts", "The Sims 4", "Mods"),
-		}
-		for _, cand := range candidates {
+		for _, cand := range GetSims4ModsCandidates() {
 			if fi, statErr := os.Stat(cand); statErr == nil && fi.IsDir() {
 				cfg.ModsFolder = cand
 				break
