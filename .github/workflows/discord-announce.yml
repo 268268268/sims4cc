@@ -87,54 +87,54 @@ jobs:
               size_str = f" ({size_mb} MB)" if size_mb > 0 else ""
 
               if a_name.endswith(".exe") or (a_name.endswith(".zip") and "win" in a_name.lower()):
-                  win_links.append(f"➔ [💾 {a_name}]({a_url}){size_str}")
+                  win_links.append(f"- [{a_name}]({a_url}){size_str}")
               elif a_name.endswith(".AppImage") or "linux" in a_name.lower():
-                  linux_links.append(f"➔ [🐧 {a_name}]({a_url}){size_str}")
+                  linux_links.append(f"- [{a_name}]({a_url}){size_str}")
               else:
-                  other_links.append(f"➔ [📦 {a_name}]({a_url}){size_str}")
+                  other_links.append(f"- [{a_name}]({a_url}){size_str}")
 
           fields = []
           if win_links:
               fields.append({
-                  "name": "🪟 Скачать для Windows",
+                  "name": "Downloads (Windows)",
                   "value": "\n".join(win_links),
                   "inline": False
               })
           if linux_links:
               fields.append({
-                  "name": "🐧 Скачать для Linux / Steam Deck",
+                  "name": "Downloads (Linux & Steam Deck)",
                   "value": "\n".join(linux_links),
                   "inline": False
               })
           if other_links:
               fields.append({
-                  "name": "📦 Дополнительные файлы",
+                  "name": "Additional Downloads",
                   "value": "\n".join(other_links),
                   "inline": False
               })
 
           fields.append({
-              "name": "🔗 Исходный код и страница релиза",
-              "value": f"[Открыть на GitHub]({url})",
+              "name": "Release Notes & Source Code",
+              "value": f"[Open on GitHub / Открыть на GitHub]({url})",
               "inline": False
           })
 
           embed = {
-              "title": f"✨ Релиз {tag} — {name}",
+              "title": f"Release {tag} — {name}",
               "url": url,
               "description": body,
-              "color": 0x10B981, # Изумрудный Plumbob Green
+              "color": 0x10B981,
               "thumbnail": {
                   "url": "https://raw.githubusercontent.com/268268268/sims4cc/master/build/appicon.png"
               },
               "author": {
-                  "name": f"Автор: {author_name}",
+                  "name": f"Released by {author_name}",
                   "icon_url": author_avatar,
                   "url": f"https://github.com/{author_name}"
               },
               "fields": fields,
               "footer": {
-                  "text": "Sims 4 CC Manager • Автоматическое оповещение",
+                  "text": "Sims 4 CC Manager • Release Announcer",
                   "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
               }
           }
@@ -144,7 +144,7 @@ jobs:
           payload = {
               "username": "Sims 4 CC Manager",
               "avatar_url": "https://raw.githubusercontent.com/268268268/sims4cc/master/build/appicon.png",
-              "content": f"@everyone 📢 **Внимание! Вышло новое обновление Sims 4 CC Manager `{tag}`!**",
+              "content": f"@everyone **New release: Sims 4 CC Manager `{tag}`** (Доступно обновление `{tag}`)",
               "allowed_mentions": {
                   "parse": ["everyone"]
               },
