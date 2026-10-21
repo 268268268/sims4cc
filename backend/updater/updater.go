@@ -252,6 +252,12 @@ func (u *Updater) CheckForUpdate() (*UpdateInfo, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		// When GitHub API rate-limits unauthenticated requests (HTTP 403 / 429),
+		// gracefully fall back to web release redirects which have no rate limits.
+		fallbackInfo, fallbackErr := u.checkForUpdateWebFallback()
+		if fallbackErr == nil && fallbackInfo != nil {
+			return fallbackInfo, nil
+		}
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
@@ -282,6 +288,72 @@ func (u *Updater) CheckForUpdate() (*UpdateInfo, error) {
 		DownloadURL:    asset.BrowserDownloadURL,
 		AssetSize:      asset.Size,
 		AssetName:      asset.Name,
+		IsZip:          isZip,
+	}
+
+	u.mu.Lock()
+	u.cachedUpdate = info
+	u.mu.Unlock()
+
+	return info, nil
+}
+
+func (u *Updater) checkForUpdateWebFallback() (*UpdateInfo, error) {
+	webURL := fmt.Sprintf("https://github.com/%s/%s/releases/latest", GithubRepoOwner, GithubRepoName)
+
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	req, err := http.NewRequest("HEAD", webURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	loc := resp.Header.Get("Location")
+	if loc == "" {
+		return nil, errors.New("no redirect location found")
+	}
+
+	tag := filepath.Base(loc)
+	if tag == "" || tag == "latest" {
+		return nil, errors.New("invalid tag in redirect location")
+	}
+
+	cleanVer := strings.TrimPrefix(strings.TrimPrefix(tag, "v"), "V")
+	hasUpdate := CompareVersions(cleanVer, APP_VERSION) > 0
+
+	var downloadURL, assetName string
+	var isZip bool
+
+	if goRuntime.GOOS == "linux" {
+		assetName = fmt.Sprintf("sims4-cc-manager-%s-linux-x64.AppImage", tag)
+		downloadURL = fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s",
+			GithubRepoOwner, GithubRepoName, tag, assetName)
+	} else {
+		assetName = "sims4-cc-manager.exe"
+		downloadURL = fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/sims4-cc-manager.exe",
+			GithubRepoOwner, GithubRepoName, tag)
+	}
+
+	info := &UpdateInfo{
+		CurrentVersion: APP_VERSION,
+		LatestVersion:  cleanVer,
+		HasUpdate:      hasUpdate,
+		ReleaseName:    "Sims 4 CC Manager " + cleanVer,
+		ReleaseNotes:   "Full release details are available at: " + loc,
+		DownloadURL:    downloadURL,
+		AssetName:      assetName,
 		IsZip:          isZip,
 	}
 
