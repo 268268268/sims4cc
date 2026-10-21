@@ -34,7 +34,7 @@ jobs:
 
       - name: Send Discord Announcement
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL || secrets.DS }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release_info.outputs.tag }}
         run: |
@@ -48,8 +48,8 @@ jobs:
 
           webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
           if not webhook_url:
-              print("No DISCORD_WEBHOOK_URL configured, skipping Discord notification.")
-              exit(0)
+              print("Error: neither DISCORD_WEBHOOK_URL nor DS secret is set in repository secrets.")
+              exit(1)
 
           rel_json_str = os.environ.get("REL_JSON", "{}")
           try:
